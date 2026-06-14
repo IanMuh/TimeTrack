@@ -6,6 +6,7 @@ import '../core/date_time_ext.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
 import '../domain/time_entry.dart';
+import 'adaptive_layout.dart';
 import 'home_page.dart';
 
 enum TimelineViewMode { coverage, actions }
@@ -31,68 +32,22 @@ class _TimelinePageState extends State<TimelinePage> {
         final entries = state.visibleDayEntries();
         final logs = [...state.dayActionLogs]
           ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
-        return ListView(
-          padding: const EdgeInsets.all(20),
+        return AdaptivePage(
+          pageKey: const PageStorageKey('timeline-page'),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '时间轴',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '前一天',
-                  onPressed: () => state.selectDay(
-                    state.selectedDay.subtract(const Duration(days: 1)),
-                  ),
-                  icon: const Icon(Icons.chevron_left),
-                ),
-                Text(DateFormat('yyyy-MM-dd').format(state.selectedDay)),
-                IconButton(
-                  tooltip: '后一天',
-                  onPressed: () => state.selectDay(
-                    state.selectedDay.add(const Duration(days: 1)),
-                  ),
-                  icon: const Icon(Icons.chevron_right),
-                ),
-              ],
+            TimelineHeader(
+              selectedDay: state.selectedDay,
+              mode: _mode,
+              onPreviousDay: () => state.selectDay(
+                state.selectedDay.subtract(const Duration(days: 1)),
+              ),
+              onNextDay: () => state.selectDay(
+                state.selectedDay.add(const Duration(days: 1)),
+              ),
+              onModeChanged: (value) => setState(() => _mode = value),
+              onAddEntry: () => showEntryEditor(context, state),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: SegmentedButton<TimelineViewMode>(
-                    segments: const [
-                      ButtonSegment(
-                        value: TimelineViewMode.coverage,
-                        icon: Icon(Icons.timeline),
-                        label: Text('覆盖'),
-                      ),
-                      ButtonSegment(
-                        value: TimelineViewMode.actions,
-                        icon: Icon(Icons.swap_horiz),
-                        label: Text('指令'),
-                      ),
-                    ],
-                    selected: {_mode},
-                    onSelectionChanged: (value) {
-                      setState(() => _mode = value.first);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                FilledButton.icon(
-                  onPressed: () => showEntryEditor(context, state),
-                  icon: const Icon(Icons.add),
-                  label: const Text('补记'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            const SectionGap(),
             if (_mode == TimelineViewMode.coverage) ...[
               DayCoverageCard(state: state, entries: entries),
               const SizedBox(height: 14),
@@ -130,6 +85,147 @@ class _TimelinePageState extends State<TimelinePage> {
           ],
         );
       },
+    );
+  }
+}
+
+class TimelineHeader extends StatelessWidget {
+  const TimelineHeader({
+    required this.selectedDay,
+    required this.mode,
+    required this.onPreviousDay,
+    required this.onNextDay,
+    required this.onModeChanged,
+    required this.onAddEntry,
+    super.key,
+  });
+
+  final DateTime selectedDay;
+  final TimelineViewMode mode;
+  final VoidCallback onPreviousDay;
+  final VoidCallback onNextDay;
+  final ValueChanged<TimelineViewMode> onModeChanged;
+  final VoidCallback onAddEntry;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Text(
+      '时间轴',
+      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+    );
+    final daySelector = _DaySelector(
+      selectedDay: selectedDay,
+      onPreviousDay: onPreviousDay,
+      onNextDay: onNextDay,
+    );
+    final modeSelector = SegmentedButton<TimelineViewMode>(
+      segments: const [
+        ButtonSegment(
+          value: TimelineViewMode.coverage,
+          icon: Icon(Icons.timeline),
+          label: Text('覆盖'),
+        ),
+        ButtonSegment(
+          value: TimelineViewMode.actions,
+          icon: Icon(Icons.swap_horiz),
+          label: Text('指令'),
+        ),
+      ],
+      selected: {mode},
+      onSelectionChanged: (value) => onModeChanged(value.first),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              title,
+              const SizedBox(height: 12),
+              daySelector,
+              const SizedBox(height: 12),
+              modeSelector,
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: onAddEntry,
+                icon: const Icon(Icons.add),
+                label: const Text('补记'),
+              ),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: title),
+                daySelector,
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Flexible(child: modeSelector),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: onAddEntry,
+                  icon: const Icon(Icons.add),
+                  label: const Text('补记'),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DaySelector extends StatelessWidget {
+  const _DaySelector({
+    required this.selectedDay,
+    required this.onPreviousDay,
+    required this.onNextDay,
+  });
+
+  final DateTime selectedDay;
+  final VoidCallback onPreviousDay;
+  final VoidCallback onNextDay;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: '前一天',
+            onPressed: onPreviousDay,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 104),
+            child: Text(
+              DateFormat('yyyy-MM-dd').format(selectedDay),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          IconButton(
+            tooltip: '后一天',
+            onPressed: onNextDay,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -174,7 +270,9 @@ class DayCoverageCard extends StatelessWidget {
                         child: Container(
                           height: 8,
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
@@ -195,9 +293,9 @@ class DayCoverageCard extends StatelessWidget {
             const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('00:00:00'),
-                Text('12:00:00'),
-                Text('23:59:59'),
+                Text('00:00'),
+                Text('12:00'),
+                Text('23:59'),
               ],
             ),
           ],
@@ -223,7 +321,8 @@ class _CoverageSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dayEnd = state.selectedDay.endOfDay;
-    final rawStart = entry.startAt.isBefore(dayStart) ? dayStart : entry.startAt;
+    final rawStart =
+        entry.startAt.isBefore(dayStart) ? dayStart : entry.startAt;
     final rawEnd = (entry.endAt ?? state.now).isAfter(dayEnd)
         ? dayEnd
         : entry.endAt ?? state.now;
@@ -277,10 +376,11 @@ class TimelineEntryCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 5,
-                height: 52,
+                height: 64,
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(8),
@@ -288,30 +388,12 @@ class TimelineEntryCard extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            activity?.name ?? '未知事项',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        Text(formatDurationCompact(entry.durationUntil(state.now))),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(timeText),
-                    if (entry.note.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(entry.note),
-                    ],
-                  ],
+                child: _TimelineEntryContent(
+                  title: activity?.name ?? '未知事项',
+                  duration:
+                      formatDurationCompact(entry.durationUntil(state.now)),
+                  timeText: timeText,
+                  note: entry.note,
                 ),
               ),
               IconButton(
@@ -323,6 +405,64 @@ class TimelineEntryCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TimelineEntryContent extends StatelessWidget {
+  const _TimelineEntryContent({
+    required this.title,
+    required this.duration,
+    required this.timeText,
+    required this.note,
+  });
+
+  final String title;
+  final String duration;
+  final String timeText;
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 320;
+        final titleText = Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        );
+        final durationText = Text(
+          duration,
+          style: Theme.of(context).textTheme.labelLarge,
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (compact) ...[
+              titleText,
+              const SizedBox(height: 2),
+              durationText,
+            ] else
+              Row(
+                children: [
+                  Expanded(child: titleText),
+                  const SizedBox(width: 8),
+                  durationText,
+                ],
+              ),
+            const SizedBox(height: 4),
+            Text(timeText),
+            if (note.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(note),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -346,6 +486,7 @@ class ActionLogCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
               radius: 18,
@@ -353,29 +494,35 @@ class ActionLogCard extends StatelessWidget {
               child: Icon(_logIcon(log.actionType), color: color, size: 18),
             ),
             const SizedBox(width: 12),
-            SizedBox(
-              width: 82,
-              child: Text(
-                _formatTime(log.occurredAt),
-                style: const TextStyle(fontFeatures: []),
-              ),
-            ),
-            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(
-                    activity == null
-                        ? log.message
-                        : '${log.message}：${activity.name}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                  SizedBox(
+                    width: 82,
+                    child: Text(_formatTime(log.occurredAt)),
                   ),
-                  const SizedBox(height: 3),
-                  Text('设备 ${log.deviceId}'),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 180),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          activity == null
+                              ? log.message
+                              : '${log.message}：${activity.name}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 3),
+                        Text('设备 ${log.deviceId}'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -410,7 +557,8 @@ Future<void> showEntryEditor(
   var activity = entry == null
       ? state.activities.first
       : state.activityById(entry.activityId) ?? state.activities.first;
-  var start = entry?.startAt ?? DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9);
+  var start = entry?.startAt ??
+      DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9);
   var end = entry?.endAt ?? start.add(const Duration(hours: 1));
   final noteController = TextEditingController(text: entry?.note ?? '');
   String? overlapWarning;
@@ -436,7 +584,8 @@ Future<void> showEntryEditor(
     if (time == null) {
       return;
     }
-    final next = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final next =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
     setState(() {
       if (isStart) {
         start = next;
@@ -520,14 +669,16 @@ Future<void> showEntryEditor(
                     leading: const Icon(Icons.play_arrow),
                     title: const Text('开始'),
                     subtitle: Text(_formatDateTime(start)),
-                    onTap: () => pickDateTime(isStart: true, setState: setState),
+                    onTap: () =>
+                        pickDateTime(isStart: true, setState: setState),
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.stop),
                     title: const Text('结束'),
                     subtitle: Text(_formatDateTime(end)),
-                    onTap: () => pickDateTime(isStart: false, setState: setState),
+                    onTap: () =>
+                        pickDateTime(isStart: false, setState: setState),
                   ),
                   TextField(
                     controller: noteController,
@@ -541,7 +692,8 @@ Future<void> showEntryEditor(
                     const SizedBox(height: 12),
                     Text(
                       overlapWarning!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style:
+                          TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
                   ],
                 ],

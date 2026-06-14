@@ -42,7 +42,8 @@ void main() {
     expect(logs.map((log) => log.actionType), ['switch', 'switch']);
   });
 
-  test('overlap detection reports conflicting entries without deleting them', () async {
+  test('overlap detection reports conflicting entries without deleting them',
+      () async {
     final repository = await buildRepository();
     final activity = (await repository.activities()).first;
     final day = DateTime(2026, 1, 1);

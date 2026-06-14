@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
 import '../domain/activity.dart';
+import 'adaptive_layout.dart';
 import 'activity_colors.dart';
 import 'app_shell.dart';
 
@@ -28,8 +29,8 @@ class _HomePageState extends State<HomePage> {
         final pendingActivity = _pendingActivityId == null
             ? null
             : state.activityById(_pendingActivityId!);
-        return ListView(
-          padding: const EdgeInsets.all(20),
+        return AdaptivePage(
+          pageKey: const PageStorageKey('home-page'),
           children: [
             Row(
               children: [
@@ -43,51 +44,42 @@ class _HomePageState extends State<HomePage> {
                 ),
                 IconButton(
                   tooltip: '同步',
-                  onPressed: state.canSync && state.isSignedIn ? state.sync : null,
+                  onPressed:
+                      state.canSync && state.isSignedIn ? state.sync : null,
                   icon: const Icon(Icons.sync),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            LoginBanner(state: state),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
+            const SectionGap(),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final sizeClass = adaptiveSizeClassFor(constraints.maxWidth);
+                final statusCard = CurrentStatusCard(
+                  runningActivity: runningActivity,
+                  runningDuration: state.runningDuration,
+                  onStop: runningActivity == null ? null : state.stopCurrent,
+                );
+                if (sizeClass == AdaptiveSizeClass.compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      LoginBanner(state: state),
+                      const SectionGap(),
+                      statusCard,
+                    ],
+                  );
+                }
+                return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '当前正在做',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      runningActivity?.name ?? '未开始记录',
-                      style:
-                          Theme.of(context).textTheme.displaySmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      runningActivity == null
-                          ? '选择一个事项开始记录今天的时间。'
-                          : '已持续 ${formatDurationCompact(state.runningDuration)}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      onPressed:
-                          runningActivity == null ? null : state.stopCurrent,
-                      icon: const Icon(Icons.stop_circle_outlined),
-                      label: const Text('停止当前事项'),
-                    ),
+                    Expanded(flex: 7, child: statusCard),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 5, child: LoginBanner(state: state)),
                   ],
-                ),
-              ),
+                );
+              },
             ),
-            const SizedBox(height: 18),
+            const SectionGap(height: 18),
             Text(
               '切换',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -105,12 +97,13 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 760 ? 4 : 2;
-                return GridView.count(
-                  crossAxisCount: columns,
+                final compact = constraints.maxWidth < compactBreakpoint;
+                final tileExtent = compact ? 190.0 : 240.0;
+                return GridView.extent(
+                  maxCrossAxisExtent: tileExtent,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: constraints.maxWidth >= 760 ? 3.4 : 2.4,
+                  childAspectRatio: compact ? 2.25 : 3.2,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                   children: [
@@ -120,13 +113,20 @@ class _HomePageState extends State<HomePage> {
                         selected: runningActivity?.id == activity.id,
                         pending: _pendingActivityId == activity.id &&
                             runningActivity?.id != activity.id,
-                        onTap: () {
+                        onTap: () async {
                           setState(() => _pendingActivityId = activity.id);
+                          if (compact) {
+                            await state.switchTo(activity);
+                          }
                         },
-                        onDoubleTap: () async {
-                          setState(() => _pendingActivityId = activity.id);
-                          await state.switchTo(activity);
-                        },
+                        onDoubleTap: compact
+                            ? null
+                            : () async {
+                                setState(
+                                  () => _pendingActivityId = activity.id,
+                                );
+                                await state.switchTo(activity);
+                              },
                         onEdit: () => showActivityEditorDialog(
                           context,
                           state,
@@ -156,6 +156,59 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+class CurrentStatusCard extends StatelessWidget {
+  const CurrentStatusCard({
+    required this.runningActivity,
+    required this.runningDuration,
+    required this.onStop,
+    super.key,
+  });
+
+  final Activity? runningActivity;
+  final Duration runningDuration;
+  final VoidCallback? onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '当前正在做',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              runningActivity?.name ?? '未开始记录',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              runningActivity == null
+                  ? '选择一个事项开始记录今天的时间。'
+                  : '已持续 ${formatDurationCompact(runningDuration)}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: onStop,
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text('停止当前事项'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ActivitySwitchButton extends StatelessWidget {
   const ActivitySwitchButton({
     required this.activity,
@@ -171,7 +224,7 @@ class ActivitySwitchButton extends StatelessWidget {
   final bool selected;
   final bool pending;
   final VoidCallback onTap;
-  final VoidCallback onDoubleTap;
+  final VoidCallback? onDoubleTap;
   final VoidCallback onEdit;
 
   @override
@@ -323,7 +376,8 @@ Future<Activity?> showActivityEditorDialog(
                     return;
                   }
                   saved = activity == null
-                      ? await state.createActivity(controller.text, selectedColor)
+                      ? await state.createActivity(
+                          controller.text, selectedColor)
                       : await state.updateActivity(
                           activity,
                           name: controller.text,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import 'adaptive_layout.dart';
 import 'home_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
@@ -20,6 +21,29 @@ class _AppShellState extends State<AppShell> {
   int _index = 0;
   bool _reminderVisible = false;
   bool _suspiciousVisible = false;
+
+  static const _destinations = [
+    _AppDestination(
+      label: '当前',
+      icon: Icons.timer_outlined,
+      selectedIcon: Icons.timer,
+    ),
+    _AppDestination(
+      label: '时间轴',
+      icon: Icons.view_timeline_outlined,
+      selectedIcon: Icons.view_timeline,
+    ),
+    _AppDestination(
+      label: '统计',
+      icon: Icons.bar_chart_outlined,
+      selectedIcon: Icons.bar_chart,
+    ),
+    _AppDestination(
+      label: '设置',
+      icon: Icons.settings_outlined,
+      selectedIcon: Icons.settings,
+    ),
+  ];
 
   @override
   void initState() {
@@ -75,72 +99,68 @@ class _AppShellState extends State<AppShell> {
       SettingsPage(state: state),
     ];
 
+    final sizeClass = adaptiveSizeClassFor(MediaQuery.sizeOf(context).width);
+    final showRail = sizeClass == AdaptiveSizeClass.expanded;
+
     return Scaffold(
       body: SafeArea(
         child: Row(
           children: [
-            if (MediaQuery.sizeOf(context).width >= 820)
+            if (showRail) ...[
               NavigationRail(
                 selectedIndex: _index,
-                onDestinationSelected: (value) => setState(() => _index = value),
+                onDestinationSelected: (value) =>
+                    setState(() => _index = value),
                 labelType: NavigationRailLabelType.all,
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.timer_outlined),
-                    selectedIcon: Icon(Icons.timer),
-                    label: Text('当前'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.view_timeline_outlined),
-                    selectedIcon: Icon(Icons.view_timeline),
-                    label: Text('时间轴'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.bar_chart_outlined),
-                    selectedIcon: Icon(Icons.bar_chart),
-                    label: Text('统计'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    selectedIcon: Icon(Icons.settings),
-                    label: Text('设置'),
-                  ),
+                minWidth: 88,
+                groupAlignment: -0.85,
+                destinations: [
+                  for (final destination in _destinations)
+                    NavigationRailDestination(
+                      icon: Icon(destination.icon),
+                      selectedIcon: Icon(destination.selectedIcon),
+                      label: Text(destination.label),
+                    ),
                 ],
               ),
+              const VerticalDivider(width: 1),
+            ],
             Expanded(child: pages[_index]),
           ],
         ),
       ),
-      bottomNavigationBar: MediaQuery.sizeOf(context).width < 820
-          ? NavigationBar(
-              selectedIndex: _index,
-              onDestinationSelected: (value) => setState(() => _index = value),
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.timer_outlined),
-                  selectedIcon: Icon(Icons.timer),
-                  label: '当前',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.view_timeline_outlined),
-                  selectedIcon: Icon(Icons.view_timeline),
-                  label: '时间轴',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart),
-                  label: '统计',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: '设置',
-                ),
-              ],
-            )
-          : null,
+      bottomNavigationBar: showRail
+          ? null
+          : SafeArea(
+              top: false,
+              child: NavigationBar(
+                selectedIndex: _index,
+                onDestinationSelected: (value) =>
+                    setState(() => _index = value),
+                destinations: [
+                  for (final destination in _destinations)
+                    NavigationDestination(
+                      icon: Icon(destination.icon),
+                      selectedIcon: Icon(destination.selectedIcon),
+                      label: destination.label,
+                    ),
+                ],
+              ),
+            ),
     );
   }
+}
+
+class _AppDestination {
+  const _AppDestination({
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+  });
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
 }
 
 class ReminderDialog extends StatelessWidget {

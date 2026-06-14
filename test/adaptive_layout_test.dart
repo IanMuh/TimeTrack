@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:timetrack/ui/adaptive_layout.dart';
+import 'package:timetrack/ui/timeline_page.dart';
+
+void main() {
+  test('adaptiveSizeClassFor maps default breakpoints', () {
+    expect(adaptiveSizeClassFor(320), AdaptiveSizeClass.compact);
+    expect(adaptiveSizeClassFor(600), AdaptiveSizeClass.medium);
+    expect(adaptiveSizeClassFor(839), AdaptiveSizeClass.medium);
+    expect(adaptiveSizeClassFor(840), AdaptiveSizeClass.expanded);
+  });
+
+  testWidgets('AdaptivePage lays out at compact and expanded widths', (
+    tester,
+  ) async {
+    Future<void> pumpAtWidth(double width) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: width,
+              height: 800,
+              child: const AdaptivePage(
+                children: [
+                  Text('Header'),
+                  SectionGap(),
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Body'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpAtWidth(390);
+    expect(find.text('Header'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await pumpAtWidth(700);
+    expect(find.text('Header'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await pumpAtWidth(1200);
+    expect(find.text('Body'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TimelineHeader adapts at compact and expanded widths', (
+    tester,
+  ) async {
+    Future<void> pumpAtWidth(double width) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: width,
+              child: TimelineHeader(
+                selectedDay: DateTime(2026, 6, 13),
+                mode: TimelineViewMode.coverage,
+                onPreviousDay: () {},
+                onNextDay: () {},
+                onModeChanged: (_) {},
+                onAddEntry: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpAtWidth(390);
+    expect(find.text('补记'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await pumpAtWidth(920);
+    expect(find.text('时间轴'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}

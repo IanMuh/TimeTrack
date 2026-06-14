@@ -106,11 +106,8 @@ class SyncService {
     if (user == null) {
       return null;
     }
-    final rows = await client
-        .from('profiles')
-        .select()
-        .eq('user_id', user.id)
-        .limit(1);
+    final rows =
+        await client.from('profiles').select().eq('user_id', user.id).limit(1);
     if (rows.isEmpty) {
       return null;
     }

@@ -306,8 +306,7 @@ class TimeRepository {
     final end = day.endOfDay.toUtc().toIso8601String();
     final rows = await db.query(
       'time_entries',
-      where:
-          'is_deleted = 0 and start_at <= ? and coalesce(end_at, ?) >= ?',
+      where: 'is_deleted = 0 and start_at <= ? and coalesce(end_at, ?) >= ?',
       whereArgs: [end, end, start],
       orderBy: 'start_at asc',
     );
@@ -379,7 +378,9 @@ class TimeRepository {
       limit: 1,
     );
     if (localRows.isEmpty ||
-        ActionLog.fromMap(localRows.first).updatedAt.isBefore(remote.updatedAt)) {
+        ActionLog.fromMap(localRows.first)
+            .updatedAt
+            .isBefore(remote.updatedAt)) {
       await db.insert(
         'action_logs',
         remote.toLocalMap(),
@@ -445,7 +446,9 @@ class TimeRepository {
       limit: 1,
     );
     if (localRows.isEmpty ||
-        Activity.fromMap(localRows.first).updatedAt.isBefore(remote.updatedAt)) {
+        Activity.fromMap(localRows.first)
+            .updatedAt
+            .isBefore(remote.updatedAt)) {
       await upsertActivity(remote);
     }
   }
@@ -459,7 +462,9 @@ class TimeRepository {
       limit: 1,
     );
     if (localRows.isEmpty ||
-        TimeEntry.fromMap(localRows.first).updatedAt.isBefore(remote.updatedAt)) {
+        TimeEntry.fromMap(localRows.first)
+            .updatedAt
+            .isBefore(remote.updatedAt)) {
       await saveEntry(remote);
     }
   }

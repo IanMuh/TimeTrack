@@ -270,7 +270,8 @@ class AppState extends ChangeNotifier {
     final start = selectedDay.subtract(Duration(days: selectedDay.weekday - 1));
     final totals = <String, Duration>{};
     for (var i = 0; i < 7; i += 1) {
-      final entries = await _repository.entriesForDay(start.add(Duration(days: i)));
+      final entries =
+          await _repository.entriesForDay(start.add(Duration(days: i)));
       final dayTotals = _totalsFor(entries, now);
       for (final item in dayTotals.entries) {
         totals[item.key] = (totals[item.key] ?? Duration.zero) + item.value;
@@ -299,12 +300,12 @@ class AppState extends ChangeNotifier {
     }).toList();
   }
 
-  Map<String, Duration> _totalsFor(List<TimeEntry> entries, DateTime effectiveNow) {
+  Map<String, Duration> _totalsFor(
+      List<TimeEntry> entries, DateTime effectiveNow) {
     final totals = <String, Duration>{};
     for (final entry in entries) {
-      totals[entry.activityId] =
-          (totals[entry.activityId] ?? Duration.zero) +
-              entry.durationUntil(effectiveNow);
+      totals[entry.activityId] = (totals[entry.activityId] ?? Duration.zero) +
+          entry.durationUntil(effectiveNow);
     }
     return totals;
   }

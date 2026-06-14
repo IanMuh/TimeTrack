@@ -32,7 +32,8 @@ class TimeEntry {
   }
 
   bool overlaps(TimeEntry other) {
-    final thisEnd = endAt ?? DateTime.fromMillisecondsSinceEpoch(8640000000000000);
+    final thisEnd =
+        endAt ?? DateTime.fromMillisecondsSinceEpoch(8640000000000000);
     final otherEnd =
         other.endAt ?? DateTime.fromMillisecondsSinceEpoch(8640000000000000);
     return startAt.isBefore(otherEnd) && other.startAt.isBefore(thisEnd);
