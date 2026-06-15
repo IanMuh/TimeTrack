@@ -60,7 +60,7 @@ class AppState extends ChangeNotifier {
 
   bool get hasSyncTarget => isSignedIn || hasLanPeer;
 
-  bool get canHostLan => Platform.isWindows;
+  bool get canHostLan => Platform.isWindows || Platform.isAndroid;
 
   bool get isLanServerRunning => _lanSyncServer.isRunning;
 
@@ -285,12 +285,36 @@ class AppState extends ChangeNotifier {
     isSyncing = true;
     notifyListeners();
     try {
+      final errors = <String>[];
+      var lanSynced = false;
       if (isSignedIn) {
-        await _syncService.sync();
-      } else {
-        await _lanSyncClient.syncNow();
+        try {
+          await _syncService.sync();
+        } catch (error) {
+          errors.add('云同步：$error');
+        }
+      }
+      if (hasLanPeer) {
+        try {
+          await _lanSyncClient.syncNow();
+          lanSynced = true;
+        } catch (error) {
+          errors.add('局域网同步：$error');
+        }
+      }
+      if (isSignedIn && lanSynced) {
+        try {
+          await _syncService.sync();
+        } catch (error) {
+          errors.add('云同步回传：$error');
+        }
       }
       await refresh();
+      if (errors.isEmpty) {
+        errorMessage = null;
+      } else {
+        errorMessage = '同步部分失败：${errors.join('；')}';
+      }
     } catch (error) {
       errorMessage = '同步失败：$error';
     } finally {

@@ -23,7 +23,7 @@ class LocalDatabase {
     final dbPath = p.join(appDir.path, 'timetrack.sqlite');
     _database = await openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
@@ -40,6 +40,9 @@ class LocalDatabase {
     }
     if (oldVersion < 3) {
       await createSyncPeerSchema(db);
+    }
+    if (oldVersion < 4) {
+      await createAppMetadataSchema(db);
     }
   }
 
@@ -90,6 +93,7 @@ class LocalDatabase {
 
     await createActionLogsSchema(db);
     await createSyncPeerSchema(db);
+    await createAppMetadataSchema(db);
   }
 
   static Future<void> createActionLogsSchema(Database db) async {
@@ -131,5 +135,14 @@ class LocalDatabase {
     await db.execute(
       'create index if not exists idx_sync_peers_kind on sync_peers(kind)',
     );
+  }
+
+  static Future<void> createAppMetadataSchema(Database db) async {
+    await db.execute('''
+      create table if not exists app_metadata (
+        key text primary key,
+        value text not null
+      )
+    ''');
   }
 }
