@@ -177,8 +177,9 @@ class TodayDistributionCard extends StatelessWidget {
                             state.activityById(item.key)?.color ?? 0xff64748b,
                           ),
                         ),
-                        title:
-                            Text(state.activityById(item.key)?.name ?? '未知事项'),
+                        title: Text(
+                          state.activityById(item.key)?.name ?? '未知事项',
+                        ),
                         trailing: Text(formatDurationCompact(item.value)),
                       ),
                   ],

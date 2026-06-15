@@ -7,6 +7,7 @@ import '../domain/activity.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 import 'local_database.dart';
+import 'sync_bundle.dart';
 
 class TimeRepository {
   TimeRepository({
@@ -87,6 +88,93 @@ class TimeRepository {
       orderBy: 'is_favorite desc, name asc',
     );
     return rows.map(Activity.fromMap).toList();
+  }
+
+  Future<SyncBundle> exportBundle() async {
+    final deviceId = await currentDeviceId();
+    return SyncBundle(
+      schemaVersion: SyncBundle.currentSchemaVersion,
+      exportedAt: DateTime.now(),
+      sourceDeviceId: deviceId,
+      activities: await activities(includeDeleted: true),
+      timeEntries: await allEntries(),
+      actionLogs: await allActionLogs(),
+      profileSettings: await settings(),
+    );
+  }
+
+  Future<void> mergeBundle(SyncBundle bundle) async {
+    if (bundle.schemaVersion != SyncBundle.currentSchemaVersion) {
+      throw FormatException(
+        'Unsupported TimeTrack sync schema version: ${bundle.schemaVersion}.',
+      );
+    }
+
+    final db = await _database.db;
+    await db.transaction((txn) async {
+      for (final activity in bundle.activities) {
+        final localRows = await txn.query(
+          'activities',
+          where: 'id = ?',
+          whereArgs: [activity.id],
+          limit: 1,
+        );
+        if (_shouldReplace(localRows, Activity.fromMap, activity.updatedAt)) {
+          await txn.insert(
+            'activities',
+            activity.toLocalMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+
+      for (final entry in bundle.timeEntries) {
+        final localRows = await txn.query(
+          'time_entries',
+          where: 'id = ?',
+          whereArgs: [entry.id],
+          limit: 1,
+        );
+        if (_shouldReplace(localRows, TimeEntry.fromMap, entry.updatedAt)) {
+          await txn.insert(
+            'time_entries',
+            entry.toLocalMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+
+      for (final log in bundle.actionLogs) {
+        final localRows = await txn.query(
+          'action_logs',
+          where: 'id = ?',
+          whereArgs: [log.id],
+          limit: 1,
+        );
+        if (_shouldReplace(localRows, ActionLog.fromMap, log.updatedAt)) {
+          await txn.insert(
+            'action_logs',
+            log.toLocalMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+
+      final settingsRows = await txn.query('profile_settings', limit: 1);
+      if (_shouldReplace(
+        settingsRows,
+        ProfileSettings.fromMap,
+        bundle.profileSettings.updatedAt,
+      )) {
+        await txn.insert(
+          'profile_settings',
+          bundle.profileSettings.toLocalMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+
+    await normalizeRunningEntriesAfterMerge();
   }
 
   Future<void> upsertActivity(Activity activity) async {
@@ -324,6 +412,15 @@ class TimeRepository {
     return rows.map(TimeEntry.fromMap).toList();
   }
 
+  Future<List<TimeEntry>> allEntries() async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'time_entries',
+      orderBy: 'updated_at asc',
+    );
+    return rows.map(TimeEntry.fromMap).toList();
+  }
+
   Future<List<ActionLog>> actionLogsForDay(DateTime day) async {
     final db = await _database.db;
     final start = day.startOfDay.toUtc().toIso8601String();
@@ -343,6 +440,15 @@ class TimeRepository {
       'action_logs',
       where: 'updated_at >= ?',
       whereArgs: [since.toUtc().toIso8601String()],
+      orderBy: 'updated_at asc',
+    );
+    return rows.map(ActionLog.fromMap).toList();
+  }
+
+  Future<List<ActionLog>> allActionLogs() async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'action_logs',
       orderBy: 'updated_at asc',
     );
     return rows.map(ActionLog.fromMap).toList();
@@ -467,6 +573,55 @@ class TimeRepository {
             .isBefore(remote.updatedAt)) {
       await saveEntry(remote);
     }
+  }
+
+  Future<String> currentDeviceId() async {
+    return _deviceId;
+  }
+
+  Future<void> normalizeRunningEntriesAfterMerge() async {
+    final db = await _database.db;
+    final runningRows = await db.query(
+      'time_entries',
+      where: 'end_at is null and is_deleted = 0',
+      orderBy: 'start_at desc',
+    );
+    if (runningRows.length <= 1) {
+      return;
+    }
+
+    final keep = TimeEntry.fromMap(runningRows.first);
+    final now = DateTime.now();
+    for (final row in runningRows.skip(1)) {
+      final entry = TimeEntry.fromMap(row);
+      final normalized = entry.startAt.isBefore(keep.startAt)
+          ? entry.copyWith(endAt: keep.startAt, updatedAt: now)
+          : entry.copyWith(isDeleted: true, updatedAt: now);
+      await db.insert(
+        'time_entries',
+        normalized.toLocalMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  bool _shouldReplace<T>(
+    List<Map<String, Object?>> localRows,
+    T Function(Map<String, Object?> map) fromMap,
+    DateTime remoteUpdatedAt,
+  ) {
+    if (localRows.isEmpty) {
+      return true;
+    }
+    final local = fromMap(localRows.first);
+    final localUpdatedAt = switch (local) {
+      Activity value => value.updatedAt,
+      TimeEntry value => value.updatedAt,
+      ActionLog value => value.updatedAt,
+      ProfileSettings value => value.updatedAt,
+      _ => throw StateError('Unsupported sync model type: $T'),
+    };
+    return localUpdatedAt.isBefore(remoteUpdatedAt);
   }
 
   ActionLog _buildActionLog({

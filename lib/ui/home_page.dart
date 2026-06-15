@@ -44,8 +44,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 IconButton(
                   tooltip: '同步',
-                  onPressed:
-                      state.canSync && state.isSignedIn ? state.sync : null,
+                  onPressed: state.hasSyncTarget ? state.sync : null,
                   icon: const Icon(Icons.sync),
                 ),
               ],
@@ -377,7 +376,9 @@ Future<Activity?> showActivityEditorDialog(
                   }
                   saved = activity == null
                       ? await state.createActivity(
-                          controller.text, selectedColor)
+                          controller.text,
+                          selectedColor,
+                        )
                       : await state.updateActivity(
                           activity,
                           name: controller.text,

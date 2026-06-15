@@ -29,7 +29,7 @@ class _AppShellState extends State<AppShell> {
       selectedIcon: Icons.timer,
     ),
     _AppDestination(
-      label: '时间轴',
+      label: '时间线',
       icon: Icons.view_timeline_outlined,
       selectedIcon: Icons.view_timeline,
     ),
@@ -254,19 +254,25 @@ class LoginBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!state.canSync) {
-      return const _StatusBanner(
-        icon: Icons.cloud_off_outlined,
-        text: '本地模式：配置 Supabase 后可开启多设备同步',
+    if (state.isSignedIn) {
+      return _StatusBanner(
+        icon: state.isSyncing ? Icons.sync : Icons.cloud_done_outlined,
+        text: state.isSyncing ? '正在同步' : '已登录并开启云同步',
       );
     }
-    if (!state.isSignedIn) {
-      return LoginPage(state: state);
+    if (state.hasLanPeer) {
+      return _StatusBanner(
+        icon: state.isSyncing ? Icons.sync : Icons.lan_outlined,
+        text: state.isSyncing ? '正在同步' : '已配对局域网主机',
+      );
     }
-    return _StatusBanner(
-      icon: state.isSyncing ? Icons.sync : Icons.cloud_done_outlined,
-      text: state.isSyncing ? '正在同步' : '已登录并开启云同步',
-    );
+    if (!state.canCloudSync) {
+      return const _StatusBanner(
+        icon: Icons.cloud_off_outlined,
+        text: '本地模式：可在设置中开启局域网互通或导入导出',
+      );
+    }
+    return LoginPage(state: state);
   }
 }
 

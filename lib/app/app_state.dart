@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
 import '../core/date_time_ext.dart';
+import '../data/file_interop_service.dart';
+import '../data/lan_sync.dart';
+import '../data/sync_peer_store.dart';
 import '../data/sync_service.dart';
 import '../data/time_repository.dart';
 import '../domain/action_log.dart';
@@ -14,11 +18,20 @@ class AppState extends ChangeNotifier {
   AppState({
     required TimeRepository repository,
     required SyncService syncService,
+    required LanSyncServer lanSyncServer,
+    required LanSyncClient lanSyncClient,
+    required FileInteropService fileInteropService,
   })  : _repository = repository,
-        _syncService = syncService;
+        _syncService = syncService,
+        _lanSyncServer = lanSyncServer,
+        _lanSyncClient = lanSyncClient,
+        _fileInteropService = fileInteropService;
 
   final TimeRepository _repository;
   final SyncService _syncService;
+  final LanSyncServer _lanSyncServer;
+  final LanSyncClient _lanSyncClient;
+  final FileInteropService _fileInteropService;
 
   Timer? _ticker;
 
@@ -31,13 +44,29 @@ class AppState extends ChangeNotifier {
   List<ActionLog> dayActionLogs = const [];
   TimeEntry? runningEntry;
   ProfileSettings settings = ProfileSettings.defaults();
+  SyncPeer? lanPeer;
   DateTime now = DateTime.now();
   DateTime? lastReminderAt;
   String? ignoredSuspiciousEntryId;
+  String? interopMessage;
 
-  bool get canSync => _syncService.isEnabled;
+  bool get canSync => canCloudSync || hasLanPeer;
 
-  bool get isSignedIn => _syncService.currentUser != null;
+  bool get canCloudSync => _syncService.isCloudEnabled;
+
+  bool get isSignedIn => _syncService.isCloudSignedIn;
+
+  bool get hasLanPeer => lanPeer != null;
+
+  bool get hasSyncTarget => isSignedIn || hasLanPeer;
+
+  bool get canHostLan => Platform.isWindows;
+
+  bool get isLanServerRunning => _lanSyncServer.isRunning;
+
+  String? get lanPairingCode => _lanSyncServer.pairingCode;
+
+  List<String> get lanServerUrls => _lanSyncServer.localUrls;
 
   Activity? get runningActivity {
     final entry = runningEntry;
@@ -79,6 +108,9 @@ class AppState extends ChangeNotifier {
     try {
       await _repository.ensureSeedData();
       await refresh();
+      if (Platform.isWindows && !isLanServerRunning) {
+        await startLanServer();
+      }
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         now = DateTime.now();
         notifyListeners();
@@ -94,6 +126,7 @@ class AppState extends ChangeNotifier {
   Future<void> refresh() async {
     activities = await _repository.activities();
     settings = await _repository.settings();
+    lanPeer = await _lanSyncClient.currentPeer();
     runningEntry = await _repository.runningEntry();
     dayEntries = await _repository.entriesForDay(selectedDay);
     dayActionLogs = await _repository.actionLogsForDay(selectedDay);
@@ -246,18 +279,93 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> sync() async {
-    if (!_syncService.isEnabled || _syncService.currentUser == null) {
+    if (!hasSyncTarget) {
       return;
     }
     isSyncing = true;
     notifyListeners();
     try {
-      await _syncService.sync();
+      if (isSignedIn) {
+        await _syncService.sync();
+      } else {
+        await _lanSyncClient.syncNow();
+      }
       await refresh();
     } catch (error) {
       errorMessage = '同步失败：$error';
     } finally {
       isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startLanServer() async {
+    if (!canHostLan) {
+      interopMessage = '请在 Windows 端开启局域网主机，Android 作为客户端连接。';
+      notifyListeners();
+      return;
+    }
+    try {
+      await _lanSyncServer.start();
+      interopMessage = '局域网主机已开启。';
+      notifyListeners();
+    } catch (error) {
+      interopMessage = '无法开启局域网主机：$error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopLanServer() async {
+    await _lanSyncServer.stop();
+    interopMessage = '局域网主机已关闭。';
+    notifyListeners();
+  }
+
+  Future<void> pairLanPeer({
+    required String baseUrl,
+    required String code,
+  }) async {
+    try {
+      lanPeer = await _lanSyncClient.pair(baseUrl: baseUrl, code: code);
+      interopMessage = '局域网主机配对成功。';
+      notifyListeners();
+      await sync();
+    } catch (error) {
+      interopMessage = '局域网配对失败：$error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> clearLanPeer() async {
+    await _lanSyncClient.clearPeer();
+    lanPeer = null;
+    interopMessage = '已移除局域网主机配对。';
+    notifyListeners();
+  }
+
+  Future<void> exportInteropFile() async {
+    try {
+      final path = await _fileInteropService.exportToFile();
+      interopMessage = path == null ? '已取消导出。' : '已导出：$path';
+      notifyListeners();
+    } catch (error) {
+      interopMessage = '导出失败：$error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> importInteropFile() async {
+    try {
+      final path = await _fileInteropService.importFromFile();
+      if (path == null) {
+        interopMessage = '已取消导入。';
+      } else {
+        interopMessage = '已导入：$path';
+        await refresh();
+      }
+      notifyListeners();
+    } catch (error) {
+      interopMessage = '导入失败：$error';
       notifyListeners();
     }
   }
@@ -301,7 +409,9 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, Duration> _totalsFor(
-      List<TimeEntry> entries, DateTime effectiveNow) {
+    List<TimeEntry> entries,
+    DateTime effectiveNow,
+  ) {
     final totals = <String, Duration>{};
     for (final entry in entries) {
       totals[entry.activityId] = (totals[entry.activityId] ?? Duration.zero) +
@@ -313,6 +423,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _ticker?.cancel();
+    unawaited(_lanSyncServer.stop());
     super.dispose();
   }
 }

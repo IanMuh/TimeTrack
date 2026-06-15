@@ -4,7 +4,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/app_state.dart';
 import 'core/app_config.dart';
+import 'data/file_interop_service.dart';
+import 'data/lan_sync.dart';
 import 'data/local_database.dart';
+import 'data/sync_peer_store.dart';
 import 'data/sync_service.dart';
 import 'data/time_repository.dart';
 import 'ui/app_shell.dart';
@@ -21,10 +24,21 @@ Future<void> main() async {
     client = Supabase.instance.client;
   }
 
-  final repository = TimeRepository(database: LocalDatabase());
+  final database = LocalDatabase();
+  final repository = TimeRepository(database: database);
+  final peerStore = SyncPeerStore(database: database);
   final state = AppState(
     repository: repository,
     syncService: SyncService(repository: repository, client: client),
+    lanSyncServer: LanSyncServer(
+      repository: repository,
+      peerStore: peerStore,
+    ),
+    lanSyncClient: LanSyncClient(
+      repository: repository,
+      peerStore: peerStore,
+    ),
+    fileInteropService: FileInteropService(repository: repository),
   );
   await state.initialize();
 
