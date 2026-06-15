@@ -1,19 +1,29 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Project Summary
 
-TimeTrack is a Flutter app for Windows and Android with offline-first storage and optional Supabase sync. Application code lives in `lib/`: `core/` contains shared utilities and configuration, `domain/` contains value objects and models, `data/` contains SQLite/Supabase persistence, `app/` contains app state, and `ui/` contains pages and layout widgets. Tests live in `test/` and currently cover domain models, repository behavior, and adaptive layout. Platform code is under `android/` and `windows/`; database setup is in `supabase/schema.sql`.
+TimeTrack 是一个面向 Windows 和 Android 的离线优先时间记录应用。它以本地 SQLite 为主，支持可选 Supabase 云同步、Windows 或 Android 作为局域网主机的设备互通，以及文件导入/导出。
 
-## Build, Test, and Development Commands
+## Code Layout
 
-- `flutter pub get`: install Dart and Flutter dependencies from `pubspec.yaml`.
-- `flutter analyze`: run static analysis using `flutter_lints` and local rules.
-- `flutter test`: run all tests in `test/`.
-- `flutter run -d windows`: run the desktop app locally.
-- `flutter run -d android`: run on an Android emulator or device.
-- `flutter build windows --release`: produce a Windows release build.
+- `lib/main.dart`: 应用入口，初始化本地数据库、同步服务、局域网同步和界面壳。
+- `lib/app`: 应用状态编排、提醒逻辑和同步触发。
+- `lib/data`: SQLite、Supabase、局域网同步、文件互通与持久化访问。
+- `lib/domain`: 事项、时间条目、设置和操作日志模型。
+- `lib/ui`: 自适应导航壳、首页、时间线、统计、登录和设置页面。
+- `test`: 领域、仓储、同步和布局测试。
+- `supabase/schema.sql`: Supabase 数据库结构定义。
 
-To enable cloud sync, pass Supabase runtime config:
+## Common Commands
+
+- `flutter pub get`: 安装依赖。
+- `flutter analyze`: 运行静态检查。
+- `flutter test`: 运行测试。
+- `flutter run -d windows`: 启动 Windows 端。
+- `flutter run -d android`: 启动 Android 端。
+- `flutter build windows --release`: 打包 Windows 发布版。
+
+Supabase 可选配置：
 
 ```powershell
 flutter run -d windows `
@@ -21,20 +31,12 @@ flutter run -d windows `
   --dart-define=SUPABASE_ANON_KEY=your-anon-key
 ```
 
-Without these defines, the app should continue to run in local-only mode.
+未提供这些定义时，应用必须继续以本地模式运行。
 
-## Coding Style & Naming Conventions
+## Working Rules
 
-Use standard Dart formatting with two-space indentation; run `dart format lib test` before submitting changes. The project includes `package:flutter_lints/flutter.yaml` and enforces `prefer_single_quotes`. Use `PascalCase` for classes and widgets, `camelCase` for members and variables, and `snake_case.dart` file names. Keep UI widgets in `lib/ui/`, persistence concerns in `lib/data/`, and pure business objects in `lib/domain/`.
-
-## Testing Guidelines
-
-Use `flutter_test` for unit and widget tests. Name test files with the `_test.dart` suffix and mirror the unit under test, for example `time_entry_test.dart` for `lib/domain/time_entry.dart`. Add or update tests when changing domain rules, repository behavior, layout breakpoints, or sync logic. Run `flutter test` and `flutter analyze` before opening a PR.
-
-## Commit & Pull Request Guidelines
-
-The current history only contains `Initial commit`, so no strict commit convention is established. Use short, imperative commit subjects such as `Add activity color selector` or `Fix repository sync conflict`. Pull requests should include a concise description, test results, linked issues when applicable, and screenshots or recordings for UI changes on Windows and Android.
-
-## Security & Configuration Tips
-
-Do not commit Supabase URLs, anon keys, service keys, generated credentials, or local database files. Keep schema changes in `supabase/schema.sql` and document any required Supabase Auth settings, such as email OTP, in the PR description.
+- 保持离线优先行为，不要把 Supabase 当作必需依赖。
+- Windows 和 Android 都可以作为局域网主机，也都可以作为客户端连接。
+- 修改数据、同步、布局或领域规则时，补充或更新测试。
+- 不要提交 Supabase 地址、anon key、服务密钥或本地数据库文件。
+- Dart 代码保持两空格缩进，并遵循 `prefer_single_quotes`。
