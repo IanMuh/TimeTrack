@@ -103,24 +103,6 @@ class SupabaseSyncBackend implements SyncBackend {
     }
     final floor = since ?? DateTime.fromMillisecondsSinceEpoch(0);
 
-    final localActivities = await _repository.activitiesSince(floor);
-    for (final activity in localActivities) {
-      await _client.from('activities').upsert(activity.toRemoteMap(user.id));
-    }
-
-    final localEntries = await _repository.entriesSince(floor);
-    for (final entry in localEntries) {
-      await _client.from('time_entries').upsert(entry.toRemoteMap(user.id));
-    }
-
-    final localActionLogs = await _repository.actionLogsSince(floor);
-    for (final log in localActionLogs) {
-      await _client.from('action_logs').upsert(log.toRemoteMap(user.id));
-    }
-
-    final settings = await _repository.settings();
-    await _client.from('profiles').upsert(settings.toRemoteMap(user.id));
-
     final remoteActivityRows = await _client
         .from('activities')
         .select()
@@ -152,6 +134,52 @@ class SupabaseSyncBackend implements SyncBackend {
     if (fetchedSettings != null) {
       await _repository.replaceSettingsIfRemoteNewer(fetchedSettings);
     }
+
+    final localActivities = await _repository.activitiesSince(floor);
+    for (final activity in localActivities) {
+      await _uploadIfNotStale(
+        table: 'activities',
+        idColumn: 'id',
+        id: activity.id,
+        userId: user.id,
+        updatedAt: activity.updatedAt,
+        values: activity.toRemoteMap(user.id),
+      );
+    }
+
+    final localEntries = await _repository.entriesSince(floor);
+    for (final entry in localEntries) {
+      await _uploadIfNotStale(
+        table: 'time_entries',
+        idColumn: 'id',
+        id: entry.id,
+        userId: user.id,
+        updatedAt: entry.updatedAt,
+        values: entry.toRemoteMap(user.id),
+      );
+    }
+
+    final localActionLogs = await _repository.actionLogsSince(floor);
+    for (final log in localActionLogs) {
+      await _uploadIfNotStale(
+        table: 'action_logs',
+        idColumn: 'id',
+        id: log.id,
+        userId: user.id,
+        updatedAt: log.updatedAt,
+        values: log.toRemoteMap(user.id),
+      );
+    }
+
+    final settings = await _repository.settings();
+    await _uploadIfNotStale(
+      table: 'profiles',
+      idColumn: 'user_id',
+      id: user.id,
+      userId: user.id,
+      updatedAt: settings.updatedAt,
+      values: settings.toRemoteMap(user.id),
+    );
   }
 
   Future<ProfileSettings?> fetchRemoteSettings() async {
@@ -165,5 +193,40 @@ class SupabaseSyncBackend implements SyncBackend {
       return null;
     }
     return ProfileSettings.fromMap(rows.first);
+  }
+
+  Future<void> _uploadIfNotStale({
+    required String table,
+    required String idColumn,
+    required String id,
+    required String userId,
+    required DateTime updatedAt,
+    required Map<String, Object?> values,
+  }) async {
+    final updatedAtIso = updatedAt.toUtc().toIso8601String();
+    final rows = await _client
+        .from(table)
+        .select('updated_at')
+        .eq(idColumn, id)
+        .eq('user_id', userId)
+        .limit(1);
+
+    if (rows.isEmpty) {
+      try {
+        await _client.from(table).insert(values);
+        return;
+      } on PostgrestException catch (error) {
+        if (error.code != '23505') {
+          rethrow;
+        }
+      }
+    }
+
+    await _client
+        .from(table)
+        .update(values)
+        .eq(idColumn, id)
+        .eq('user_id', userId)
+        .lte('updated_at', updatedAtIso);
   }
 }

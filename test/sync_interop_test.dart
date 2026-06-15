@@ -12,8 +12,7 @@ import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
 
 Future<({LocalDatabase database, TimeRepository repository})> buildSyncRepo(
-  String deviceId,
-) async {
+    [String? deviceId]) async {
   sqfliteFfiInit();
   final db = await databaseFactoryFfi.openDatabase(
     inMemoryDatabasePath,
@@ -191,6 +190,15 @@ void main() {
     expect((await repository.activities()).single.name, 'keep me');
   });
 
+  test('generated device ids persist and are unique per repository', () async {
+    final first = await buildSyncRepo();
+    final second = await buildSyncRepo();
+
+    final firstDeviceId = await first.repository.currentDeviceId();
+    expect(await first.repository.currentDeviceId(), firstDeviceId);
+    expect(await second.repository.currentDeviceId(), isNot(firstDeviceId));
+  });
+
   test('lan client and server pair and perform bidirectional sync', () async {
     final host = await buildSyncRepo('host');
     final client = await buildSyncRepo('client');
@@ -243,6 +251,106 @@ void main() {
 
     expect(
       (await client.repository.entriesForDay(DateTime(2026, 1, 4)))
+          .map((item) => item.id),
+      contains(hostEntry.id),
+    );
+  });
+
+  test('multiple lan clients keep their pairings and sync without token loss',
+      () async {
+    final host = await buildSyncRepo();
+    final firstClient = await buildSyncRepo();
+    final secondClient = await buildSyncRepo();
+    await host.repository.ensureSeedData();
+    await firstClient.repository.ensureSeedData();
+    await secondClient.repository.ensureSeedData();
+
+    final server = LanSyncServer(
+      repository: host.repository,
+      peerStore: SyncPeerStore(database: host.database),
+      portCandidates: const [0],
+      bindAddress: InternetAddress.loopbackIPv4,
+    );
+    await server.start();
+    addTearDown(server.stop);
+
+    final firstLanClient = LanSyncClient(
+      repository: firstClient.repository,
+      peerStore: SyncPeerStore(database: firstClient.database),
+    );
+    final secondLanClient = LanSyncClient(
+      repository: secondClient.repository,
+      peerStore: SyncPeerStore(database: secondClient.database),
+    );
+    final baseUrl = 'http://127.0.0.1:${server.port}';
+    await firstLanClient.pair(baseUrl: baseUrl, code: server.pairingCode!);
+    await secondLanClient.pair(baseUrl: baseUrl, code: server.pairingCode!);
+
+    final firstActivity = (await firstClient.repository.activities()).first;
+    final firstEntry = await firstClient.repository.createManualEntry(
+      activityId: firstActivity.id,
+      startAt: DateTime(2026, 1, 5, 9),
+      endAt: DateTime(2026, 1, 5, 10),
+      note: 'from first client',
+    );
+
+    await firstLanClient.syncNow();
+
+    expect(
+      (await host.repository.entriesForDay(DateTime(2026, 1, 5)))
+          .map((item) => item.id),
+      contains(firstEntry.id),
+    );
+  });
+
+  test('lan sync exchanges host and client changes in one sync', () async {
+    final host = await buildSyncRepo('host');
+    final client = await buildSyncRepo('client');
+    await host.repository.ensureSeedData();
+    await client.repository.ensureSeedData();
+
+    final server = LanSyncServer(
+      repository: host.repository,
+      peerStore: SyncPeerStore(database: host.database),
+      portCandidates: const [0],
+      bindAddress: InternetAddress.loopbackIPv4,
+    );
+    await server.start();
+    addTearDown(server.stop);
+
+    final lanClient = LanSyncClient(
+      repository: client.repository,
+      peerStore: SyncPeerStore(database: client.database),
+    );
+    await lanClient.pair(
+      baseUrl: 'http://127.0.0.1:${server.port}',
+      code: server.pairingCode!,
+    );
+
+    final hostActivity = (await host.repository.activities()).first;
+    final clientActivity = (await client.repository.activities()).first;
+    final hostEntry = await host.repository.createManualEntry(
+      activityId: hostActivity.id,
+      startAt: DateTime(2026, 1, 6, 9),
+      endAt: DateTime(2026, 1, 6, 10),
+      note: 'from host before sync',
+    );
+    final clientEntry = await client.repository.createManualEntry(
+      activityId: clientActivity.id,
+      startAt: DateTime(2026, 1, 6, 11),
+      endAt: DateTime(2026, 1, 6, 12),
+      note: 'from client before sync',
+    );
+
+    await lanClient.syncNow();
+
+    expect(
+      (await host.repository.entriesForDay(DateTime(2026, 1, 6)))
+          .map((item) => item.id),
+      contains(clientEntry.id),
+    );
+    expect(
+      (await client.repository.entriesForDay(DateTime(2026, 1, 6)))
           .map((item) => item.id),
       contains(hostEntry.id),
     );
