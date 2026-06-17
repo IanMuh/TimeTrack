@@ -12,6 +12,7 @@ import '../data/time_repository.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
 import '../domain/profile_settings.dart';
+import '../domain/stats_period.dart';
 import '../domain/time_entry.dart';
 
 class AppState extends ChangeNotifier {
@@ -425,33 +426,98 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, Duration> todayTotals() {
-    return _totalsForDay(dayEntries, selectedDay, now);
+    return _totalsInWindow(dayEntries, selectedDay.startOfDay,
+        selectedDay.startOfDay.add(const Duration(days: 1)), now);
   }
 
   Future<Map<String, Duration>> weekTotals() async {
-    final start =
-        selectedDay.startOfDay.subtract(Duration(days: selectedDay.weekday - 1));
-    final totals = <String, Duration>{};
-    for (var i = 0; i < 7; i += 1) {
-      final day = start.add(Duration(days: i));
-      final entries = await _repository.entriesForDay(day);
-      final dayTotals = _totalsForDay(entries, day, now);
-      for (final item in dayTotals.entries) {
-        totals[item.key] = (totals[item.key] ?? Duration.zero) + item.value;
+    return totalsForPeriod(StatsPeriod.week);
+  }
+
+  Future<Map<String, Duration>> totalsForPeriod(StatsPeriod period) async {
+    final (start, end) = period.windowFor(selectedDay);
+    if (period == StatsPeriod.day) {
+      return _totalsInWindow(dayEntries, start, end, now);
+    }
+    List<TimeEntry> entries;
+    if (period == StatsPeriod.all) {
+      entries = await _repository.allEntries();
+      final filtered = <TimeEntry>[];
+      for (final entry in entries) {
+        if (!entry.isDeleted) {
+          filtered.add(entry);
+        }
       }
+      entries = filtered;
+    } else {
+      entries = await _repository.entriesForRange(start, end);
+    }
+    return _totalsInWindow(entries, start, end, now);
+  }
+
+  Duration longestBlock() {
+    final dayStart = selectedDay.startOfDay;
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    return _longestInWindow(dayEntries, dayStart, dayEnd, now);
+  }
+
+  Future<Duration> longestBlockForPeriod(StatsPeriod period) async {
+    final (start, end) = period.windowFor(selectedDay);
+    if (period == StatsPeriod.day) {
+      return _longestInWindow(dayEntries, start, end, now);
+    }
+    List<TimeEntry> entries;
+    if (period == StatsPeriod.all) {
+      entries = await _repository.allEntries();
+      // For "all", don't clip — use full durations.
+      var longest = Duration.zero;
+      for (final entry in entries) {
+        if (entry.isDeleted) continue;
+        final duration = entry.durationUntil(now);
+        if (duration > longest) {
+          longest = duration;
+        }
+      }
+      return longest;
+    }
+    entries = await _repository.entriesForRange(start, end);
+    return _longestInWindow(entries, start, end, now);
+  }
+
+  Map<String, Duration> _totalsInWindow(
+    List<TimeEntry> entries,
+    DateTime windowStart,
+    DateTime windowEnd,
+    DateTime effectiveNow,
+  ) {
+    final totals = <String, Duration>{};
+    for (final entry in entries) {
+      final duration = entry.durationInWindow(
+        windowStart: windowStart,
+        windowEnd: windowEnd,
+        now: effectiveNow,
+      );
+      if (duration == Duration.zero) {
+        continue;
+      }
+      totals[entry.activityId] =
+          (totals[entry.activityId] ?? Duration.zero) + duration;
     }
     return totals;
   }
 
-  Duration longestBlock() {
+  Duration _longestInWindow(
+    List<TimeEntry> entries,
+    DateTime windowStart,
+    DateTime windowEnd,
+    DateTime effectiveNow,
+  ) {
     var longest = Duration.zero;
-    final dayStart = selectedDay.startOfDay;
-    final dayEnd = dayStart.add(const Duration(days: 1));
-    for (final entry in dayEntries) {
+    for (final entry in entries) {
       final duration = entry.durationInWindow(
-        windowStart: dayStart,
-        windowEnd: dayEnd,
-        now: now,
+        windowStart: windowStart,
+        windowEnd: windowEnd,
+        now: effectiveNow,
       );
       if (duration > longest) {
         longest = duration;
@@ -467,29 +533,6 @@ class AppState extends ChangeNotifier {
       final entryEnd = entry.endAt ?? now;
       return entry.startAt.isBefore(end) && entryEnd.isAfter(start);
     }).toList();
-  }
-
-  Map<String, Duration> _totalsForDay(
-    List<TimeEntry> entries,
-    DateTime day,
-    DateTime effectiveNow,
-  ) {
-    final windowStart = day.startOfDay;
-    final windowEnd = windowStart.add(const Duration(days: 1));
-    final totals = <String, Duration>{};
-    for (final entry in entries) {
-      final duration = entry.durationInWindow(
-        windowStart: windowStart,
-        windowEnd: windowEnd,
-        now: effectiveNow,
-      );
-      if (duration == Duration.zero) {
-        continue;
-      }
-      totals[entry.activityId] =
-          (totals[entry.activityId] ?? Duration.zero) + duration;
-    }
-    return totals;
   }
 
   @override

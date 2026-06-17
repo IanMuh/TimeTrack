@@ -67,6 +67,7 @@ void main() {
                 mode: TimelineViewMode.coverage,
                 onPreviousDay: () {},
                 onNextDay: () {},
+                onDateTap: () {},
                 onModeChanged: (_) {},
                 onAddEntry: () {},
               ),
