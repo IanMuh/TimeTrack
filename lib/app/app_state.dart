@@ -425,16 +425,17 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, Duration> todayTotals() {
-    return _totalsFor(dayEntries, now);
+    return _totalsForDay(dayEntries, selectedDay, now);
   }
 
   Future<Map<String, Duration>> weekTotals() async {
-    final start = selectedDay.subtract(Duration(days: selectedDay.weekday - 1));
+    final start =
+        selectedDay.startOfDay.subtract(Duration(days: selectedDay.weekday - 1));
     final totals = <String, Duration>{};
     for (var i = 0; i < 7; i += 1) {
-      final entries =
-          await _repository.entriesForDay(start.add(Duration(days: i)));
-      final dayTotals = _totalsFor(entries, now);
+      final day = start.add(Duration(days: i));
+      final entries = await _repository.entriesForDay(day);
+      final dayTotals = _totalsForDay(entries, day, now);
       for (final item in dayTotals.entries) {
         totals[item.key] = (totals[item.key] ?? Duration.zero) + item.value;
       }
@@ -444,8 +445,14 @@ class AppState extends ChangeNotifier {
 
   Duration longestBlock() {
     var longest = Duration.zero;
+    final dayStart = selectedDay.startOfDay;
+    final dayEnd = dayStart.add(const Duration(days: 1));
     for (final entry in dayEntries) {
-      final duration = entry.durationUntil(now);
+      final duration = entry.durationInWindow(
+        windowStart: dayStart,
+        windowEnd: dayEnd,
+        now: now,
+      );
       if (duration > longest) {
         longest = duration;
       }
@@ -462,14 +469,25 @@ class AppState extends ChangeNotifier {
     }).toList();
   }
 
-  Map<String, Duration> _totalsFor(
+  Map<String, Duration> _totalsForDay(
     List<TimeEntry> entries,
+    DateTime day,
     DateTime effectiveNow,
   ) {
+    final windowStart = day.startOfDay;
+    final windowEnd = windowStart.add(const Duration(days: 1));
     final totals = <String, Duration>{};
     for (final entry in entries) {
-      totals[entry.activityId] = (totals[entry.activityId] ?? Duration.zero) +
-          entry.durationUntil(effectiveNow);
+      final duration = entry.durationInWindow(
+        windowStart: windowStart,
+        windowEnd: windowEnd,
+        now: effectiveNow,
+      );
+      if (duration == Duration.zero) {
+        continue;
+      }
+      totals[entry.activityId] =
+          (totals[entry.activityId] ?? Duration.zero) + duration;
     }
     return totals;
   }

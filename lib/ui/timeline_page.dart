@@ -11,6 +11,46 @@ import 'home_page.dart';
 
 enum TimelineViewMode { coverage, actions }
 
+class _VisibleEntryInterval {
+  const _VisibleEntryInterval({
+    required this.start,
+    required this.end,
+    required this.isRunningNow,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final bool isRunningNow;
+
+  Duration get duration => end.difference(start);
+}
+
+_VisibleEntryInterval _visibleEntryInterval(
+  TimeEntry entry,
+  DateTime selectedDay,
+  DateTime now,
+) {
+  final dayStart = selectedDay.startOfDay;
+  final dayEnd = dayStart.add(const Duration(days: 1));
+  final entryEnd = entry.endAt ?? now;
+  final visibleStart = entry.startAt.isBefore(dayStart) ? dayStart : entry.startAt;
+  final visibleEnd = entryEnd.isAfter(dayEnd) ? dayEnd : entryEnd;
+  final isRunningNow =
+      entry.endAt == null && !now.isBefore(dayStart) && now.isBefore(dayEnd);
+  if (!visibleStart.isBefore(visibleEnd)) {
+    return _VisibleEntryInterval(
+      start: visibleStart,
+      end: visibleStart,
+      isRunningNow: false,
+    );
+  }
+  return _VisibleEntryInterval(
+    start: visibleStart,
+    end: visibleEnd,
+    isRunningNow: isRunningNow,
+  );
+}
+
 class TimelinePage extends StatefulWidget {
   const TimelinePage({required this.state, super.key});
 
@@ -320,19 +360,17 @@ class _CoverageSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dayEnd = state.selectedDay.endOfDay;
-    final rawStart =
-        entry.startAt.isBefore(dayStart) ? dayStart : entry.startAt;
-    final rawEnd = (entry.endAt ?? state.now).isAfter(dayEnd)
-        ? dayEnd
-        : entry.endAt ?? state.now;
+    final interval = _visibleEntryInterval(entry, state.selectedDay, state.now);
     final startRatio =
-        rawStart.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
+        interval.start.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
     final endRatio =
-        rawEnd.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
+        interval.end.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
     final left = width * startRatio;
     final segmentWidth = (width * (endRatio - startRatio)).clamp(2.0, width);
     final activity = state.activityById(entry.activityId);
+    final endText = interval.isRunningNow
+        ? '进行中'
+        : _formatVisibleEndTime(interval, state.selectedDay);
 
     return Positioned(
       left: left,
@@ -340,7 +378,7 @@ class _CoverageSegment extends StatelessWidget {
       width: segmentWidth,
       child: Tooltip(
         message:
-            '${activity?.name ?? '未知事项'} ${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}',
+            '${activity?.name ?? '未知事项'} ${_formatTime(interval.start)} - $endText',
         child: Container(
           height: 20,
           decoration: BoxDecoration(
@@ -367,8 +405,11 @@ class TimelineEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final activity = state.activityById(entry.activityId);
     final color = Color(activity?.color ?? 0xff64748b);
-    final timeText =
-        '${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}';
+    final interval = _visibleEntryInterval(entry, state.selectedDay, state.now);
+    final endText = interval.isRunningNow
+        ? '进行中'
+        : _formatVisibleEndTime(interval, state.selectedDay);
+    final timeText = '${_formatTime(interval.start)} - $endText';
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -390,8 +431,7 @@ class TimelineEntryCard extends StatelessWidget {
               Expanded(
                 child: _TimelineEntryContent(
                   title: activity?.name ?? '未知事项',
-                  duration:
-                      formatDurationCompact(entry.durationUntil(state.now)),
+                  duration: formatDurationCompact(interval.duration),
                   timeText: timeText,
                   note: entry.note,
                 ),
@@ -557,11 +597,11 @@ Future<void> showEntryEditor(
   var activity = entry == null
       ? state.activities.first
       : state.activityById(entry.activityId) ?? state.activities.first;
-  var start = entry?.startAt ??
-      DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9);
-  var end = entry?.endAt ?? start.add(const Duration(hours: 1));
+  var start = entry?.startAt ?? _defaultEntryStart(selectedDay, state.now);
+  var end = entry?.endAt ?? _defaultEntryEnd(start, selectedDay, state.now);
+  var keepRunning = entry?.isRunning ?? false;
   final noteController = TextEditingController(text: entry?.note ?? '');
-  String? overlapWarning;
+  String? formError;
 
   Future<void> pickDateTime({
     required bool isStart,
@@ -589,12 +629,14 @@ Future<void> showEntryEditor(
     setState(() {
       if (isStart) {
         start = next;
-        if (!end.isAfter(start)) {
+        if (!keepRunning && !end.isAfter(start)) {
           end = start.add(const Duration(minutes: 30));
         }
       } else {
         end = next;
+        keepRunning = false;
       }
+      formError = null;
     });
   }
 
@@ -683,10 +725,38 @@ Future<void> showEntryEditor(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.stop),
                       title: const Text('结束'),
-                      subtitle: Text(_formatDateTime(end)),
-                      onTap: () =>
-                          pickDateTime(isStart: false, setState: setState),
+                      subtitle: Text(
+                        keepRunning ? '保持进行中' : _formatDateTime(end),
+                      ),
+                      enabled: !keepRunning,
+                      onTap: keepRunning
+                          ? null
+                          : () => pickDateTime(
+                                isStart: false,
+                                setState: setState,
+                              ),
                     ),
+                    if (entry?.isRunning ?? false)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: const Icon(Icons.timelapse_outlined),
+                        title: const Text('保持进行中'),
+                        subtitle: const Text('关闭后可把这条记录保存为已结束。'),
+                        value: keepRunning,
+                        onChanged: (value) {
+                          setState(() {
+                            keepRunning = value;
+                            if (!keepRunning && !end.isAfter(start)) {
+                              end = _defaultEntryEnd(
+                                start,
+                                selectedDay,
+                                state.now,
+                              );
+                            }
+                            formError = null;
+                          });
+                        },
+                      ),
                     TextField(
                       controller: noteController,
                       maxLines: 3,
@@ -695,12 +765,16 @@ Future<void> showEntryEditor(
                         prefixIcon: Icon(Icons.notes_outlined),
                       ),
                     ),
-                    if (overlapWarning != null) ...[
+                    if (formError != null) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        overlapWarning!,
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          formError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                       ),
                     ],
                   ],
@@ -724,8 +798,12 @@ Future<void> showEntryEditor(
                 ),
                 FilledButton.icon(
                   onPressed: () async {
-                    if (!end.isAfter(start)) {
-                      setState(() => overlapWarning = '结束时间必须晚于开始时间。');
+                    if (keepRunning && start.isAfter(state.now)) {
+                      setState(() => formError = '进行中的记录不能从未来开始。');
+                      return;
+                    }
+                    if (!keepRunning && !end.isAfter(start)) {
+                      setState(() => formError = '结束时间必须晚于开始时间。');
                       return;
                     }
                     final next = TimeEntry(
@@ -733,16 +811,16 @@ Future<void> showEntryEditor(
                       userId: entry?.userId,
                       activityId: activity.id,
                       startAt: start,
-                      endAt: end,
+                      endAt: keepRunning ? null : end,
                       note: noteController.text.trim(),
                       deviceId: entry?.deviceId ?? 'manual-entry',
                       updatedAt: DateTime.now(),
                       isDeleted: false,
                     );
                     final overlaps = await state.overlaps(next);
-                    if (overlaps.isNotEmpty && overlapWarning == null) {
+                    if (overlaps.isNotEmpty && formError == null) {
                       setState(() {
-                        overlapWarning = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
+                        formError = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
                       });
                       return;
                     }
@@ -770,9 +848,49 @@ Future<void> showEntryEditor(
       );
     },
   );
+  noteController.dispose();
+}
+
+DateTime _defaultEntryStart(DateTime selectedDay, DateTime now) {
+  if (selectedDay.isSameDate(now)) {
+    final candidate = now.subtract(const Duration(hours: 1));
+    if (candidate.isAfter(selectedDay.startOfDay)) {
+      return DateTime(
+        candidate.year,
+        candidate.month,
+        candidate.day,
+        candidate.hour,
+        candidate.minute,
+      );
+    }
+  }
+  return DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9);
+}
+
+DateTime _defaultEntryEnd(DateTime start, DateTime selectedDay, DateTime now) {
+  final dayEnd = selectedDay.startOfDay.add(const Duration(days: 1));
+  final preferredEnd = selectedDay.isSameDate(now)
+      ? now
+      : start.add(const Duration(hours: 1));
+  final cappedEnd = preferredEnd.isAfter(dayEnd) ? dayEnd : preferredEnd;
+  if (cappedEnd.isAfter(start)) {
+    return cappedEnd;
+  }
+  return start.add(const Duration(minutes: 30));
 }
 
 String _formatTime(DateTime value) => DateFormat('HH:mm:ss').format(value);
 
 String _formatDateTime(DateTime value) =>
     DateFormat('yyyy-MM-dd HH:mm:ss').format(value);
+
+String _formatVisibleEndTime(
+  _VisibleEntryInterval interval,
+  DateTime selectedDay,
+) {
+  final dayEnd = selectedDay.startOfDay.add(const Duration(days: 1));
+  if (interval.end == dayEnd) {
+    return '24:00:00';
+  }
+  return _formatTime(interval.end);
+}

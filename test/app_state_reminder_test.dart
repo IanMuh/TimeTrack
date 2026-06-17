@@ -9,7 +9,17 @@ import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 
-Future<AppState> _buildState() async {
+class _StateFixture {
+  const _StateFixture({
+    required this.state,
+    required this.repository,
+  });
+
+  final AppState state;
+  final TimeRepository repository;
+}
+
+Future<_StateFixture> _buildState() async {
   sqfliteFfiInit();
   final db = await databaseFactoryFfi.openDatabase(
     inMemoryDatabasePath,
@@ -35,12 +45,13 @@ Future<AppState> _buildState() async {
     fileInteropService: FileInteropService(repository: repository),
   );
   await state.refresh();
-  return state;
+  return _StateFixture(state: state, repository: repository);
 }
 
 void main() {
   test('reminder interval controls repeated reminder cadence', () async {
-    final state = await _buildState();
+    final fixture = await _buildState();
+    final state = fixture.state;
     addTearDown(state.dispose);
     final activity = state.activities.first;
     final startedAt = DateTime(2026, 1, 1, 9);
@@ -61,5 +72,45 @@ void main() {
 
     state.lastReminderAt = DateTime(2026, 1, 1, 9, 15);
     expect(state.shouldShowReminder, isTrue);
+  });
+
+  test('todayTotals clips cross-day entries to the selected day', () async {
+    final fixture = await _buildState();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final activity = state.activities.first;
+
+    await fixture.repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 23, 30),
+      endAt: DateTime(2026, 1, 2, 0, 30),
+      note: 'cross day',
+    );
+    await state.selectDay(DateTime(2026, 1, 2));
+
+    expect(
+      state.todayTotals()[activity.id],
+      const Duration(minutes: 30),
+    );
+  });
+
+  test('weekTotals clips entries to each day before summing', () async {
+    final fixture = await _buildState();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final activity = state.activities.first;
+
+    await fixture.repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 4, 23, 30),
+      endAt: DateTime(2026, 1, 5, 0, 30),
+      note: 'cross week',
+    );
+    await state.selectDay(DateTime(2026, 1, 5));
+
+    expect(
+      (await state.weekTotals())[activity.id],
+      const Duration(minutes: 30),
+    );
   });
 }
