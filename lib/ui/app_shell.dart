@@ -20,6 +20,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   bool _reminderVisible = false;
+  bool _reminderBannerVisible = false;
   bool _suspiciousVisible = false;
 
   static const _destinations = [
@@ -61,7 +62,7 @@ class _AppShellState extends State<AppShell> {
     if (!mounted) {
       return;
     }
-    if (widget.state.shouldShowReminder && !_reminderVisible) {
+    if (widget.state.shouldShowReminderDialog && !_reminderVisible) {
       _reminderVisible = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await showDialog<void>(
@@ -69,6 +70,33 @@ class _AppShellState extends State<AppShell> {
           builder: (context) => ReminderDialog(state: widget.state),
         );
         _reminderVisible = false;
+      });
+    }
+    if (widget.state.shouldShowReminderBanner && !_reminderBannerVisible) {
+      _reminderBannerVisible = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final messenger = ScaffoldMessenger.of(context);
+        messenger
+            .showSnackBar(
+              SnackBar(
+                content: Text(
+                  '当前事项已持续 ${widget.state.runningDuration.inMinutes} 分钟。',
+                ),
+                action: SnackBarAction(
+                  label: '稍后提醒',
+                  onPressed: () => widget.state.snoozeReminder(),
+                ),
+              ),
+            )
+            .closed
+            .whenComplete(() {
+          if (mounted) {
+            _reminderBannerVisible = false;
+          }
+        });
       });
     }
     if (widget.state.hasSuspiciousRunningEntry && !_suspiciousVisible) {

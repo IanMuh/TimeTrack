@@ -90,9 +90,27 @@ class AppState extends ChangeNotifier {
       return false;
     }
     final reminderDuration = Duration(minutes: settings.reminderMinutes);
+    final reminderStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).add(Duration(minutes: settings.reminderTimeOfDayMinutes));
     final recentlyReminded = lastReminderAt != null &&
-        now.difference(lastReminderAt!) < const Duration(minutes: 5);
-    return entry.durationUntil(now) >= reminderDuration && !recentlyReminded;
+        now.difference(lastReminderAt!) <
+            Duration(minutes: settings.reminderIntervalMinutes);
+    return !now.isBefore(reminderStart) &&
+        entry.durationUntil(now) >= reminderDuration &&
+        !recentlyReminded;
+  }
+
+  bool get shouldShowReminderDialog {
+    return shouldShowReminder &&
+        settings.reminderMethod == ReminderMethod.dialog;
+  }
+
+  bool get shouldShowReminderBanner {
+    return shouldShowReminder &&
+        settings.reminderMethod == ReminderMethod.banner;
   }
 
   bool get hasSuspiciousRunningEntry {
@@ -150,7 +168,7 @@ class AppState extends ChangeNotifier {
   Future<void> switchTo(Activity activity) async {
     await _repository.switchToActivity(activity.id);
     await refresh();
-    await sync();
+    unawaited(sync());
   }
 
   Future<void> stopCurrent() async {
@@ -165,7 +183,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> snoozeReminder() async {
-    lastReminderAt = DateTime.now().add(const Duration(minutes: 10));
+    lastReminderAt = DateTime.now();
     notifyListeners();
   }
 
@@ -251,13 +269,25 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> updateReminderMinutes(int minutes) async {
+    await updateReminderSettings(reminderMinutes: minutes);
+  }
+
+  Future<void> updateReminderSettings({
+    int? reminderMinutes,
+    int? reminderIntervalMinutes,
+    ReminderMethod? reminderMethod,
+    int? reminderTimeOfDayMinutes,
+  }) async {
     settings = settings.copyWith(
-      reminderMinutes: minutes,
+      reminderMinutes: reminderMinutes,
+      reminderIntervalMinutes: reminderIntervalMinutes,
+      reminderMethod: reminderMethod,
+      reminderTimeOfDayMinutes: reminderTimeOfDayMinutes,
       updatedAt: DateTime.now(),
     );
     await _repository.saveSettings(settings);
-    await sync();
     notifyListeners();
+    unawaited(sync());
   }
 
   Future<void> sendMagicLink(String email) async {

@@ -102,6 +102,9 @@ void main() {
         profileSettings: ProfileSettings(
           userId: null,
           reminderMinutes: 60,
+          reminderIntervalMinutes: 20,
+          reminderMethod: ReminderMethod.banner,
+          reminderTimeOfDayMinutes: 10 * 60,
           timezone: 'UTC',
           updatedAt: newer,
         ),
@@ -144,6 +147,9 @@ void main() {
         profileSettings: ProfileSettings(
           userId: null,
           reminderMinutes: 45,
+          reminderIntervalMinutes: 10,
+          reminderMethod: ReminderMethod.dialog,
+          reminderTimeOfDayMinutes: 9 * 60,
           timezone: 'UTC',
           updatedAt: updatedAt,
         ),
@@ -404,6 +410,9 @@ void main() {
         profileSettings: ProfileSettings(
           userId: null,
           reminderMinutes: 45,
+          reminderIntervalMinutes: 10,
+          reminderMethod: ReminderMethod.dialog,
+          reminderTimeOfDayMinutes: 9 * 60,
           timezone: 'UTC',
           updatedAt: DateTime(2026, 1, 1),
         ),

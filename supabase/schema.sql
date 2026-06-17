@@ -26,6 +26,9 @@ create table if not exists public.time_entries (
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   reminder_minutes integer not null default 45,
+  reminder_interval_minutes integer not null default 10,
+  reminder_method text not null default 'dialog',
+  reminder_time_of_day_minutes integer not null default 540,
   timezone text not null default 'UTC',
   updated_at timestamptz not null default now()
 );
