@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/data/local_database.dart';
 import 'package:timetrack/data/time_repository.dart';
+import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
 
 Future<TimeRepository> buildRepository() async {
@@ -88,5 +89,53 @@ void main() {
 
     expect(await repository.entriesForDay(DateTime(2026, 1, 1)), hasLength(1));
     expect(await repository.entriesForDay(DateTime(2026, 1, 2)), hasLength(1));
+  });
+
+  test('profile settings store reminder cadence and delivery method', () async {
+    final settings = ProfileSettings.defaults().copyWith(
+      reminderMinutes: 30,
+      reminderIntervalMinutes: 12,
+      reminderMethod: ReminderMethod.dialog,
+      reminderTimeOfDayMinutes: 9 * 60,
+      updatedAt: DateTime(2026, 1, 1, 8),
+    );
+
+    expect(settings.toLocalMap()['reminder_interval_minutes'], 12);
+    expect(settings.toLocalMap()['reminder_method'], 'dialog');
+    expect(settings.toLocalMap()['reminder_time_of_day_minutes'], 540);
+  });
+
+  test('profile settings migration fills reminder defaults', () async {
+    sqfliteFfiInit();
+    final db = await databaseFactoryFfi.openDatabase(
+      inMemoryDatabasePath,
+      options: OpenDatabaseOptions(singleInstance: false),
+    );
+    await db.execute('''
+      create table profile_settings (
+        id integer primary key check (id = 1),
+        user_id text,
+        reminder_minutes integer not null default 45,
+        timezone text not null,
+        updated_at text not null
+      )
+    ''');
+    await db.insert('profile_settings', {
+      'id': 1,
+      'user_id': null,
+      'reminder_minutes': 50,
+      'timezone': 'UTC',
+      'updated_at': DateTime(2026, 1, 1).toIso8601String(),
+    });
+    await LocalDatabase.migrateProfileSettingsReminderSchema(db);
+    final database = LocalDatabase(database: db);
+    final repository = TimeRepository(database: database);
+
+    final settings = await repository.settings();
+
+    expect(settings.reminderMinutes, 50);
+    expect(settings.reminderIntervalMinutes, 10);
+    expect(settings.reminderMethod, ReminderMethod.dialog);
+    expect(settings.reminderTimeOfDayMinutes, 9 * 60);
   });
 }

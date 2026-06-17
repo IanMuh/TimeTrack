@@ -598,165 +598,173 @@ Future<void> showEntryEditor(
     });
   }
 
-  await showDialog<void>(
+  await showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
-          return AlertDialog(
-            title: Text(entry == null ? '补记时间段' : '编辑时间段'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<Activity>(
-                          initialValue: activity,
-                          decoration: const InputDecoration(
-                            labelText: '事项',
-                            prefixIcon: Icon(Icons.label_outline),
+          final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: AlertDialog(
+              title: Text(entry == null ? '补记时间段' : '编辑时间段'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<Activity>(
+                            initialValue: activity,
+                            decoration: const InputDecoration(
+                              labelText: '事项',
+                              prefixIcon: Icon(Icons.label_outline),
+                            ),
+                            items: [
+                              for (final item in state.activities)
+                                DropdownMenuItem(
+                                  value: item,
+                                  child: Text(item.name),
+                                ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => activity = value);
+                              }
+                            },
                           ),
-                          items: [
-                            for (final item in state.activities)
-                              DropdownMenuItem(
-                                value: item,
-                                child: Text(item.name),
-                              ),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => activity = value);
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
+                          tooltip: '新增事项',
+                          onPressed: () async {
+                            final created = await showActivityEditorDialog(
+                              context,
+                              state,
+                            );
+                            if (created != null) {
+                              setState(() => activity = created);
                             }
                           },
+                          icon: const Icon(Icons.add),
                         ),
+                        IconButton(
+                          tooltip: '编辑当前事项',
+                          onPressed: () async {
+                            final updated = await showActivityEditorDialog(
+                              context,
+                              state,
+                              activity: activity,
+                            );
+                            if (updated != null) {
+                              setState(() => activity = updated);
+                            }
+                          },
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.play_arrow),
+                      title: const Text('开始'),
+                      subtitle: Text(_formatDateTime(start)),
+                      onTap: () =>
+                          pickDateTime(isStart: true, setState: setState),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.stop),
+                      title: const Text('结束'),
+                      subtitle: Text(_formatDateTime(end)),
+                      onTap: () =>
+                          pickDateTime(isStart: false, setState: setState),
+                    ),
+                    TextField(
+                      controller: noteController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: '备注',
+                        prefixIcon: Icon(Icons.notes_outlined),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        tooltip: '新增事项',
-                        onPressed: () async {
-                          final created = await showActivityEditorDialog(
-                            context,
-                            state,
-                          );
-                          if (created != null) {
-                            setState(() => activity = created);
-                          }
-                        },
-                        icon: const Icon(Icons.add),
-                      ),
-                      IconButton(
-                        tooltip: '编辑当前事项',
-                        onPressed: () async {
-                          final updated = await showActivityEditorDialog(
-                            context,
-                            state,
-                            activity: activity,
-                          );
-                          if (updated != null) {
-                            setState(() => activity = updated);
-                          }
-                        },
-                        icon: const Icon(Icons.edit_outlined),
+                    ),
+                    if (overlapWarning != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        overlapWarning!,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.play_arrow),
-                    title: const Text('开始'),
-                    subtitle: Text(_formatDateTime(start)),
-                    onTap: () =>
-                        pickDateTime(isStart: true, setState: setState),
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.stop),
-                    title: const Text('结束'),
-                    subtitle: Text(_formatDateTime(end)),
-                    onTap: () =>
-                        pickDateTime(isStart: false, setState: setState),
-                  ),
-                  TextField(
-                    controller: noteController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: '备注',
-                      prefixIcon: Icon(Icons.notes_outlined),
-                    ),
-                  ),
-                  if (overlapWarning != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      overlapWarning!,
-                      style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
                   ],
-                ],
-              ),
-            ),
-            actions: [
-              if (entry != null)
-                TextButton.icon(
-                  onPressed: () async {
-                    await state.deleteEntry(entry);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
                 ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
               ),
-              FilledButton.icon(
-                onPressed: () async {
-                  if (!end.isAfter(start)) {
-                    setState(() => overlapWarning = '结束时间必须晚于开始时间。');
-                    return;
-                  }
-                  final next = TimeEntry(
-                    id: entry?.id ?? 'preview',
-                    userId: entry?.userId,
-                    activityId: activity.id,
-                    startAt: start,
-                    endAt: end,
-                    note: noteController.text.trim(),
-                    deviceId: entry?.deviceId ?? 'manual-entry',
-                    updatedAt: DateTime.now(),
-                    isDeleted: false,
-                  );
-                  final overlaps = await state.overlaps(next);
-                  if (overlaps.isNotEmpty && overlapWarning == null) {
-                    setState(() {
-                      overlapWarning = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
-                    });
-                    return;
-                  }
-                  if (entry == null) {
-                    await state.createManualEntry(
+              actions: [
+                if (entry != null)
+                  TextButton.icon(
+                    onPressed: () async {
+                      await state.deleteEntry(entry);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('删除'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                FilledButton.icon(
+                  onPressed: () async {
+                    if (!end.isAfter(start)) {
+                      setState(() => overlapWarning = '结束时间必须晚于开始时间。');
+                      return;
+                    }
+                    final next = TimeEntry(
+                      id: entry?.id ?? 'preview',
+                      userId: entry?.userId,
                       activityId: activity.id,
                       startAt: start,
                       endAt: end,
                       note: noteController.text.trim(),
+                      deviceId: entry?.deviceId ?? 'manual-entry',
+                      updatedAt: DateTime.now(),
+                      isDeleted: false,
                     );
-                  } else {
-                    await state.saveEntry(next);
-                  }
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                  }
-                },
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('保存'),
-              ),
-            ],
+                    final overlaps = await state.overlaps(next);
+                    if (overlaps.isNotEmpty && overlapWarning == null) {
+                      setState(() {
+                        overlapWarning = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
+                      });
+                      return;
+                    }
+                    if (entry == null) {
+                      await state.createManualEntry(
+                        activityId: activity.id,
+                        startAt: start,
+                        endAt: end,
+                        note: noteController.text.trim(),
+                      );
+                    } else {
+                      await state.saveEntry(next);
+                    }
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('保存'),
+                ),
+              ],
+            ),
           );
         },
       );
