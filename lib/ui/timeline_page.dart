@@ -63,6 +63,19 @@ class TimelinePage extends StatefulWidget {
 class _TimelinePageState extends State<TimelinePage> {
   TimelineViewMode _mode = TimelineViewMode.coverage;
 
+  Future<void> _pickDate() async {
+    final state = widget.state;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: state.selectedDay,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      await state.selectDay(date);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
@@ -72,6 +85,8 @@ class _TimelinePageState extends State<TimelinePage> {
         final entries = state.visibleDayEntries();
         final logs = [...state.dayActionLogs]
           ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+        final isFutureDay =
+            state.selectedDay.startOfDay.isAfter(state.now.startOfDay);
         return AdaptivePage(
           pageKey: const PageStorageKey('timeline-page'),
           children: [
@@ -84,10 +99,13 @@ class _TimelinePageState extends State<TimelinePage> {
               onNextDay: () => state.selectDay(
                 state.selectedDay.add(const Duration(days: 1)),
               ),
+              onDateTap: _pickDate,
               onModeChanged: (value) => setState(() => _mode = value),
               onAddEntry: () => showEntryEditor(context, state),
             ),
             const SectionGap(),
+            if (isFutureDay)
+              FutureDayBanner(selectedDay: state.selectedDay),
             if (_mode == TimelineViewMode.coverage) ...[
               DayCoverageCard(state: state, entries: entries),
               const SizedBox(height: 14),
@@ -135,6 +153,7 @@ class TimelineHeader extends StatelessWidget {
     required this.mode,
     required this.onPreviousDay,
     required this.onNextDay,
+    required this.onDateTap,
     required this.onModeChanged,
     required this.onAddEntry,
     super.key,
@@ -144,6 +163,7 @@ class TimelineHeader extends StatelessWidget {
   final TimelineViewMode mode;
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
+  final VoidCallback onDateTap;
   final ValueChanged<TimelineViewMode> onModeChanged;
   final VoidCallback onAddEntry;
 
@@ -159,6 +179,7 @@ class TimelineHeader extends StatelessWidget {
       selectedDay: selectedDay,
       onPreviousDay: onPreviousDay,
       onNextDay: onNextDay,
+      onDateTap: onDateTap,
     );
     final modeSelector = SegmentedButton<TimelineViewMode>(
       segments: const [
@@ -230,11 +251,13 @@ class _DaySelector extends StatelessWidget {
     required this.selectedDay,
     required this.onPreviousDay,
     required this.onNextDay,
+    required this.onDateTap,
   });
 
   final DateTime selectedDay;
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
+  final VoidCallback onDateTap;
 
   @override
   Widget build(BuildContext context) {
@@ -254,9 +277,27 @@ class _DaySelector extends StatelessWidget {
           ),
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 104),
-            child: Text(
-              DateFormat('yyyy-MM-dd').format(selectedDay),
-              textAlign: TextAlign.center,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(4),
+              onTap: onDateTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      DateFormat('yyyy-MM-dd').format(selectedDay),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           IconButton(
@@ -265,6 +306,48 @@ class _DaySelector extends StatelessWidget {
             icon: const Icon(Icons.chevron_right),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class FutureDayBanner extends StatelessWidget {
+  const FutureDayBanner({required this.selectedDay, super.key});
+
+  final DateTime selectedDay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        color: Theme.of(context)
+            .colorScheme
+            .tertiaryContainer
+            .withValues(alpha: 0.6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 20,
+                color: Theme.of(context).colorScheme.onTertiaryContainer,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${DateFormat('yyyy-MM-dd').format(selectedDay)} 尚未到来。'
+                  '记录会在这一天实际发生后才出现在这里。',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color:
+                            Theme.of(context).colorScheme.onTertiaryContainer,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

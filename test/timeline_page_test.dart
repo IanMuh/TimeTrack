@@ -146,4 +146,31 @@ void main() {
     expect(find.text('关闭后可把这条记录保存为已结束。'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('date text shows calendar icon', (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+
+    await _pumpTimeline(tester, state, width: 920);
+
+    expect(find.byIcon(Icons.calendar_today), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('future day shows banner when selectedDay is ahead of now',
+      (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+
+    state
+      ..selectedDay = DateTime(2026, 1, 10)
+      ..now = DateTime(2026, 1, 2, 12);
+
+    await _pumpTimeline(tester, state, width: 920);
+
+    expect(find.textContaining('尚未到来'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

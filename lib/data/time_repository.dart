@@ -404,6 +404,25 @@ class TimeRepository {
     return rows.map(TimeEntry.fromMap).toList();
   }
 
+  /// Returns entries that overlap with [start, end).
+  /// [end] is exclusive: an entry starting exactly at [end] is excluded.
+  Future<List<TimeEntry>> entriesForRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    final db = await _database.db;
+    final endStr = end.toUtc().toIso8601String();
+    final startStr = start.toUtc().toIso8601String();
+    final rows = await db.query(
+      'time_entries',
+      where:
+          'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) >= ?',
+      whereArgs: [endStr, endStr, startStr],
+      orderBy: 'start_at asc',
+    );
+    return rows.map(TimeEntry.fromMap).toList();
+  }
+
   Future<List<TimeEntry>> entriesSince(DateTime since) async {
     final db = await _database.db;
     final rows = await db.query(
