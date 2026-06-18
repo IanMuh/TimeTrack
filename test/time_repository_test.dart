@@ -19,6 +19,57 @@ Future<TimeRepository> buildRepository() async {
 }
 
 void main() {
+  test('seed data includes editable unassigned activity', () async {
+    final repository = await buildRepository();
+
+    final unassigned = (await repository.activities())
+        .singleWhere((activity) => activity.isUnassigned);
+
+    expect(unassigned.name, '未安排');
+
+    final updated = await repository.updateActivity(
+      activity: unassigned,
+      name: '空档',
+      color: 0xff475569,
+    );
+    await repository.ensureSeedData();
+
+    final activities = await repository.activities();
+    expect(updated.isUnassigned, isTrue);
+    expect(
+      activities.singleWhere((activity) => activity.isUnassigned).name,
+      '空档',
+    );
+  });
+
+  test('seed data upgrades legacy unassigned activity by name', () async {
+    sqfliteFfiInit();
+    final db = await databaseFactoryFfi.openDatabase(
+      inMemoryDatabasePath,
+      options: OpenDatabaseOptions(singleInstance: false),
+    );
+    await LocalDatabase.createSchema(db);
+    await db.insert('activities', {
+      'id': 'legacy',
+      'user_id': null,
+      'name': '未安排',
+      'color': 0xff111111,
+      'is_favorite': 1,
+      'updated_at': DateTime(2026, 1, 1).toIso8601String(),
+      'is_deleted': 0,
+      'is_unassigned': 0,
+    });
+    final repository = TimeRepository(database: LocalDatabase(database: db));
+
+    await repository.ensureSeedData();
+
+    final unassigned = (await repository.activities())
+        .where((activity) => activity.isUnassigned);
+    expect(unassigned, hasLength(1));
+    expect(unassigned.single.id, 'legacy');
+    expect(unassigned.single.isFavorite, isFalse);
+  });
+
   test('switching activities closes previous running entry', () async {
     final repository = await buildRepository();
     final activities = await repository.activities();

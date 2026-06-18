@@ -23,7 +23,7 @@ class LocalDatabase {
     final dbPath = p.join(appDir.path, 'timetrack.sqlite');
     _database = await openDatabase(
       dbPath,
-      version: 5,
+      version: 6,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
@@ -47,6 +47,9 @@ class LocalDatabase {
     if (oldVersion < 5) {
       await migrateProfileSettingsReminderSchema(db);
     }
+    if (oldVersion < 6) {
+      await migrateUnassignedActivitySchema(db);
+    }
   }
 
   static Future<void> createSchema(Database db) async {
@@ -58,7 +61,8 @@ class LocalDatabase {
         color integer not null,
         is_favorite integer not null default 1,
         updated_at text not null,
-        is_deleted integer not null default 0
+        is_deleted integer not null default 0,
+        is_unassigned integer not null default 0
       )
     ''');
 
@@ -170,6 +174,15 @@ class LocalDatabase {
       table: 'profile_settings',
       column: 'reminder_time_of_day_minutes',
       definition: 'integer not null default 540',
+    );
+  }
+
+  static Future<void> migrateUnassignedActivitySchema(Database db) async {
+    await _addColumnIfMissing(
+      db,
+      table: 'activities',
+      column: 'is_unassigned',
+      definition: 'integer not null default 0',
     );
   }
 

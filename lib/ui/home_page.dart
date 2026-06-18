@@ -328,7 +328,7 @@ Future<Activity?> showActivityEditorDialog(
               ),
             ),
             actions: [
-              if (activity != null)
+              if (activity != null && !activity.isUnassigned)
                 TextButton.icon(
                   onPressed: () async {
                     final confirmed = await showDialog<bool>(
