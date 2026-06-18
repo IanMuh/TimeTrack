@@ -153,6 +153,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('entry editor avoids overflow while editing current activity', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final entry = _entry(
+      id: 'entry',
+      startAt: DateTime(2026, 1, 2, 9),
+      endAt: DateTime(2026, 1, 2, 10),
+    );
+    state.dayEntries = [entry];
+
+    await _pumpTimeline(tester, state, width: 360);
+    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('列表').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑当前事项'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AlertDialog, '编辑事项'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('date text shows calendar icon', (tester) async {
     final fixture = _buildFixture();
     final state = fixture.state;

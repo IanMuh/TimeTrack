@@ -1503,10 +1503,8 @@ Future<void> showEntryEditor(
     });
   }
 
-  await showModalBottomSheet<void>(
+  await showDialog<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
@@ -1524,73 +1522,44 @@ Future<void> showEntryEditor(
             activity = findActivity(selected.id) ?? selected;
           }
 
-          final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: AlertDialog(
-              title: Text(entry == null ? '补记时间段' : '编辑时间段'),
-              content: SingleChildScrollView(
+          return AlertDialog(
+            title: Text(entry == null ? '补记时间段' : '编辑时间段'),
+            content: SizedBox(
+              width: _dialogContentWidth(context, maxWidth: 460),
+              child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            key: ValueKey(activity.id),
-                            initialValue: findActivity(activity.id)?.id,
-                            decoration: const InputDecoration(
-                              labelText: '事项',
-                              prefixIcon: Icon(Icons.label_outline),
-                            ),
-                            items: [
-                              for (final item in activities)
-                                DropdownMenuItem(
-                                  value: item.id,
-                                  child: Text(item.name),
-                                ),
-                            ],
-                            onChanged: (value) {
-                              final selected =
-                                  value == null ? null : findActivity(value);
-                              if (selected != null) {
-                                setState(() => activity = selected);
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton.filledTonal(
-                          tooltip: '新增事项',
-                          onPressed: () async {
-                            final created = await showActivityEditorDialog(
-                              context,
-                              state,
-                            );
-                            if (created != null) {
-                              setState(() => refreshActivities(created));
-                            }
-                          },
-                          icon: const Icon(Icons.add),
-                        ),
-                        IconButton(
-                          tooltip: '编辑当前事项',
-                          onPressed: () async {
-                            final updated = await showActivityEditorDialog(
-                              context,
-                              state,
-                              activity: activity,
-                            );
-                            if (updated != null) {
-                              setState(() => refreshActivities(updated));
-                            }
-                          },
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                      ],
+                    _EntryActivitySelector(
+                      activity: activity,
+                      activities: activities,
+                      selectedActivityId: findActivity(activity.id)?.id,
+                      onActivityChanged: (value) {
+                        final selected =
+                            value == null ? null : findActivity(value);
+                        if (selected != null) {
+                          setState(() => activity = selected);
+                        }
+                      },
+                      onCreateActivity: () async {
+                        final created = await showActivityEditorDialog(
+                          context,
+                          state,
+                        );
+                        if (created != null) {
+                          setState(() => refreshActivities(created));
+                        }
+                      },
+                      onEditActivity: () async {
+                        final updated = await showActivityEditorDialog(
+                          context,
+                          state,
+                          activity: activity,
+                        );
+                        if (updated != null) {
+                          setState(() => refreshActivities(updated));
+                        }
+                      },
                     ),
                     const SizedBox(height: 12),
                     ListTile(
@@ -1660,75 +1629,161 @@ Future<void> showEntryEditor(
                   ],
                 ),
               ),
-              actions: [
-                if (entry != null)
-                  TextButton.icon(
-                    onPressed: () async {
-                      await state.deleteEntry(entry);
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                      }
-                    },
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('删除'),
-                  ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-                FilledButton.icon(
+            ),
+            actions: [
+              if (entry != null)
+                TextButton.icon(
                   onPressed: () async {
-                    if (keepRunning && start.isAfter(state.now)) {
-                      setState(() => formError = '进行中的记录不能从未来开始。');
-                      return;
-                    }
-                    if (!keepRunning && !end.isAfter(start)) {
-                      setState(() => formError = '结束时间必须晚于开始时间。');
-                      return;
-                    }
-                    final next = TimeEntry(
-                      id: entry?.id ?? 'preview',
-                      userId: entry?.userId,
-                      activityId: activity.id,
-                      startAt: start,
-                      endAt: keepRunning ? null : end,
-                      note: noteController.text.trim(),
-                      deviceId: entry?.deviceId ?? 'manual-entry',
-                      updatedAt: DateTime.now(),
-                      isDeleted: false,
-                    );
-                    final overlaps = await state.overlaps(next);
-                    if (overlaps.isNotEmpty && formError == null) {
-                      setState(() {
-                        formError = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
-                      });
-                      return;
-                    }
-                    if (entry == null) {
-                      await state.createManualEntry(
-                        activityId: activity.id,
-                        startAt: start,
-                        endAt: end,
-                        note: noteController.text.trim(),
-                      );
-                    } else {
-                      await state.saveEntry(next);
-                    }
+                    await state.deleteEntry(entry);
                     if (context.mounted) {
                       Navigator.pop(context);
                     }
                   },
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('保存'),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
                 ),
-              ],
-            ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  if (keepRunning && start.isAfter(state.now)) {
+                    setState(() => formError = '进行中的记录不能从未来开始。');
+                    return;
+                  }
+                  if (!keepRunning && !end.isAfter(start)) {
+                    setState(() => formError = '结束时间必须晚于开始时间。');
+                    return;
+                  }
+                  final next = TimeEntry(
+                    id: entry?.id ?? 'preview',
+                    userId: entry?.userId,
+                    activityId: activity.id,
+                    startAt: start,
+                    endAt: keepRunning ? null : end,
+                    note: noteController.text.trim(),
+                    deviceId: entry?.deviceId ?? 'manual-entry',
+                    updatedAt: DateTime.now(),
+                    isDeleted: false,
+                  );
+                  final overlaps = await state.overlaps(next);
+                  if (overlaps.isNotEmpty && formError == null) {
+                    setState(() {
+                      formError = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
+                    });
+                    return;
+                  }
+                  if (entry == null) {
+                    await state.createManualEntry(
+                      activityId: activity.id,
+                      startAt: start,
+                      endAt: end,
+                      note: noteController.text.trim(),
+                    );
+                  } else {
+                    await state.saveEntry(next);
+                  }
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('保存'),
+              ),
+            ],
           );
         },
       );
     },
   );
   noteController.dispose();
+}
+
+class _EntryActivitySelector extends StatelessWidget {
+  const _EntryActivitySelector({
+    required this.activity,
+    required this.activities,
+    required this.selectedActivityId,
+    required this.onActivityChanged,
+    required this.onCreateActivity,
+    required this.onEditActivity,
+  });
+
+  final Activity activity;
+  final List<Activity> activities;
+  final String? selectedActivityId;
+  final ValueChanged<String?> onActivityChanged;
+  final VoidCallback onCreateActivity;
+  final VoidCallback onEditActivity;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = _dialogContentWidth(context, maxWidth: 460) < 340;
+    final dropdown = DropdownButtonFormField<String>(
+      key: ValueKey(activity.id),
+      initialValue: selectedActivityId,
+      decoration: const InputDecoration(
+        labelText: '事项',
+        prefixIcon: Icon(Icons.label_outline),
+      ),
+      items: [
+        for (final item in activities)
+          DropdownMenuItem(
+            value: item.id,
+            child: Text(
+              item.name,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: onActivityChanged,
+    );
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton.filledTonal(
+          tooltip: '新增事项',
+          onPressed: onCreateActivity,
+          icon: const Icon(Icons.add),
+        ),
+        IconButton(
+          tooltip: '编辑当前事项',
+          onPressed: onEditActivity,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+      ],
+    );
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          dropdown,
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: actions,
+          ),
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: dropdown),
+        const SizedBox(width: 8),
+        actions,
+      ],
+    );
+  }
+}
+
+double _dialogContentWidth(
+  BuildContext context, {
+  required double maxWidth,
+}) {
+  final availableWidth = MediaQuery.sizeOf(context).width - 128;
+  return availableWidth.clamp(0, maxWidth).toDouble();
 }
 
 DateTime _defaultEntryStart(DateTime selectedDay, DateTime now) {
