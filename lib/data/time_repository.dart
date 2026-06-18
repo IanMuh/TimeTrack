@@ -15,12 +15,13 @@ class TimeRepository {
     String? deviceId,
     Uuid? uuid,
   })  : _database = database,
-        _deviceId = deviceId ?? 'local-device',
+        _deviceIdOverride = deviceId,
         _uuid = uuid ?? const Uuid();
 
   final LocalDatabase _database;
-  final String _deviceId;
+  final String? _deviceIdOverride;
   final Uuid _uuid;
+  String? _cachedDeviceId;
 
   Future<void> ensureSeedData() async {
     final db = await _database.db;
@@ -255,6 +256,7 @@ class TimeRepository {
 
   Future<TimeEntry> switchToActivity(String activityId, {DateTime? at}) async {
     final now = at ?? DateTime.now();
+    final deviceId = await currentDeviceId();
     final db = await _database.db;
     late TimeEntry next;
     String? previousActivityId;
@@ -290,7 +292,7 @@ class TimeRepository {
         startAt: now,
         endAt: null,
         note: '',
-        deviceId: _deviceId,
+        deviceId: deviceId,
         updatedAt: now,
         isDeleted: false,
       );
@@ -355,6 +357,7 @@ class TimeRepository {
     String? userId,
   }) async {
     final now = DateTime.now();
+    final deviceId = await currentDeviceId();
     final entry = TimeEntry(
       id: _uuid.v4(),
       userId: userId,
@@ -362,7 +365,7 @@ class TimeRepository {
       startAt: startAt,
       endAt: endAt,
       note: note,
-      deviceId: _deviceId,
+      deviceId: deviceId,
       updatedAt: now,
       isDeleted: false,
     );
@@ -401,17 +404,22 @@ class TimeRepository {
     return rows.map(TimeEntry.fromMap).toList();
   }
 
-  Future<List<TimeEntry>> entriesForRange(DateTime start, DateTime end) async {
-    if (end.isBefore(start)) {
+  /// Returns entries that overlap with [start, end).
+  /// [end] is exclusive: an entry starting exactly at [end] is excluded.
+  Future<List<TimeEntry>> entriesForRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (!start.isBefore(end)) {
       return const [];
     }
     final db = await _database.db;
-    final startValue = start.toUtc().toIso8601String();
-    final endValue = end.toUtc().toIso8601String();
+    final endStr = end.toUtc().toIso8601String();
+    final startStr = start.toUtc().toIso8601String();
     final rows = await db.query(
       'time_entries',
-      where: 'is_deleted = 0 and start_at <= ? and coalesce(end_at, ?) >= ?',
-      whereArgs: [endValue, endValue, startValue],
+      where: 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) >= ?',
+      whereArgs: [endStr, endStr, startStr],
       orderBy: 'start_at asc',
     );
     return rows.map(TimeEntry.fromMap).toList();
@@ -454,7 +462,7 @@ class TimeRepository {
     DateTime start,
     DateTime end,
   ) async {
-    if (end.isBefore(start)) {
+    if (!start.isBefore(end)) {
       return const [];
     }
     final db = await _database.db;
@@ -462,7 +470,7 @@ class TimeRepository {
     final endValue = end.toUtc().toIso8601String();
     final rows = await db.query(
       'action_logs',
-      where: 'is_deleted = 0 and occurred_at >= ? and occurred_at <= ?',
+      where: 'is_deleted = 0 and occurred_at >= ? and occurred_at < ?',
       whereArgs: [startValue, endValue],
       orderBy: 'occurred_at asc',
     );
@@ -497,6 +505,7 @@ class TimeRepository {
     required String message,
   }) async {
     final db = await _database.db;
+    await currentDeviceId();
     await db.insert(
       'action_logs',
       _buildActionLog(
@@ -611,7 +620,38 @@ class TimeRepository {
   }
 
   Future<String> currentDeviceId() async {
-    return _deviceId;
+    final override = _deviceIdOverride;
+    if (override != null) {
+      return override;
+    }
+
+    final cached = _cachedDeviceId;
+    if (cached != null) {
+      return cached;
+    }
+
+    final db = await _database.db;
+    final rows = await db.query(
+      'app_metadata',
+      columns: ['value'],
+      where: 'key = ?',
+      whereArgs: ['device_id'],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      final value = rows.first['value'] as String;
+      _cachedDeviceId = value;
+      return value;
+    }
+
+    final value = _uuid.v4();
+    await db.insert(
+      'app_metadata',
+      {'key': 'device_id', 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    _cachedDeviceId = value;
+    return value;
   }
 
   Future<void> normalizeRunningEntriesAfterMerge() async {
@@ -674,7 +714,7 @@ class TimeRepository {
       entryId: entryId,
       message: message,
       occurredAt: occurredAt,
-      deviceId: _deviceId,
+      deviceId: _deviceIdOverride ?? _cachedDeviceId ?? 'local-device',
       updatedAt: DateTime.now(),
       isDeleted: false,
     );

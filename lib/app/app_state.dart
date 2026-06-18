@@ -12,6 +12,7 @@ import '../data/time_repository.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
 import '../domain/profile_settings.dart';
+import '../domain/stats_period.dart';
 import '../domain/time_entry.dart';
 
 class AppState extends ChangeNotifier {
@@ -60,7 +61,7 @@ class AppState extends ChangeNotifier {
 
   bool get hasSyncTarget => isSignedIn || hasLanPeer;
 
-  bool get canHostLan => Platform.isWindows;
+  bool get canHostLan => Platform.isWindows || Platform.isAndroid;
 
   bool get isLanServerRunning => _lanSyncServer.isRunning;
 
@@ -90,9 +91,27 @@ class AppState extends ChangeNotifier {
       return false;
     }
     final reminderDuration = Duration(minutes: settings.reminderMinutes);
+    final reminderStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).add(Duration(minutes: settings.reminderTimeOfDayMinutes));
     final recentlyReminded = lastReminderAt != null &&
-        now.difference(lastReminderAt!) < const Duration(minutes: 5);
-    return entry.durationUntil(now) >= reminderDuration && !recentlyReminded;
+        now.difference(lastReminderAt!) <
+            Duration(minutes: settings.reminderIntervalMinutes);
+    return !now.isBefore(reminderStart) &&
+        entry.durationUntil(now) >= reminderDuration &&
+        !recentlyReminded;
+  }
+
+  bool get shouldShowReminderDialog {
+    return shouldShowReminder &&
+        settings.reminderMethod == ReminderMethod.dialog;
+  }
+
+  bool get shouldShowReminderBanner {
+    return shouldShowReminder &&
+        settings.reminderMethod == ReminderMethod.banner;
   }
 
   bool get hasSuspiciousRunningEntry {
@@ -150,7 +169,7 @@ class AppState extends ChangeNotifier {
   Future<void> switchTo(Activity activity) async {
     await _repository.switchToActivity(activity.id);
     await refresh();
-    await sync();
+    unawaited(sync());
   }
 
   Future<void> stopCurrent() async {
@@ -165,7 +184,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> snoozeReminder() async {
-    lastReminderAt = DateTime.now().add(const Duration(minutes: 10));
+    lastReminderAt = DateTime.now();
     notifyListeners();
   }
 
@@ -278,13 +297,25 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> updateReminderMinutes(int minutes) async {
+    await updateReminderSettings(reminderMinutes: minutes);
+  }
+
+  Future<void> updateReminderSettings({
+    int? reminderMinutes,
+    int? reminderIntervalMinutes,
+    ReminderMethod? reminderMethod,
+    int? reminderTimeOfDayMinutes,
+  }) async {
     settings = settings.copyWith(
-      reminderMinutes: minutes,
+      reminderMinutes: reminderMinutes,
+      reminderIntervalMinutes: reminderIntervalMinutes,
+      reminderMethod: reminderMethod,
+      reminderTimeOfDayMinutes: reminderTimeOfDayMinutes,
       updatedAt: DateTime.now(),
     );
     await _repository.saveSettings(settings);
-    await sync();
     notifyListeners();
+    unawaited(sync());
   }
 
   Future<void> sendMagicLink(String email) async {
@@ -312,12 +343,36 @@ class AppState extends ChangeNotifier {
     isSyncing = true;
     notifyListeners();
     try {
+      final errors = <String>[];
+      var lanSynced = false;
       if (isSignedIn) {
-        await _syncService.sync();
-      } else {
-        await _lanSyncClient.syncNow();
+        try {
+          await _syncService.sync();
+        } catch (error) {
+          errors.add('云同步：$error');
+        }
+      }
+      if (hasLanPeer) {
+        try {
+          await _lanSyncClient.syncNow();
+          lanSynced = true;
+        } catch (error) {
+          errors.add('局域网同步：$error');
+        }
+      }
+      if (isSignedIn && lanSynced) {
+        try {
+          await _syncService.sync();
+        } catch (error) {
+          errors.add('云同步回传：$error');
+        }
       }
       await refresh();
+      if (errors.isEmpty) {
+        errorMessage = null;
+      } else {
+        errorMessage = '同步部分失败：${errors.join('；')}';
+      }
     } catch (error) {
       errorMessage = '同步失败：$error';
     } finally {
@@ -398,27 +453,99 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, Duration> todayTotals() {
-    return _totalsFor(dayEntries, now);
+    return _totalsInWindow(dayEntries, selectedDay.startOfDay,
+        selectedDay.startOfDay.add(const Duration(days: 1)), now);
   }
 
   Future<Map<String, Duration>> weekTotals() async {
-    final start = selectedDay.subtract(Duration(days: selectedDay.weekday - 1));
-    final totals = <String, Duration>{};
-    for (var i = 0; i < 7; i += 1) {
-      final entries =
-          await _repository.entriesForDay(start.add(Duration(days: i)));
-      final dayTotals = _totalsFor(entries, now);
-      for (final item in dayTotals.entries) {
-        totals[item.key] = (totals[item.key] ?? Duration.zero) + item.value;
+    return totalsForPeriod(StatsPeriod.week);
+  }
+
+  Future<Map<String, Duration>> totalsForPeriod(StatsPeriod period) async {
+    final (start, end) = period.windowFor(selectedDay);
+    if (period == StatsPeriod.day) {
+      return _totalsInWindow(dayEntries, start, end, now);
+    }
+    List<TimeEntry> entries;
+    if (period == StatsPeriod.all) {
+      entries = await _repository.allEntries();
+      final filtered = <TimeEntry>[];
+      for (final entry in entries) {
+        if (!entry.isDeleted) {
+          filtered.add(entry);
+        }
       }
+      entries = filtered;
+    } else {
+      entries = await _repository.entriesForRange(start, end);
+    }
+    return _totalsInWindow(entries, start, end, now);
+  }
+
+  Duration longestBlock() {
+    final dayStart = selectedDay.startOfDay;
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    return _longestInWindow(dayEntries, dayStart, dayEnd, now);
+  }
+
+  Future<Duration> longestBlockForPeriod(StatsPeriod period) async {
+    final (start, end) = period.windowFor(selectedDay);
+    if (period == StatsPeriod.day) {
+      return _longestInWindow(dayEntries, start, end, now);
+    }
+    List<TimeEntry> entries;
+    if (period == StatsPeriod.all) {
+      entries = await _repository.allEntries();
+      // For "all", don't clip — use full durations.
+      var longest = Duration.zero;
+      for (final entry in entries) {
+        if (entry.isDeleted) continue;
+        final duration = entry.durationUntil(now);
+        if (duration > longest) {
+          longest = duration;
+        }
+      }
+      return longest;
+    }
+    entries = await _repository.entriesForRange(start, end);
+    return _longestInWindow(entries, start, end, now);
+  }
+
+  Map<String, Duration> _totalsInWindow(
+    List<TimeEntry> entries,
+    DateTime windowStart,
+    DateTime windowEnd,
+    DateTime effectiveNow,
+  ) {
+    final totals = <String, Duration>{};
+    for (final entry in entries) {
+      final duration = entry.durationInWindow(
+        windowStart: windowStart,
+        windowEnd: windowEnd,
+        now: effectiveNow,
+      );
+      if (duration == Duration.zero) {
+        continue;
+      }
+      totals[entry.activityId] =
+          (totals[entry.activityId] ?? Duration.zero) + duration;
     }
     return totals;
   }
 
-  Duration longestBlock() {
+  Duration _longestInWindow(
+    List<TimeEntry> entries,
+    DateTime windowStart,
+    DateTime windowEnd,
+    DateTime effectiveNow,
+  ) {
     var longest = Duration.zero;
-    for (final entry in dayEntries) {
-      final duration = entry.durationUntil(now);
+    for (final entry in entries) {
+      final duration = entry.durationInWindow(
+        windowStart: windowStart,
+        windowEnd: windowEnd,
+        now: effectiveNow,
+      );
       if (duration > longest) {
         longest = duration;
       }
@@ -433,18 +560,6 @@ class AppState extends ChangeNotifier {
       final entryEnd = entry.endAt ?? now;
       return entry.startAt.isBefore(end) && entryEnd.isAfter(start);
     }).toList();
-  }
-
-  Map<String, Duration> _totalsFor(
-    List<TimeEntry> entries,
-    DateTime effectiveNow,
-  ) {
-    final totals = <String, Duration>{};
-    for (final entry in entries) {
-      totals[entry.activityId] = (totals[entry.activityId] ?? Duration.zero) +
-          entry.durationUntil(effectiveNow);
-    }
-    return totals;
   }
 
   @override

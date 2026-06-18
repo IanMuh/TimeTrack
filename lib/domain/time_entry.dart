@@ -31,6 +31,27 @@ class TimeEntry {
     return effectiveEnd.difference(startAt);
   }
 
+  Duration durationInWindow({
+    required DateTime windowStart,
+    required DateTime windowEnd,
+    required DateTime now,
+  }) {
+    if (!windowStart.isBefore(windowEnd)) {
+      return Duration.zero;
+    }
+    final effectiveEnd = endAt ?? now;
+    if (!startAt.isBefore(windowEnd) || !effectiveEnd.isAfter(windowStart)) {
+      return Duration.zero;
+    }
+    final clippedStart = startAt.isAfter(windowStart) ? startAt : windowStart;
+    final clippedEnd =
+        effectiveEnd.isBefore(windowEnd) ? effectiveEnd : windowEnd;
+    if (!clippedStart.isBefore(clippedEnd)) {
+      return Duration.zero;
+    }
+    return clippedEnd.difference(clippedStart);
+  }
+
   bool overlaps(TimeEntry other) {
     final thisEnd =
         endAt ?? DateTime.fromMillisecondsSinceEpoch(8640000000000000);

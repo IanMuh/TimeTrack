@@ -64,6 +64,7 @@ class _StatsPageState extends State<StatsPage> {
                     ? 1
                     : stats.totalDuration.inMinutes;
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _StatsMetrics(
                       totalDuration: stats.totalDuration,
@@ -91,12 +92,12 @@ class _StatsPageState extends State<StatsPage> {
     return switch (_preset) {
       StatsPreset.today => StatsRange(
           start: today,
-          end: today.endOfDay,
+          end: today.add(const Duration(days: 1)),
           label: '今天',
         ),
       StatsPreset.yesterday => StatsRange(
           start: today.subtract(const Duration(days: 1)),
-          end: today.subtract(const Duration(days: 1)).endOfDay,
+          end: today,
           label: '昨天',
         ),
       StatsPreset.thisWeek => _weekRange(today, '本周'),
@@ -106,7 +107,7 @@ class _StatsPageState extends State<StatsPage> {
         ),
       StatsPreset.customDay => StatsRange(
           start: _customDay.startOfDay,
-          end: _customDay.endOfDay,
+          end: _customDay.startOfDay.add(const Duration(days: 1)),
           label: DateFormat('yyyy-MM-dd').format(_customDay),
         ),
     };
@@ -116,7 +117,7 @@ class _StatsPageState extends State<StatsPage> {
     final start = anchor.subtract(Duration(days: anchor.weekday - 1));
     return StatsRange(
       start: start.startOfDay,
-      end: start.add(const Duration(days: 6)).endOfDay,
+      end: start.startOfDay.add(const Duration(days: 7)),
       label: label,
     );
   }
@@ -164,6 +165,7 @@ class StatsHeader extends StatelessWidget {
       range.label,
       style: Theme.of(context).textTheme.titleMedium,
     );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < compactBreakpoint;
@@ -177,6 +179,7 @@ class StatsHeader extends StatelessWidget {
           icon: const Icon(Icons.event),
           label: const Text('选择日期'),
         );
+
         if (compact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -191,6 +194,7 @@ class StatsHeader extends StatelessWidget {
             ],
           );
         }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

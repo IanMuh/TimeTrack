@@ -23,7 +23,7 @@ class LocalDatabase {
     final dbPath = p.join(appDir.path, 'timetrack.sqlite');
     _database = await openDatabase(
       dbPath,
-      version: 3,
+      version: 5,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
@@ -40,6 +40,12 @@ class LocalDatabase {
     }
     if (oldVersion < 3) {
       await createSyncPeerSchema(db);
+    }
+    if (oldVersion < 4) {
+      await createAppMetadataSchema(db);
+    }
+    if (oldVersion < 5) {
+      await migrateProfileSettingsReminderSchema(db);
     }
   }
 
@@ -76,6 +82,9 @@ class LocalDatabase {
         id integer primary key check (id = 1),
         user_id text,
         reminder_minutes integer not null default 45,
+        reminder_interval_minutes integer not null default 10,
+        reminder_method text not null default 'dialog',
+        reminder_time_of_day_minutes integer not null default 540,
         timezone text not null,
         updated_at text not null
       )
@@ -90,6 +99,7 @@ class LocalDatabase {
 
     await createActionLogsSchema(db);
     await createSyncPeerSchema(db);
+    await createAppMetadataSchema(db);
   }
 
   static Future<void> createActionLogsSchema(Database db) async {
@@ -131,5 +141,48 @@ class LocalDatabase {
     await db.execute(
       'create index if not exists idx_sync_peers_kind on sync_peers(kind)',
     );
+  }
+
+  static Future<void> createAppMetadataSchema(Database db) async {
+    await db.execute('''
+      create table if not exists app_metadata (
+        key text primary key,
+        value text not null
+      )
+    ''');
+  }
+
+  static Future<void> migrateProfileSettingsReminderSchema(Database db) async {
+    await _addColumnIfMissing(
+      db,
+      table: 'profile_settings',
+      column: 'reminder_interval_minutes',
+      definition: 'integer not null default 10',
+    );
+    await _addColumnIfMissing(
+      db,
+      table: 'profile_settings',
+      column: 'reminder_method',
+      definition: "text not null default 'dialog'",
+    );
+    await _addColumnIfMissing(
+      db,
+      table: 'profile_settings',
+      column: 'reminder_time_of_day_minutes',
+      definition: 'integer not null default 540',
+    );
+  }
+
+  static Future<void> _addColumnIfMissing(
+    Database db, {
+    required String table,
+    required String column,
+    required String definition,
+  }) async {
+    final columns = await db.rawQuery('pragma table_info($table)');
+    final exists = columns.any((row) => row['name'] == column);
+    if (!exists) {
+      await db.execute('alter table $table add column $column $definition');
+    }
   }
 }

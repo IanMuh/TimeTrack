@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import '../domain/profile_settings.dart';
 import 'adaptive_layout.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -66,13 +67,28 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-class ReminderSettingsCard extends StatelessWidget {
+class ReminderSettingsCard extends StatefulWidget {
   const ReminderSettingsCard({required this.state, super.key});
 
   final AppState state;
 
   @override
+  State<ReminderSettingsCard> createState() => _ReminderSettingsCardState();
+}
+
+class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
+  double? _draftReminderMinutes;
+  double? _draftIntervalMinutes;
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
+    final settings = state.settings;
+    final reminderMinutes =
+        (_draftReminderMinutes ?? settings.reminderMinutes.toDouble()).round();
+    final intervalMinutes =
+        (_draftIntervalMinutes ?? settings.reminderIntervalMinutes.toDouble())
+            .round();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -86,52 +102,175 @@ class ReminderSettingsCard extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 420;
-                final slider = Slider(
-                  min: 15,
-                  max: 180,
-                  divisions: 11,
-                  value: state.settings.reminderMinutes.toDouble(),
-                  label: '${state.settings.reminderMinutes} 分钟',
-                  onChanged: (value) =>
-                      state.updateReminderMinutes(value.round()),
-                );
-                final label = Text(
-                  '${state.settings.reminderMinutes} 分钟',
-                  style: Theme.of(context).textTheme.titleMedium,
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.notifications_outlined),
-                          const SizedBox(width: 12),
-                          label,
-                        ],
-                      ),
-                      slider,
-                    ],
+            _ReminderField(
+              icon: Icons.schedule_outlined,
+              label: '触发时间',
+              value: _formatReminderTime(
+                context,
+                settings.reminderTimeOfDayMinutes,
+              ),
+              child: _ReminderTimeButton(
+                value: settings.reminderTimeOfDayMinutes,
+                onChanged: (value) => state.updateReminderSettings(
+                  reminderTimeOfDayMinutes: value,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _ReminderField(
+              icon: Icons.notifications_outlined,
+              label: '持续时间',
+              value: '$reminderMinutes 分钟',
+              child: Slider(
+                min: 15,
+                max: 180,
+                divisions: 11,
+                value: reminderMinutes.toDouble(),
+                label: '$reminderMinutes 分钟',
+                onChanged: (value) =>
+                    setState(() => _draftReminderMinutes = value),
+                onChangeEnd: (value) {
+                  _draftReminderMinutes = null;
+                  state.updateReminderSettings(reminderMinutes: value.round());
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            _ReminderField(
+              icon: Icons.timelapse_outlined,
+              label: '间隔',
+              value: _formatInterval(intervalMinutes),
+              child: Slider(
+                min: 5,
+                max: 60,
+                divisions: 11,
+                value: intervalMinutes.toDouble(),
+                label: _formatInterval(intervalMinutes),
+                onChanged: (value) =>
+                    setState(() => _draftIntervalMinutes = value),
+                onChangeEnd: (value) {
+                  _draftIntervalMinutes = null;
+                  state.updateReminderSettings(
+                    reminderIntervalMinutes: value.round(),
                   );
-                }
-                return Row(
-                  children: [
-                    const Icon(Icons.notifications_outlined),
-                    const SizedBox(width: 12),
-                    Expanded(child: slider),
-                    SizedBox(width: 80, child: label),
-                  ],
-                );
-              },
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            _ReminderField(
+              icon: Icons.notification_add_outlined,
+              label: '方式',
+              value: _formatMethod(settings.reminderMethod),
+              child: SegmentedButton<ReminderMethod>(
+                segments: const [
+                  ButtonSegment(
+                    value: ReminderMethod.dialog,
+                    icon: Icon(Icons.chat_bubble_outline),
+                    label: Text('对话框'),
+                  ),
+                  ButtonSegment(
+                    value: ReminderMethod.banner,
+                    icon: Icon(Icons.drafts_outlined),
+                    label: Text('横幅'),
+                  ),
+                  ButtonSegment(
+                    value: ReminderMethod.silent,
+                    icon: Icon(Icons.notifications_off_outlined),
+                    label: Text('静默'),
+                  ),
+                ],
+                selected: {settings.reminderMethod},
+                onSelectionChanged: (value) => state.updateReminderSettings(
+                  reminderMethod: value.first,
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _ReminderField extends StatelessWidget {
+  const _ReminderField({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon),
+            const SizedBox(width: 12),
+            Expanded(child: Text(label)),
+            Text(value, style: Theme.of(context).textTheme.titleSmall),
+          ],
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+}
+
+class _ReminderTimeButton extends StatelessWidget {
+  const _ReminderTimeButton({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final hours = value ~/ 60;
+    final minutes = value % 60;
+    final text = TimeOfDay(hour: hours, minute: minutes).format(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final picked = await showTimePicker(
+            context: context,
+            initialTime: TimeOfDay(hour: hours, minute: minutes),
+          );
+          if (picked != null) {
+            onChanged(picked.hour * 60 + picked.minute);
+          }
+        },
+        icon: const Icon(Icons.schedule),
+        label: Text(text),
+      ),
+    );
+  }
+}
+
+String _formatReminderTime(BuildContext context, int minutes) {
+  final time = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+  return time.format(context);
+}
+
+String _formatInterval(int minutes) => '$minutes 分钟';
+
+String _formatMethod(ReminderMethod method) {
+  return switch (method) {
+    ReminderMethod.dialog => '对话框',
+    ReminderMethod.banner => '横幅',
+    ReminderMethod.silent => '静默',
+  };
 }
 
 class CloudSyncSettingsCard extends StatelessWidget {

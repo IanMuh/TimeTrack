@@ -26,6 +26,47 @@ enum TimelineSpan {
   final int days;
 }
 
+class _VisibleEntryInterval {
+  const _VisibleEntryInterval({
+    required this.start,
+    required this.end,
+    required this.isRunningNow,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final bool isRunningNow;
+
+  Duration get duration => end.difference(start);
+}
+
+_VisibleEntryInterval _visibleEntryInterval(
+  TimeEntry entry,
+  DateTime selectedDay,
+  DateTime now,
+) {
+  final dayStart = selectedDay.startOfDay;
+  final dayEnd = dayStart.add(const Duration(days: 1));
+  final entryEnd = entry.endAt ?? now;
+  final visibleStart =
+      entry.startAt.isBefore(dayStart) ? dayStart : entry.startAt;
+  final visibleEnd = entryEnd.isAfter(dayEnd) ? dayEnd : entryEnd;
+  final isRunningNow =
+      entry.endAt == null && !now.isBefore(dayStart) && now.isBefore(dayEnd);
+  if (!visibleStart.isBefore(visibleEnd)) {
+    return _VisibleEntryInterval(
+      start: visibleStart,
+      end: visibleStart,
+      isRunningNow: false,
+    );
+  }
+  return _VisibleEntryInterval(
+    start: visibleStart,
+    end: visibleEnd,
+    isRunningNow: isRunningNow,
+  );
+}
+
 class TimelinePage extends StatefulWidget {
   const TimelinePage({required this.state, super.key});
 
@@ -41,6 +82,19 @@ class _TimelinePageState extends State<TimelinePage> {
   TimelineSpan _span = TimelineSpan.day;
   double _zoom = 1;
 
+  Future<void> _pickDate() async {
+    final state = widget.state;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: state.selectedDay,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      await state.selectDay(date);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
@@ -48,8 +102,9 @@ class _TimelinePageState extends State<TimelinePage> {
       animation: state,
       builder: (context, _) {
         final rangeStart = state.selectedDay.startOfDay;
-        final rangeEnd =
-            rangeStart.add(Duration(days: _span.days - 1)).endOfDay;
+        final isFutureDay =
+            state.selectedDay.startOfDay.isAfter(state.now.startOfDay);
+        final rangeEnd = rangeStart.add(Duration(days: _span.days));
         return AdaptivePage(
           pageKey: const PageStorageKey('timeline-page'),
           children: [
@@ -65,6 +120,7 @@ class _TimelinePageState extends State<TimelinePage> {
               onNextRange: () => state.selectDay(
                 state.selectedDay.add(Duration(days: _span.days)),
               ),
+              onDateTap: _pickDate,
               onModeChanged: (value) => setState(() => _mode = value),
               onDensityChanged: (value) => setState(() => _density = value),
               onSpanChanged: (value) => setState(() => _span = value),
@@ -72,6 +128,7 @@ class _TimelinePageState extends State<TimelinePage> {
               onAddEntry: () => showEntryEditor(context, state),
             ),
             const SectionGap(),
+            if (isFutureDay) FutureDayBanner(selectedDay: state.selectedDay),
             FutureBuilder<_TimelineRangeData>(
               future: _loadRangeData(state, rangeStart, rangeEnd),
               builder: (context, snapshot) {
@@ -146,6 +203,7 @@ class TimelineHeader extends StatelessWidget {
     required this.zoom,
     required this.onPreviousRange,
     required this.onNextRange,
+    required this.onDateTap,
     required this.onModeChanged,
     required this.onDensityChanged,
     required this.onSpanChanged,
@@ -161,6 +219,7 @@ class TimelineHeader extends StatelessWidget {
   final double zoom;
   final VoidCallback onPreviousRange;
   final VoidCallback onNextRange;
+  final VoidCallback onDateTap;
   final ValueChanged<TimelineViewMode> onModeChanged;
   final ValueChanged<TimelineDensity> onDensityChanged;
   final ValueChanged<TimelineSpan> onSpanChanged;
@@ -181,6 +240,7 @@ class TimelineHeader extends StatelessWidget {
       rangeEnd: rangeEnd,
       onPreviousDay: onPreviousRange,
       onNextDay: onNextRange,
+      onDateTap: onDateTap,
     );
 
     return LayoutBuilder(
@@ -400,12 +460,14 @@ class _DaySelector extends StatelessWidget {
     required this.rangeEnd,
     required this.onPreviousDay,
     required this.onNextDay,
+    required this.onDateTap,
   });
 
   final DateTime selectedDay;
   final DateTime rangeEnd;
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
+  final VoidCallback onDateTap;
 
   @override
   Widget build(BuildContext context) {
@@ -425,11 +487,32 @@ class _DaySelector extends StatelessWidget {
           ),
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 104, maxWidth: 172),
-            child: Text(
-              selectedDay.isSameDate(rangeEnd)
-                  ? DateFormat('yyyy-MM-dd').format(selectedDay)
-                  : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
-              textAlign: TextAlign.center,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(4),
+              onTap: onDateTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        selectedDay.isSameDate(rangeEnd)
+                            ? DateFormat('yyyy-MM-dd').format(selectedDay)
+                            : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           IconButton(
@@ -438,6 +521,48 @@ class _DaySelector extends StatelessWidget {
             icon: const Icon(Icons.chevron_right),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class FutureDayBanner extends StatelessWidget {
+  const FutureDayBanner({required this.selectedDay, super.key});
+
+  final DateTime selectedDay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        color: Theme.of(context)
+            .colorScheme
+            .tertiaryContainer
+            .withValues(alpha: 0.6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 20,
+                color: Theme.of(context).colorScheme.onTertiaryContainer,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${DateFormat('yyyy-MM-dd').format(selectedDay)} 尚未到来。'
+                  '记录会在这一天实际发生后才出现在这里。',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color:
+                            Theme.of(context).colorScheme.onTertiaryContainer,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -533,19 +658,17 @@ class _CoverageSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dayEnd = state.selectedDay.endOfDay;
-    final rawStart =
-        entry.startAt.isBefore(dayStart) ? dayStart : entry.startAt;
-    final rawEnd = (entry.endAt ?? state.now).isAfter(dayEnd)
-        ? dayEnd
-        : entry.endAt ?? state.now;
+    final interval = _visibleEntryInterval(entry, state.selectedDay, state.now);
     final startRatio =
-        rawStart.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
+        interval.start.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
     final endRatio =
-        rawEnd.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
+        interval.end.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
     final left = width * startRatio;
     final segmentWidth = (width * (endRatio - startRatio)).clamp(2.0, width);
     final activity = state.activityById(entry.activityId);
+    final endText = interval.isRunningNow
+        ? '进行中'
+        : _formatVisibleEndTime(interval, state.selectedDay);
 
     return Positioned(
       left: left,
@@ -553,7 +676,7 @@ class _CoverageSegment extends StatelessWidget {
       width: segmentWidth,
       child: Tooltip(
         message:
-            '${activity?.name ?? '未知事项'} ${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}',
+            '${activity?.name ?? '未知事项'} ${_formatTime(interval.start)} - $endText',
         child: Container(
           height: 20,
           decoration: BoxDecoration(
@@ -1144,8 +1267,11 @@ class TimelineEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final activity = state.activityById(entry.activityId);
     final color = Color(activity?.color ?? 0xff64748b);
-    final timeText =
-        '${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}';
+    final interval = _visibleEntryInterval(entry, state.selectedDay, state.now);
+    final endText = interval.isRunningNow
+        ? '进行中'
+        : _formatVisibleEndTime(interval, state.selectedDay);
+    final timeText = '${_formatTime(interval.start)} - $endText';
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -1167,8 +1293,7 @@ class TimelineEntryCard extends StatelessWidget {
               Expanded(
                 child: _TimelineEntryContent(
                   title: activity?.name ?? '未知事项',
-                  duration:
-                      formatDurationCompact(entry.durationUntil(state.now)),
+                  duration: formatDurationCompact(interval.duration),
                   timeText: timeText,
                   note: entry.note,
                 ),
@@ -1335,11 +1460,11 @@ Future<void> showEntryEditor(
   var activity = entry == null
       ? state.activities.first
       : state.activityById(entry.activityId) ?? state.activities.first;
-  var start = entry?.startAt ??
-      DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9);
-  var end = entry?.endAt ?? start.add(const Duration(hours: 1));
+  var start = entry?.startAt ?? _defaultEntryStart(selectedDay, state.now);
+  var end = entry?.endAt ?? _defaultEntryEnd(start, selectedDay, state.now);
+  var keepRunning = entry?.isRunning ?? false;
   final noteController = TextEditingController(text: entry?.note ?? '');
-  String? overlapWarning;
+  String? formError;
 
   Future<void> pickDateTime({
     required bool isStart,
@@ -1367,17 +1492,21 @@ Future<void> showEntryEditor(
     setState(() {
       if (isStart) {
         start = next;
-        if (!end.isAfter(start)) {
+        if (!keepRunning && !end.isAfter(start)) {
           end = start.add(const Duration(minutes: 30));
         }
       } else {
         end = next;
+        keepRunning = false;
       }
+      formError = null;
     });
   }
 
-  await showDialog<void>(
+  await showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
@@ -1395,171 +1524,252 @@ Future<void> showEntryEditor(
             activity = findActivity(selected.id) ?? selected;
           }
 
-          return AlertDialog(
-            title: Text(entry == null ? '补记时间段' : '编辑时间段'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          key: ValueKey(activity.id),
-                          initialValue: findActivity(activity.id)?.id,
-                          decoration: const InputDecoration(
-                            labelText: '事项',
-                            prefixIcon: Icon(Icons.label_outline),
+          final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: AlertDialog(
+              title: Text(entry == null ? '补记时间段' : '编辑时间段'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            key: ValueKey(activity.id),
+                            initialValue: findActivity(activity.id)?.id,
+                            decoration: const InputDecoration(
+                              labelText: '事项',
+                              prefixIcon: Icon(Icons.label_outline),
+                            ),
+                            items: [
+                              for (final item in activities)
+                                DropdownMenuItem(
+                                  value: item.id,
+                                  child: Text(item.name),
+                                ),
+                            ],
+                            onChanged: (value) {
+                              final selected =
+                                  value == null ? null : findActivity(value);
+                              if (selected != null) {
+                                setState(() => activity = selected);
+                              }
+                            },
                           ),
-                          items: [
-                            for (final item in activities)
-                              DropdownMenuItem(
-                                value: item.id,
-                                child: Text(item.name),
-                              ),
-                          ],
-                          onChanged: (value) {
-                            final selected =
-                                value == null ? null : findActivity(value);
-                            if (selected != null) {
-                              setState(() => activity = selected);
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
+                          tooltip: '新增事项',
+                          onPressed: () async {
+                            final created = await showActivityEditorDialog(
+                              context,
+                              state,
+                            );
+                            if (created != null) {
+                              setState(() => refreshActivities(created));
                             }
                           },
+                          icon: const Icon(Icons.add),
+                        ),
+                        IconButton(
+                          tooltip: '编辑当前事项',
+                          onPressed: () async {
+                            final updated = await showActivityEditorDialog(
+                              context,
+                              state,
+                              activity: activity,
+                            );
+                            if (updated != null) {
+                              setState(() => refreshActivities(updated));
+                            }
+                          },
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.play_arrow),
+                      title: const Text('开始'),
+                      subtitle: Text(_formatDateTime(start)),
+                      onTap: () =>
+                          pickDateTime(isStart: true, setState: setState),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.stop),
+                      title: const Text('结束'),
+                      subtitle: Text(
+                        keepRunning ? '保持进行中' : _formatDateTime(end),
+                      ),
+                      enabled: !keepRunning,
+                      onTap: keepRunning
+                          ? null
+                          : () => pickDateTime(
+                                isStart: false,
+                                setState: setState,
+                              ),
+                    ),
+                    if (entry?.isRunning ?? false)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: const Icon(Icons.timelapse_outlined),
+                        title: const Text('保持进行中'),
+                        subtitle: const Text('关闭后可把这条记录保存为已结束。'),
+                        value: keepRunning,
+                        onChanged: (value) {
+                          setState(() {
+                            keepRunning = value;
+                            if (!keepRunning && !end.isAfter(start)) {
+                              end = _defaultEntryEnd(
+                                start,
+                                selectedDay,
+                                state.now,
+                              );
+                            }
+                            formError = null;
+                          });
+                        },
+                      ),
+                    TextField(
+                      controller: noteController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: '备注',
+                        prefixIcon: Icon(Icons.notes_outlined),
+                      ),
+                    ),
+                    if (formError != null) ...[
+                      const SizedBox(height: 12),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          formError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        tooltip: '新增事项',
-                        onPressed: () async {
-                          final created = await showActivityEditorDialog(
-                            context,
-                            state,
-                          );
-                          if (created != null) {
-                            setState(() => refreshActivities(created));
-                          }
-                        },
-                        icon: const Icon(Icons.add),
-                      ),
-                      IconButton(
-                        tooltip: '编辑当前事项',
-                        onPressed: () async {
-                          final updated = await showActivityEditorDialog(
-                            context,
-                            state,
-                            activity: activity,
-                          );
-                          if (updated != null) {
-                            setState(() => refreshActivities(updated));
-                          }
-                        },
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.play_arrow),
-                    title: const Text('开始'),
-                    subtitle: Text(_formatDateTime(start)),
-                    onTap: () =>
-                        pickDateTime(isStart: true, setState: setState),
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.stop),
-                    title: const Text('结束'),
-                    subtitle: Text(_formatDateTime(end)),
-                    onTap: () =>
-                        pickDateTime(isStart: false, setState: setState),
-                  ),
-                  TextField(
-                    controller: noteController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: '备注',
-                      prefixIcon: Icon(Icons.notes_outlined),
-                    ),
-                  ),
-                  if (overlapWarning != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      overlapWarning!,
-                      style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-            actions: [
-              if (entry != null)
-                TextButton.icon(
+              actions: [
+                if (entry != null)
+                  TextButton.icon(
+                    onPressed: () async {
+                      await state.deleteEntry(entry);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('删除'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                FilledButton.icon(
                   onPressed: () async {
-                    await state.deleteEntry(entry);
+                    if (keepRunning && start.isAfter(state.now)) {
+                      setState(() => formError = '进行中的记录不能从未来开始。');
+                      return;
+                    }
+                    if (!keepRunning && !end.isAfter(start)) {
+                      setState(() => formError = '结束时间必须晚于开始时间。');
+                      return;
+                    }
+                    final next = TimeEntry(
+                      id: entry?.id ?? 'preview',
+                      userId: entry?.userId,
+                      activityId: activity.id,
+                      startAt: start,
+                      endAt: keepRunning ? null : end,
+                      note: noteController.text.trim(),
+                      deviceId: entry?.deviceId ?? 'manual-entry',
+                      updatedAt: DateTime.now(),
+                      isDeleted: false,
+                    );
+                    final overlaps = await state.overlaps(next);
+                    if (overlaps.isNotEmpty && formError == null) {
+                      setState(() {
+                        formError = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
+                      });
+                      return;
+                    }
+                    if (entry == null) {
+                      await state.createManualEntry(
+                        activityId: activity.id,
+                        startAt: start,
+                        endAt: end,
+                        note: noteController.text.trim(),
+                      );
+                    } else {
+                      await state.saveEntry(next);
+                    }
                     if (context.mounted) {
                       Navigator.pop(context);
                     }
                   },
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('保存'),
                 ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
-              ),
-              FilledButton.icon(
-                onPressed: () async {
-                  if (!end.isAfter(start)) {
-                    setState(() => overlapWarning = '结束时间必须晚于开始时间。');
-                    return;
-                  }
-                  final next = TimeEntry(
-                    id: entry?.id ?? 'preview',
-                    userId: entry?.userId,
-                    activityId: activity.id,
-                    startAt: start,
-                    endAt: end,
-                    note: noteController.text.trim(),
-                    deviceId: entry?.deviceId ?? 'manual-entry',
-                    updatedAt: DateTime.now(),
-                    isDeleted: false,
-                  );
-                  final overlaps = await state.overlaps(next);
-                  if (overlaps.isNotEmpty && overlapWarning == null) {
-                    setState(() {
-                      overlapWarning = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
-                    });
-                    return;
-                  }
-                  if (entry == null) {
-                    await state.createManualEntry(
-                      activityId: activity.id,
-                      startAt: start,
-                      endAt: end,
-                      note: noteController.text.trim(),
-                    );
-                  } else {
-                    await state.saveEntry(next);
-                  }
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                  }
-                },
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('保存'),
-              ),
-            ],
+              ],
+            ),
           );
         },
       );
     },
   );
+  noteController.dispose();
+}
+
+DateTime _defaultEntryStart(DateTime selectedDay, DateTime now) {
+  if (selectedDay.isSameDate(now)) {
+    final candidate = now.subtract(const Duration(hours: 1));
+    if (candidate.isAfter(selectedDay.startOfDay)) {
+      return DateTime(
+        candidate.year,
+        candidate.month,
+        candidate.day,
+        candidate.hour,
+        candidate.minute,
+      );
+    }
+  }
+  return DateTime(selectedDay.year, selectedDay.month, selectedDay.day, 9);
+}
+
+DateTime _defaultEntryEnd(DateTime start, DateTime selectedDay, DateTime now) {
+  final dayEnd = selectedDay.startOfDay.add(const Duration(days: 1));
+  final preferredEnd =
+      selectedDay.isSameDate(now) ? now : start.add(const Duration(hours: 1));
+  final cappedEnd = preferredEnd.isAfter(dayEnd) ? dayEnd : preferredEnd;
+  if (cappedEnd.isAfter(start)) {
+    return cappedEnd;
+  }
+  return start.add(const Duration(minutes: 30));
 }
 
 String _formatTime(DateTime value) => DateFormat('HH:mm:ss').format(value);
 
 String _formatDateTime(DateTime value) =>
     DateFormat('yyyy-MM-dd HH:mm:ss').format(value);
+
+String _formatVisibleEndTime(
+  _VisibleEntryInterval interval,
+  DateTime selectedDay,
+) {
+  final dayEnd = selectedDay.startOfDay.add(const Duration(days: 1));
+  if (interval.end == dayEnd) {
+    return '24:00:00';
+  }
+  return _formatTime(interval.end);
+}
