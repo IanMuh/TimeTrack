@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -9,7 +12,19 @@ import '../domain/time_entry.dart';
 import 'adaptive_layout.dart';
 import 'home_page.dart';
 
-enum TimelineViewMode { coverage, actions }
+enum TimelineViewMode { timeline, list, actions }
+
+enum TimelineDensity { compact, detailed }
+
+enum TimelineSpan {
+  day(1),
+  threeDays(3),
+  week(7);
+
+  const TimelineSpan(this.days);
+
+  final int days;
+}
 
 class TimelinePage extends StatefulWidget {
   const TimelinePage({required this.state, super.key});
@@ -21,7 +36,10 @@ class TimelinePage extends StatefulWidget {
 }
 
 class _TimelinePageState extends State<TimelinePage> {
-  TimelineViewMode _mode = TimelineViewMode.coverage;
+  TimelineViewMode _mode = TimelineViewMode.timeline;
+  TimelineDensity _density = TimelineDensity.detailed;
+  TimelineSpan _span = TimelineSpan.day;
+  double _zoom = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -29,86 +47,129 @@ class _TimelinePageState extends State<TimelinePage> {
     return AnimatedBuilder(
       animation: state,
       builder: (context, _) {
-        final entries = state.visibleDayEntries();
-        final logs = [...state.dayActionLogs]
-          ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+        final rangeStart = state.selectedDay.startOfDay;
+        final rangeEnd =
+            rangeStart.add(Duration(days: _span.days - 1)).endOfDay;
         return AdaptivePage(
           pageKey: const PageStorageKey('timeline-page'),
           children: [
             TimelineHeader(
               selectedDay: state.selectedDay,
               mode: _mode,
-              onPreviousDay: () => state.selectDay(
-                state.selectedDay.subtract(const Duration(days: 1)),
+              density: _density,
+              span: _span,
+              zoom: _zoom,
+              onPreviousRange: () => state.selectDay(
+                state.selectedDay.subtract(Duration(days: _span.days)),
               ),
-              onNextDay: () => state.selectDay(
-                state.selectedDay.add(const Duration(days: 1)),
+              onNextRange: () => state.selectDay(
+                state.selectedDay.add(Duration(days: _span.days)),
               ),
               onModeChanged: (value) => setState(() => _mode = value),
+              onDensityChanged: (value) => setState(() => _density = value),
+              onSpanChanged: (value) => setState(() => _span = value),
+              onZoomChanged: (value) => setState(() => _zoom = value),
               onAddEntry: () => showEntryEditor(context, state),
             ),
             const SectionGap(),
-            if (_mode == TimelineViewMode.coverage) ...[
-              DayCoverageCard(state: state, entries: entries),
-              const SizedBox(height: 14),
-              if (entries.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('这一天还没有记录。'),
-                  ),
-                )
-              else
-                for (final entry in entries)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: TimelineEntryCard(
+            FutureBuilder<_TimelineRangeData>(
+              future: _loadRangeData(state, rangeStart, rangeEnd),
+              builder: (context, snapshot) {
+                final data = snapshot.data ?? const _TimelineRangeData.empty();
+                return switch (_mode) {
+                  TimelineViewMode.timeline => RangeTimelineCard(
                       state: state,
-                      entry: entry,
+                      entries: data.entries,
+                      rangeStart: rangeStart,
+                      span: _span,
+                      density: _density,
+                      zoom: _zoom,
                     ),
-                  ),
-            ] else ...[
-              if (logs.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('这一天还没有切换或编辑指令。'),
-                  ),
-                )
-              else
-                for (final log in logs)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: ActionLogCard(state: state, log: log),
-                  ),
-            ],
+                  TimelineViewMode.list => _EntryList(
+                      state: state,
+                      entries: data.entries,
+                      emptyText: _span == TimelineSpan.day
+                          ? '这一天还没有记录。'
+                          : '这个范围还没有记录。',
+                    ),
+                  TimelineViewMode.actions => _ActionLogList(
+                      state: state,
+                      logs: data.logs,
+                      emptyText: _span == TimelineSpan.day
+                          ? '这一天还没有切换或编辑指令。'
+                          : '这个范围还没有切换或编辑指令。',
+                    ),
+                };
+              },
+            ),
           ],
         );
       },
     );
   }
+
+  Future<_TimelineRangeData> _loadRangeData(
+    AppState state,
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (_span == TimelineSpan.day) {
+      final entries = state.visibleDayEntries();
+      final logs = [...state.dayActionLogs]
+        ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+      return _TimelineRangeData(entries: entries, logs: logs);
+    }
+    final entries = await state.entriesForRange(start: start, end: end);
+    final logs = await state.actionLogsForRange(start: start, end: end);
+    logs.sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+    return _TimelineRangeData(entries: entries, logs: logs);
+  }
+}
+
+class _TimelineRangeData {
+  const _TimelineRangeData({required this.entries, required this.logs});
+
+  const _TimelineRangeData.empty()
+      : entries = const [],
+        logs = const [];
+
+  final List<TimeEntry> entries;
+  final List<ActionLog> logs;
 }
 
 class TimelineHeader extends StatelessWidget {
   const TimelineHeader({
     required this.selectedDay,
     required this.mode,
-    required this.onPreviousDay,
-    required this.onNextDay,
+    required this.density,
+    required this.span,
+    required this.zoom,
+    required this.onPreviousRange,
+    required this.onNextRange,
     required this.onModeChanged,
+    required this.onDensityChanged,
+    required this.onSpanChanged,
+    required this.onZoomChanged,
     required this.onAddEntry,
     super.key,
   });
 
   final DateTime selectedDay;
   final TimelineViewMode mode;
-  final VoidCallback onPreviousDay;
-  final VoidCallback onNextDay;
+  final TimelineDensity density;
+  final TimelineSpan span;
+  final double zoom;
+  final VoidCallback onPreviousRange;
+  final VoidCallback onNextRange;
   final ValueChanged<TimelineViewMode> onModeChanged;
+  final ValueChanged<TimelineDensity> onDensityChanged;
+  final ValueChanged<TimelineSpan> onSpanChanged;
+  final ValueChanged<double> onZoomChanged;
   final VoidCallback onAddEntry;
 
   @override
   Widget build(BuildContext context) {
+    final rangeEnd = selectedDay.add(Duration(days: span.days - 1));
     final title = Text(
       '时间轴',
       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -117,29 +178,57 @@ class TimelineHeader extends StatelessWidget {
     );
     final daySelector = _DaySelector(
       selectedDay: selectedDay,
-      onPreviousDay: onPreviousDay,
-      onNextDay: onNextDay,
-    );
-    final modeSelector = SegmentedButton<TimelineViewMode>(
-      segments: const [
-        ButtonSegment(
-          value: TimelineViewMode.coverage,
-          icon: Icon(Icons.timeline),
-          label: Text('覆盖'),
-        ),
-        ButtonSegment(
-          value: TimelineViewMode.actions,
-          icon: Icon(Icons.swap_horiz),
-          label: Text('指令'),
-        ),
-      ],
-      selected: {mode},
-      onSelectionChanged: (value) => onModeChanged(value.first),
+      rangeEnd: rangeEnd,
+      onPreviousDay: onPreviousRange,
+      onNextDay: onNextRange,
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < compactBreakpoint;
+        final modeSelector = _TimelineModeControl(
+          selectedMode: mode,
+          compact: compact,
+          onModeChanged: onModeChanged,
+        );
+        final densitySelector = SegmentedButton<TimelineDensity>(
+          segments: const [
+            ButtonSegment(
+              value: TimelineDensity.compact,
+              icon: Icon(Icons.density_small),
+              label: Text('紧凑'),
+            ),
+            ButtonSegment(
+              value: TimelineDensity.detailed,
+              icon: Icon(Icons.view_agenda_outlined),
+              label: Text('详细'),
+            ),
+          ],
+          selected: {density},
+          onSelectionChanged: (value) => onDensityChanged(value.first),
+        );
+        final spanSelector = SegmentedButton<TimelineSpan>(
+          segments: const [
+            ButtonSegment(
+              value: TimelineSpan.day,
+              label: Text('单日'),
+            ),
+            ButtonSegment(
+              value: TimelineSpan.threeDays,
+              label: Text('3日'),
+            ),
+            ButtonSegment(
+              value: TimelineSpan.week,
+              label: Text('7日'),
+            ),
+          ],
+          selected: {span},
+          onSelectionChanged: (value) => onSpanChanged(value.first),
+        );
+        final zoomControl = _TimelineZoomControl(
+          zoom: zoom,
+          onZoomChanged: onZoomChanged,
+        );
         if (compact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,6 +238,12 @@ class TimelineHeader extends StatelessWidget {
               daySelector,
               const SizedBox(height: 12),
               modeSelector,
+              const SizedBox(height: 10),
+              densitySelector,
+              const SizedBox(height: 10),
+              spanSelector,
+              const SizedBox(height: 10),
+              zoomControl,
               const SizedBox(height: 10),
               FilledButton.icon(
                 onPressed: onAddEntry,
@@ -169,13 +264,23 @@ class TimelineHeader extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Flexible(child: modeSelector),
+                Expanded(child: modeSelector),
+                const SizedBox(width: 12),
+                densitySelector,
                 const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: onAddEntry,
                   icon: const Icon(Icons.add),
                   label: const Text('补记'),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                spanSelector,
+                const SizedBox(width: 16),
+                Expanded(child: zoomControl),
               ],
             ),
           ],
@@ -185,14 +290,120 @@ class TimelineHeader extends StatelessWidget {
   }
 }
 
+class _TimelineModeControl extends StatelessWidget {
+  const _TimelineModeControl({
+    required this.selectedMode,
+    required this.compact,
+    required this.onModeChanged,
+  });
+
+  final TimelineViewMode selectedMode;
+  final bool compact;
+  final ValueChanged<TimelineViewMode> onModeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return DropdownButtonFormField<TimelineViewMode>(
+        initialValue: selectedMode,
+        decoration: const InputDecoration(
+          labelText: '视图',
+          prefixIcon: Icon(Icons.layers_outlined),
+        ),
+        items: [
+          for (final mode in TimelineViewMode.values)
+            DropdownMenuItem(
+              value: mode,
+              child: Text(_modeLabel(mode)),
+            ),
+        ],
+        onChanged: (value) {
+          if (value != null) {
+            onModeChanged(value);
+          }
+        },
+      );
+    }
+
+    return SegmentedButton<TimelineViewMode>(
+      segments: const [
+        ButtonSegment(
+          value: TimelineViewMode.timeline,
+          icon: Icon(Icons.timeline),
+          label: Text('时间线'),
+        ),
+        ButtonSegment(
+          value: TimelineViewMode.list,
+          icon: Icon(Icons.view_list_outlined),
+          label: Text('列表'),
+        ),
+        ButtonSegment(
+          value: TimelineViewMode.actions,
+          icon: Icon(Icons.swap_horiz),
+          label: Text('指令'),
+        ),
+      ],
+      selected: {selectedMode},
+      onSelectionChanged: (value) => onModeChanged(value.first),
+    );
+  }
+
+  String _modeLabel(TimelineViewMode mode) {
+    return switch (mode) {
+      TimelineViewMode.timeline => '时间线',
+      TimelineViewMode.list => '列表',
+      TimelineViewMode.actions => '指令',
+    };
+  }
+}
+
+class _TimelineZoomControl extends StatelessWidget {
+  const _TimelineZoomControl({
+    required this.zoom,
+    required this.onZoomChanged,
+  });
+
+  final double zoom;
+  final ValueChanged<double> onZoomChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.zoom_in, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Slider(
+            min: 0.25,
+            max: 3,
+            divisions: 11,
+            value: zoom,
+            label: '${zoom.toStringAsFixed(2)}x',
+            onChanged: onZoomChanged,
+          ),
+        ),
+        SizedBox(
+          width: 52,
+          child: Text(
+            '${zoom.toStringAsFixed(2)}x',
+            textAlign: TextAlign.end,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _DaySelector extends StatelessWidget {
   const _DaySelector({
     required this.selectedDay,
+    required this.rangeEnd,
     required this.onPreviousDay,
     required this.onNextDay,
   });
 
   final DateTime selectedDay;
+  final DateTime rangeEnd;
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
 
@@ -213,9 +424,11 @@ class _DaySelector extends StatelessWidget {
             icon: const Icon(Icons.chevron_left),
           ),
           ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 104),
+            constraints: const BoxConstraints(minWidth: 104, maxWidth: 172),
             child: Text(
-              DateFormat('yyyy-MM-dd').format(selectedDay),
+              selectedDay.isSameDate(rangeEnd)
+                  ? DateFormat('yyyy-MM-dd').format(selectedDay)
+                  : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
               textAlign: TextAlign.center,
             ),
           ),
@@ -349,6 +562,570 @@ class _CoverageSegment extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class RangeTimelineCard extends StatefulWidget {
+  const RangeTimelineCard({
+    required this.state,
+    required this.entries,
+    required this.rangeStart,
+    required this.span,
+    required this.density,
+    required this.zoom,
+    super.key,
+  });
+
+  final AppState state;
+  final List<TimeEntry> entries;
+  final DateTime rangeStart;
+  final TimelineSpan span;
+  final TimelineDensity density;
+  final double zoom;
+
+  @override
+  State<RangeTimelineCard> createState() => _RangeTimelineCardState();
+}
+
+class _RangeTimelineCardState extends State<RangeTimelineCard> {
+  final ScrollController _horizontalController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
+        final metrics = _TimelineLayoutMetrics.forWidth(
+          compact: compact,
+          density: widget.density,
+          zoom: widget.zoom,
+        );
+        final canvasHeight =
+            metrics.timeScaleHeight + metrics.laneHeight * widget.span.days;
+        return Card(
+          child: Padding(
+            padding: EdgeInsets.all(metrics.cardPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '可缩放时间线',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                if (compact)
+                  _ScrollableTimelineCanvas(
+                    controller: _horizontalController,
+                    width: metrics.dayWidth,
+                    height: canvasHeight,
+                    child: _TimelineCanvas(
+                      state: widget.state,
+                      entries: widget.entries,
+                      rangeStart: widget.rangeStart,
+                      span: widget.span,
+                      density: widget.density,
+                      metrics: metrics,
+                      showInlineDayLabels: true,
+                    ),
+                  )
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _TimelineDateColumn(
+                        rangeStart: widget.rangeStart,
+                        days: widget.span.days,
+                        laneHeight: metrics.laneHeight,
+                        timeScaleHeight: metrics.timeScaleHeight,
+                        height: canvasHeight,
+                      ),
+                      SizedBox(width: metrics.dateColumnGap),
+                      Expanded(
+                        child: _ScrollableTimelineCanvas(
+                          controller: _horizontalController,
+                          width: metrics.dayWidth,
+                          height: canvasHeight,
+                          child: _TimelineCanvas(
+                            state: widget.state,
+                            entries: widget.entries,
+                            rangeStart: widget.rangeStart,
+                            span: widget.span,
+                            density: widget.density,
+                            metrics: metrics,
+                            showInlineDayLabels: false,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (widget.entries.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text('这个范围还没有记录。'),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TimelineLayoutMetrics {
+  const _TimelineLayoutMetrics({
+    required this.cardPadding,
+    required this.dayWidth,
+    required this.laneHeight,
+    required this.timeScaleHeight,
+    required this.blockHeight,
+    required this.blockTopInset,
+    required this.dateColumnGap,
+  });
+
+  factory _TimelineLayoutMetrics.forWidth({
+    required bool compact,
+    required TimelineDensity density,
+    required double zoom,
+  }) {
+    final laneHeight = density == TimelineDensity.compact
+        ? (compact ? 78.0 : 72.0)
+        : (compact ? 106.0 : 104.0);
+    final blockHeight = density == TimelineDensity.compact ? 38.0 : 64.0;
+    return _TimelineLayoutMetrics(
+      cardPadding: compact ? 10.0 : 16.0,
+      dayWidth: 960.0 * zoom,
+      laneHeight: laneHeight,
+      timeScaleHeight: density == TimelineDensity.compact ? 24.0 : 32.0,
+      blockHeight: blockHeight,
+      blockTopInset: compact ? 28.0 : 8.0,
+      dateColumnGap: compact ? 0 : 12.0,
+    );
+  }
+
+  final double cardPadding;
+  final double dayWidth;
+  final double laneHeight;
+  final double timeScaleHeight;
+  final double blockHeight;
+  final double blockTopInset;
+  final double dateColumnGap;
+}
+
+class _TimelineDateColumn extends StatelessWidget {
+  const _TimelineDateColumn({
+    required this.rangeStart,
+    required this.days,
+    required this.laneHeight,
+    required this.timeScaleHeight,
+    required this.height,
+  });
+
+  final DateTime rangeStart;
+  final int days;
+  final double laneHeight;
+  final double timeScaleHeight;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 92,
+      height: height,
+      child: Column(
+        children: [
+          SizedBox(height: timeScaleHeight),
+          for (var index = 0; index < days; index += 1)
+            SizedBox(
+              height: laneHeight,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    DateFormat('MM-dd E').format(
+                      rangeStart.add(Duration(days: index)),
+                    ),
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScrollableTimelineCanvas extends StatelessWidget {
+  const _ScrollableTimelineCanvas({
+    required this.controller,
+    required this.width,
+    required this.height,
+    required this.child,
+  });
+
+  final ScrollController controller;
+  final double width;
+  final double height;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.invertedStylus,
+        },
+      ),
+      child: Scrollbar(
+        controller: controller,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: controller,
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineCanvas extends StatelessWidget {
+  const _TimelineCanvas({
+    required this.state,
+    required this.entries,
+    required this.rangeStart,
+    required this.span,
+    required this.density,
+    required this.metrics,
+    required this.showInlineDayLabels,
+  });
+
+  final AppState state;
+  final List<TimeEntry> entries;
+  final DateTime rangeStart;
+  final TimelineSpan span;
+  final TimelineDensity density;
+  final _TimelineLayoutMetrics metrics;
+  final bool showInlineDayLabels;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        _TimelineTimeScale(
+          width: metrics.dayWidth,
+          height: metrics.timeScaleHeight,
+        ),
+        for (var index = 0; index < span.days; index += 1)
+          _TimelineDayLane(
+            top: metrics.timeScaleHeight + index * metrics.laneHeight,
+            width: metrics.dayWidth,
+            height: metrics.laneHeight,
+            label: showInlineDayLabels
+                ? DateFormat('MM-dd E').format(
+                    rangeStart.add(Duration(days: index)),
+                  )
+                : null,
+          ),
+        for (final entry in entries) ..._entryBlocksFor(entry),
+      ],
+    );
+  }
+
+  List<Widget> _entryBlocksFor(
+    TimeEntry entry,
+  ) {
+    final widgets = <Widget>[];
+    for (var index = 0; index < span.days; index += 1) {
+      final day = rangeStart.add(Duration(days: index));
+      final dayStart = day.startOfDay;
+      final dayEnd = day.endOfDay;
+      final rawEnd = entry.endAt ?? state.now;
+      if (!entry.startAt.isBefore(dayEnd) || !rawEnd.isAfter(dayStart)) {
+        continue;
+      }
+      final blockStart =
+          entry.startAt.isBefore(dayStart) ? dayStart : entry.startAt;
+      final blockEnd = rawEnd.isAfter(dayEnd) ? dayEnd : rawEnd;
+      if (!blockEnd.isAfter(blockStart)) {
+        continue;
+      }
+      final startRatio =
+          blockStart.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
+      final endRatio =
+          blockEnd.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
+      final top = metrics.timeScaleHeight +
+          metrics.blockTopInset +
+          index * metrics.laneHeight;
+      widgets.add(
+        Positioned(
+          left: metrics.dayWidth * startRatio,
+          top: top,
+          width: math.max(16, metrics.dayWidth * (endRatio - startRatio)),
+          height: metrics.blockHeight,
+          child: _TimelineBlock(
+            state: state,
+            entry: entry,
+            density: density,
+          ),
+        ),
+      );
+    }
+    return widgets;
+  }
+}
+
+class _TimelineTimeScale extends StatelessWidget {
+  const _TimelineTimeScale({
+    required this.width,
+    required this.height,
+  });
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        for (final hour in const [0, 6, 12, 18, 24])
+          Positioned(
+            left: math.min(width - 40, math.max(0, width * hour / 24 - 20)),
+            top: 0,
+            width: 40,
+            height: height,
+            child: Text(
+              hour == 24 ? '24:00' : '${hour.toString().padLeft(2, '0')}:00',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TimelineDayLane extends StatelessWidget {
+  const _TimelineDayLane({
+    required this.top,
+    required this.width,
+    required this.height,
+    this.label,
+  });
+
+  final double top;
+  final double width;
+  final double height;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          left: 0,
+          top: top,
+          width: width,
+          height: height - 8,
+          child: DecoratedBox(
+            key: ValueKey<String>('timeline-lane-${label ?? top}'),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        for (final hour in const [0, 6, 12, 18, 24])
+          Positioned(
+            left: width * hour / 24,
+            top: top,
+            height: height - 8,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (label != null)
+          Positioned(
+            left: 10,
+            top: top + 8,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: Text(
+                  label!,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TimelineBlock extends StatelessWidget {
+  const _TimelineBlock({
+    required this.state,
+    required this.entry,
+    required this.density,
+  });
+
+  final AppState state;
+  final TimeEntry entry;
+  final TimelineDensity density;
+
+  @override
+  Widget build(BuildContext context) {
+    final activity = state.activityById(entry.activityId);
+    final color = Color(activity?.color ?? 0xff64748b);
+    final textColor =
+        color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    final timeText =
+        '${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}';
+    return Tooltip(
+      message: '${activity?.name ?? '未知事项'} $timeText',
+      child: Material(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => showEntryEditor(context, state, entry: entry),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: density == TimelineDensity.compact
+                ? Text(
+                    activity?.name ?? '未知事项',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        activity?.name ?? '未知事项',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        timeText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: textColor),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryList extends StatelessWidget {
+  const _EntryList({
+    required this.state,
+    required this.entries,
+    required this.emptyText,
+  });
+
+  final AppState state;
+  final List<TimeEntry> entries;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(emptyText),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final entry in entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: TimelineEntryCard(
+              state: state,
+              entry: entry,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ActionLogList extends StatelessWidget {
+  const _ActionLogList({
+    required this.state,
+    required this.logs,
+    required this.emptyText,
+  });
+
+  final AppState state;
+  final List<ActionLog> logs;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    if (logs.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(emptyText),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final log in logs)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ActionLogCard(state: state, log: log),
+          ),
+      ],
     );
   }
 }
@@ -554,6 +1331,7 @@ Future<void> showEntryEditor(
     return;
   }
   final selectedDay = state.selectedDay;
+  var activities = [...state.activities];
   var activity = entry == null
       ? state.activities.first
       : state.activityById(entry.activityId) ?? state.activities.first;
@@ -603,6 +1381,20 @@ Future<void> showEntryEditor(
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
+          Activity? findActivity(String id) {
+            for (final item in activities) {
+              if (item.id == id) {
+                return item;
+              }
+            }
+            return null;
+          }
+
+          void refreshActivities(Activity selected) {
+            activities = [...state.activities];
+            activity = findActivity(selected.id) ?? selected;
+          }
+
           return AlertDialog(
             title: Text(entry == null ? '补记时间段' : '编辑时间段'),
             content: SingleChildScrollView(
@@ -613,22 +1405,25 @@ Future<void> showEntryEditor(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<Activity>(
-                          initialValue: activity,
+                        child: DropdownButtonFormField<String>(
+                          key: ValueKey(activity.id),
+                          initialValue: findActivity(activity.id)?.id,
                           decoration: const InputDecoration(
                             labelText: '事项',
                             prefixIcon: Icon(Icons.label_outline),
                           ),
                           items: [
-                            for (final item in state.activities)
+                            for (final item in activities)
                               DropdownMenuItem(
-                                value: item,
+                                value: item.id,
                                 child: Text(item.name),
                               ),
                           ],
                           onChanged: (value) {
-                            if (value != null) {
-                              setState(() => activity = value);
+                            final selected =
+                                value == null ? null : findActivity(value);
+                            if (selected != null) {
+                              setState(() => activity = selected);
                             }
                           },
                         ),
@@ -642,7 +1437,7 @@ Future<void> showEntryEditor(
                             state,
                           );
                           if (created != null) {
-                            setState(() => activity = created);
+                            setState(() => refreshActivities(created));
                           }
                         },
                         icon: const Icon(Icons.add),
@@ -656,7 +1451,7 @@ Future<void> showEntryEditor(
                             activity: activity,
                           );
                           if (updated != null) {
-                            setState(() => activity = updated);
+                            setState(() => refreshActivities(updated));
                           }
                         },
                         icon: const Icon(Icons.edit_outlined),
