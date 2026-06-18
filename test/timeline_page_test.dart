@@ -114,6 +114,10 @@ void main() {
     state.now = DateTime(2026, 1, 2, 12);
 
     await _pumpTimeline(tester, state, width: 390);
+    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('列表').last);
+    await tester.pumpAndSettle();
 
     expect(find.text('30 分钟'), findsOneWidget);
     expect(find.text('00:00:00 - 00:30:00'), findsOneWidget);
@@ -138,7 +142,9 @@ void main() {
       ..now = DateTime(2026, 1, 2, 10, 15);
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.byTooltip('编辑'));
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 

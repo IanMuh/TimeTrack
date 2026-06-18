@@ -74,31 +74,30 @@ Future<void> _pumpStats(
 }
 
 void main() {
-  testWidgets('period SegmentedButton shows all five period options',
-      (tester) async {
+  testWidgets('stats page shows all five range preset options', (tester) async {
     final fixture = _buildFixture();
     final state = fixture.state;
     addTearDown(state.dispose);
 
     await _pumpStats(tester, state, width: 920);
 
-    expect(find.text('日'), findsWidgets);
-    expect(find.text('周'), findsWidgets);
-    expect(find.text('月'), findsWidgets);
-    expect(find.text('年'), findsWidgets);
-    expect(find.text('全部'), findsWidgets);
+    expect(find.text('今天'), findsWidgets);
+    expect(find.text('昨天'), findsOneWidget);
+    expect(find.text('本周'), findsOneWidget);
+    expect(find.text('上周'), findsOneWidget);
+    expect(find.text('单日'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('default period is day with today labels', (tester) async {
+  testWidgets('default preset shows today labels', (tester) async {
     final fixture = _buildFixture();
     final state = fixture.state;
     addTearDown(state.dispose);
 
     await _pumpStats(tester, state, width: 920);
 
-    expect(find.text('今日分布'), findsOneWidget);
-    expect(find.text('今日总记录'), findsOneWidget);
+    expect(find.text('今天分布'), findsOneWidget);
+    expect(find.text('范围总记录'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -18,3 +18,13 @@ const activityPalette = <int>[
   0xffbe123c,
   0xff475569,
 ];
+
+int nextActivityColor(Iterable<int> usedColors) {
+  final used = usedColors.toSet();
+  for (final color in activityPalette) {
+    if (!used.contains(color)) {
+      return color;
+    }
+  }
+  return activityPalette.elementAt(used.length % activityPalette.length);
+}

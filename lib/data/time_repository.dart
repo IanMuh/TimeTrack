@@ -410,13 +410,15 @@ class TimeRepository {
     DateTime start,
     DateTime end,
   ) async {
+    if (!start.isBefore(end)) {
+      return const [];
+    }
     final db = await _database.db;
     final endStr = end.toUtc().toIso8601String();
     final startStr = start.toUtc().toIso8601String();
     final rows = await db.query(
       'time_entries',
-      where:
-          'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) >= ?',
+      where: 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) >= ?',
       whereArgs: [endStr, endStr, startStr],
       orderBy: 'start_at asc',
     );
@@ -451,6 +453,25 @@ class TimeRepository {
       'action_logs',
       where: 'is_deleted = 0 and occurred_at >= ? and occurred_at <= ?',
       whereArgs: [start, end],
+      orderBy: 'occurred_at asc',
+    );
+    return rows.map(ActionLog.fromMap).toList();
+  }
+
+  Future<List<ActionLog>> actionLogsForRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (!start.isBefore(end)) {
+      return const [];
+    }
+    final db = await _database.db;
+    final startValue = start.toUtc().toIso8601String();
+    final endValue = end.toUtc().toIso8601String();
+    final rows = await db.query(
+      'action_logs',
+      where: 'is_deleted = 0 and occurred_at >= ? and occurred_at < ?',
+      whereArgs: [startValue, endValue],
       orderBy: 'occurred_at asc',
     );
     return rows.map(ActionLog.fromMap).toList();

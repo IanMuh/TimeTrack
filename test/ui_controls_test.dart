@@ -1,0 +1,407 @@
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/data/file_interop_service.dart';
+import 'package:timetrack/data/lan_sync.dart';
+import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/sync_peer_store.dart';
+import 'package:timetrack/data/sync_service.dart';
+import 'package:timetrack/data/time_repository.dart';
+import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/domain/time_entry.dart';
+import 'package:timetrack/ui/home_page.dart';
+import 'package:timetrack/ui/stats_page.dart';
+import 'package:timetrack/ui/timeline_page.dart';
+
+void main() {
+  testWidgets('ActivityColorPicker updates preview from RGB input', (
+    tester,
+  ) async {
+    var selectedColor = 0xff112233;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return ActivityColorPicker(
+                selectedColor: selectedColor,
+                onColorChanged: (color) =>
+                    setState(() => selectedColor = color),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('#112233'), findsOneWidget);
+
+    await tester.tap(find.text('RGB 调色'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'R'),
+      '255',
+    );
+    await tester.pumpAndSettle();
+
+    expect(selectedColor, 0xffff2233);
+    expect(find.text('#FF2233'), findsNWidgets(2));
+  });
+
+  testWidgets('StatsHeader renders compact and expanded range controls', (
+    tester,
+  ) async {
+    Future<void> pumpAtWidth(double width) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: width,
+              child: StatsHeader(
+                range: StatsRange(
+                  start: DateTime(2026, 6, 15),
+                  end: DateTime(2026, 6, 21, 23, 59, 59),
+                  label: '本周',
+                ),
+                selectedPreset: StatsPreset.thisWeek,
+                onPresetChanged: (_) {},
+                onPickCustomDay: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpAtWidth(390);
+    expect(find.text('范围'), findsOneWidget);
+    expect(find.text('选择日期'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await pumpAtWidth(920);
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('上周'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('RangeTimelineCard uses one shared time scale for multi-day view',
+      (tester) async {
+    final state = _FakeAppState();
+    final activity = state.activities.first;
+    final entries = [
+      TimeEntry(
+        id: 'entry-1',
+        userId: null,
+        activityId: activity.id,
+        startAt: DateTime(2026, 6, 16, 9),
+        endAt: DateTime(2026, 6, 16, 11),
+        note: '',
+        deviceId: 'test',
+        updatedAt: DateTime(2026, 6, 16, 9),
+        isDeleted: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 520,
+              child: RangeTimelineCard(
+                state: state,
+                entries: entries,
+                rangeStart: DateTime(2026, 6, 15),
+                span: TimelineSpan.week,
+                density: TimelineDensity.detailed,
+                zoom: 2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('00:00'), findsOneWidget);
+    expect(find.text('12:00'), findsOneWidget);
+    expect(find.text('24:00'), findsOneWidget);
+    expect(find.byType(Scrollbar), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('RangeTimelineCard gives compact screens a wider viewport',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final state = _FakeAppState();
+    final activity = state.activities.first;
+    final entries = [
+      TimeEntry(
+        id: 'entry-1',
+        userId: null,
+        activityId: activity.id,
+        startAt: DateTime(2026, 6, 16, 9),
+        endAt: DateTime(2026, 6, 16, 11),
+        note: '',
+        deviceId: 'test',
+        updatedAt: DateTime(2026, 6, 16, 9),
+        isDeleted: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 390,
+              child: RangeTimelineCard(
+                state: state,
+                entries: entries,
+                rangeStart: DateTime(2026, 6, 15),
+                span: TimelineSpan.week,
+                density: TimelineDensity.detailed,
+                zoom: 2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final horizontalScrollable = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable &&
+          axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
+    );
+    final viewportWidth = tester.getSize(horizontalScrollable).width;
+    final firstLaneWidth = tester
+        .getSize(find.byKey(const ValueKey('timeline-lane-06-15 Mon')))
+        .width;
+
+    expect(viewportWidth, greaterThan(340));
+    expect(firstLaneWidth, 1920);
+    expect(find.text('06-15 Mon'), findsOneWidget);
+    expect(find.text('00:00'), findsOneWidget);
+    expect(find.text('24:00'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('RangeTimelineCard can scroll horizontally after zooming',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final state = _FakeAppState();
+    final activity = state.activities.first;
+    final entries = [
+      TimeEntry(
+        id: 'entry-1',
+        userId: null,
+        activityId: activity.id,
+        startAt: DateTime(2026, 6, 16, 9),
+        endAt: DateTime(2026, 6, 16, 11),
+        note: '',
+        deviceId: 'test',
+        updatedAt: DateTime(2026, 6, 16, 9),
+        isDeleted: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 520,
+            child: RangeTimelineCard(
+              state: state,
+              entries: entries,
+              rangeStart: DateTime(2026, 6, 15),
+              span: TimelineSpan.week,
+              density: TimelineDensity.detailed,
+              zoom: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final horizontalScrollable = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable &&
+          axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
+    );
+    final scrollableState = tester.state<ScrollableState>(horizontalScrollable);
+
+    expect(scrollableState.position.pixels, 0);
+
+    final gesture = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.down(tester.getCenter(horizontalScrollable));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-360, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(scrollableState.position.pixels, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('showEntryEditor refreshes dropdown after creating an activity',
+      (tester) async {
+    final state = _FakeAppState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () => showEntryEditor(context, state),
+                child: const Text('open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.byTooltip('新增事项'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.enterText(find.widgetWithText(TextField, '名称'), '新事项');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    await tester.tap(find.text('创建'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+
+    expect(find.text('新事项'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('showEntryEditor keeps dropdown stable after editing activity',
+      (tester) async {
+    final state = _FakeAppState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () => showEntryEditor(context, state),
+                child: const Text('open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.byTooltip('编辑当前事项'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.enterText(find.widgetWithText(TextField, '名称'), '深度工作');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+
+    expect(find.text('深度工作'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _FakeAppState extends AppState {
+  _FakeAppState()
+      : super(
+          repository: _repository,
+          syncService: SyncService(repository: _repository, client: null),
+          lanSyncServer: LanSyncServer(
+            repository: _repository,
+            peerStore: _peerStore,
+            portCandidates: const [0],
+          ),
+          lanSyncClient: LanSyncClient(
+            repository: _repository,
+            peerStore: _peerStore,
+            timeout: const Duration(milliseconds: 50),
+          ),
+          fileInteropService: FileInteropService(repository: _repository),
+        ) {
+    now = DateTime(2026, 6, 16, 12);
+    selectedDay = DateTime(2026, 6, 16);
+    activities = [
+      Activity(
+        id: 'activity-1',
+        userId: null,
+        name: '工作',
+        color: 0xff2563eb,
+        isFavorite: true,
+        updatedAt: now,
+        isDeleted: false,
+      ),
+    ];
+  }
+
+  static final LocalDatabase _database = LocalDatabase();
+  static final TimeRepository _repository = TimeRepository(database: _database);
+  static final SyncPeerStore _peerStore = SyncPeerStore(database: _database);
+
+  int _nextActivityId = 2;
+
+  @override
+  Future<Activity> createActivity(String name, int color) async {
+    final activity = Activity(
+      id: 'activity-${_nextActivityId++}',
+      userId: null,
+      name: name,
+      color: color,
+      isFavorite: true,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    activities = [...activities, activity];
+    notifyListeners();
+    return activity;
+  }
+
+  @override
+  Future<Activity> updateActivity(
+    Activity activity, {
+    required String name,
+    required int color,
+  }) async {
+    final updated = activity.copyWith(name: name, color: color, updatedAt: now);
+    activities = [
+      for (final item in activities)
+        if (item.id == updated.id) updated else item,
+    ];
+    notifyListeners();
+    return updated;
+  }
+
+  @override
+  Future<List<TimeEntry>> overlaps(TimeEntry entry) async {
+    return const [];
+  }
+}

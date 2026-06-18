@@ -269,6 +269,33 @@ class AppState extends ChangeNotifier {
     return _repository.overlappingEntries(entry);
   }
 
+  Future<List<TimeEntry>> entriesForRange({
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return _repository.entriesForRange(start, end);
+  }
+
+  Future<List<ActionLog>> actionLogsForRange({
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return _repository.actionLogsForRange(start, end);
+  }
+
+  Future<TimeRangeStats> statsForRange({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final entries = await _repository.entriesForRange(start, end);
+    return TimeRangeStats.fromEntries(
+      entries: entries,
+      start: start,
+      end: end,
+      effectiveNow: now,
+    );
+  }
+
   Future<void> updateReminderMinutes(int minutes) async {
     await updateReminderSettings(reminderMinutes: minutes);
   }
@@ -540,5 +567,82 @@ class AppState extends ChangeNotifier {
     _ticker?.cancel();
     unawaited(_lanSyncServer.stop());
     super.dispose();
+  }
+}
+
+class TimeRangeStats {
+  const TimeRangeStats({
+    required this.totalsByActivity,
+    required this.totalsByDay,
+    required this.totalDuration,
+    required this.longestBlock,
+  });
+
+  final Map<String, Duration> totalsByActivity;
+  final Map<DateTime, Duration> totalsByDay;
+  final Duration totalDuration;
+  final Duration longestBlock;
+
+  static TimeRangeStats fromEntries({
+    required List<TimeEntry> entries,
+    required DateTime start,
+    required DateTime end,
+    required DateTime effectiveNow,
+  }) {
+    if (end.isBefore(start)) {
+      return const TimeRangeStats(
+        totalsByActivity: {},
+        totalsByDay: {},
+        totalDuration: Duration.zero,
+        longestBlock: Duration.zero,
+      );
+    }
+
+    final totalsByActivity = <String, Duration>{};
+    final totalsByDay = <DateTime, Duration>{};
+    var totalDuration = Duration.zero;
+    var longestBlock = Duration.zero;
+
+    for (final entry in entries) {
+      final clippedStart = _later(entry.startAt, start);
+      final clippedEnd = _earlier(entry.endAt ?? effectiveNow, end);
+      if (!clippedEnd.isAfter(clippedStart)) {
+        continue;
+      }
+
+      final clippedDuration = clippedEnd.difference(clippedStart);
+      totalsByActivity[entry.activityId] =
+          (totalsByActivity[entry.activityId] ?? Duration.zero) +
+              clippedDuration;
+      totalDuration += clippedDuration;
+      if (clippedDuration > longestBlock) {
+        longestBlock = clippedDuration;
+      }
+
+      var cursor = clippedStart;
+      while (cursor.isBefore(clippedEnd)) {
+        final day = cursor.startOfDay;
+        final nextDay = day.add(const Duration(days: 1));
+        final segmentEnd = _earlier(nextDay, clippedEnd);
+        final duration = segmentEnd.difference(cursor);
+        totalsByDay[day] = (totalsByDay[day] ?? Duration.zero) + duration;
+        cursor = segmentEnd;
+      }
+    }
+
+    return TimeRangeStats(
+      totalsByActivity: totalsByActivity,
+      totalsByDay: totalsByDay,
+      totalDuration: totalDuration,
+      longestBlock: longestBlock,
+    );
+  }
+
+  static DateTime _later(DateTime first, DateTime second) {
+    return first.isAfter(second) ? first : second;
+  }
+
+  static DateTime _earlier(DateTime first, DateTime second) {
+    return first.isBefore(second) ? first : second;
   }
 }

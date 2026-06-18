@@ -64,11 +64,17 @@ void main() {
               width: width,
               child: TimelineHeader(
                 selectedDay: DateTime(2026, 6, 13),
-                mode: TimelineViewMode.coverage,
-                onPreviousDay: () {},
-                onNextDay: () {},
+                mode: TimelineViewMode.timeline,
+                density: TimelineDensity.detailed,
+                span: TimelineSpan.week,
+                zoom: 1.25,
+                onPreviousRange: () {},
+                onNextRange: () {},
                 onDateTap: () {},
                 onModeChanged: (_) {},
+                onDensityChanged: (_) {},
+                onSpanChanged: (_) {},
+                onZoomChanged: (_) {},
                 onAddEntry: () {},
               ),
             ),
@@ -80,10 +86,50 @@ void main() {
 
     await pumpAtWidth(390);
     expect(find.text('补记'), findsOneWidget);
+    expect(find.text('视图'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await pumpAtWidth(920);
     expect(find.text('时间轴'), findsOneWidget);
+    expect(find.text('列表'), findsOneWidget);
+    expect(find.text('7日'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TimelineHeader supports smaller timeline zoom levels', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: TimelineHeader(
+              selectedDay: DateTime(2026, 6, 13),
+              mode: TimelineViewMode.timeline,
+              density: TimelineDensity.detailed,
+              span: TimelineSpan.day,
+              zoom: 0.25,
+              onPreviousRange: () {},
+              onNextRange: () {},
+              onDateTap: () {},
+              onModeChanged: (_) {},
+              onDensityChanged: (_) {},
+              onSpanChanged: (_) {},
+              onZoomChanged: (_) {},
+              onAddEntry: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    expect(slider.min, 0.25);
+    expect(slider.max, 3);
+    expect(slider.divisions, 11);
+    expect(find.text('0.25x'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

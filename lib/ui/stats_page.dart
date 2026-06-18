@@ -1,10 +1,24 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
-import '../domain/stats_period.dart';
 import 'adaptive_layout.dart';
+
+enum StatsPreset { today, yesterday, thisWeek, lastWeek, customDay }
+
+class StatsRange {
+  const StatsRange({
+    required this.start,
+    required this.end,
+    required this.label,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final String label;
+}
 
 class StatsPage extends StatefulWidget {
   const StatsPage({required this.state, super.key});
@@ -16,7 +30,8 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
-  StatsPeriod _period = StatsPeriod.day;
+  StatsPreset _preset = StatsPreset.today;
+  DateTime _customDay = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -24,89 +39,43 @@ class _StatsPageState extends State<StatsPage> {
     return AnimatedBuilder(
       animation: state,
       builder: (context, _) {
+        final range = _rangeFor(state.now);
         return AdaptivePage(
           pageKey: const PageStorageKey('stats-page'),
           children: [
-            Text(
-              '统计',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+            StatsHeader(
+              range: range,
+              selectedPreset: _preset,
+              onPresetChanged: (preset) => setState(() => _preset = preset),
+              onPickCustomDay: () => _pickCustomDay(context),
             ),
             const SectionGap(),
-            SegmentedButton<StatsPeriod>(
-              segments: StatsPeriod.values
-                  .map(
-                    (p) => ButtonSegment<StatsPeriod>(
-                      value: p,
-                      label: Text(p.label),
-                    ),
-                  )
-                  .toList(),
-              selected: {_period},
-              onSelectionChanged: (value) =>
-                  setState(() => _period = value.first),
-            ),
-            const SectionGap(),
-            FutureBuilder<PeriodStats>(
-              future: _fetchPeriodStats(state, _period),
+            FutureBuilder<TimeRangeStats>(
+              future: state.statsForRange(start: range.start, end: range.end),
               builder: (context, snapshot) {
                 final stats = snapshot.data ??
-                    const PeriodStats(
-                      totals: {},
+                    const TimeRangeStats(
+                      totalsByActivity: {},
+                      totalsByDay: {},
+                      totalDuration: Duration.zero,
                       longestBlock: Duration.zero,
                     );
-                final totalDuration = stats.totals.values.fold<Duration>(
-                  Duration.zero,
-                  (sum, item) => sum + item,
-                );
-                final totalMinutes = totalDuration.inMinutes <= 0
+                final totalMinutes = stats.totalDuration.inMinutes <= 0
                     ? 1
-                    : totalDuration.inMinutes;
-
+                    : stats.totalDuration.inMinutes;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final compact =
-                            constraints.maxWidth < compactBreakpoint;
-                        final cards = [
-                          _MetricCard(
-                            label: _period.totalRecordsLabel(),
-                            value: formatDurationCompact(totalDuration),
-                          ),
-                          _MetricCard(
-                            label: '最长连续',
-                            value:
-                                formatDurationCompact(stats.longestBlock),
-                          ),
-                        ];
-                        if (compact) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              cards[0],
-                              const SizedBox(height: 12),
-                              cards[1],
-                            ],
-                          );
-                        }
-                        return Row(
-                          children: [
-                            Expanded(child: cards[0]),
-                            const SizedBox(width: 12),
-                            Expanded(child: cards[1]),
-                          ],
-                        );
-                      },
+                    _StatsMetrics(
+                      totalDuration: stats.totalDuration,
+                      longestBlock: stats.longestBlock,
                     ),
                     const SectionGap(),
-                    PeriodDistributionCard(
+                    _StatsCharts(
                       state: state,
-                      totals: stats.totals,
+                      range: range,
+                      stats: stats,
                       totalMinutes: totalMinutes,
-                      title: _period.distributionTitle(),
                     ),
                   ],
                 );
@@ -117,37 +86,305 @@ class _StatsPageState extends State<StatsPage> {
       },
     );
   }
+
+  StatsRange _rangeFor(DateTime now) {
+    final today = now.startOfDay;
+    return switch (_preset) {
+      StatsPreset.today => StatsRange(
+          start: today,
+          end: today.add(const Duration(days: 1)),
+          label: '今天',
+        ),
+      StatsPreset.yesterday => StatsRange(
+          start: today.subtract(const Duration(days: 1)),
+          end: today,
+          label: '昨天',
+        ),
+      StatsPreset.thisWeek => _weekRange(today, '本周'),
+      StatsPreset.lastWeek => _weekRange(
+          today.subtract(const Duration(days: 7)),
+          '上周',
+        ),
+      StatsPreset.customDay => StatsRange(
+          start: _customDay.startOfDay,
+          end: _customDay.startOfDay.add(const Duration(days: 1)),
+          label: DateFormat('yyyy-MM-dd').format(_customDay),
+        ),
+    };
+  }
+
+  StatsRange _weekRange(DateTime anchor, String label) {
+    final start = anchor.subtract(Duration(days: anchor.weekday - 1));
+    return StatsRange(
+      start: start.startOfDay,
+      end: start.startOfDay.add(const Duration(days: 7)),
+      label: label,
+    );
+  }
+
+  Future<void> _pickCustomDay(BuildContext context) async {
+    final next = await showDatePicker(
+      context: context,
+      initialDate: _customDay,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (next == null) {
+      return;
+    }
+    setState(() {
+      _preset = StatsPreset.customDay;
+      _customDay = next;
+    });
+  }
 }
 
-class PeriodStats {
-  const PeriodStats({
-    required this.totals,
+class StatsHeader extends StatelessWidget {
+  const StatsHeader({
+    required this.range,
+    required this.selectedPreset,
+    required this.onPresetChanged,
+    required this.onPickCustomDay,
+    super.key,
+  });
+
+  final StatsRange range;
+  final StatsPreset selectedPreset;
+  final ValueChanged<StatsPreset> onPresetChanged;
+  final VoidCallback onPickCustomDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Text(
+      '统计',
+      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+    );
+    final rangeLabel = Text(
+      range.label,
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
+        final controls = _StatsPresetControl(
+          selectedPreset: selectedPreset,
+          compact: compact,
+          onPresetChanged: onPresetChanged,
+        );
+        final customButton = OutlinedButton.icon(
+          onPressed: onPickCustomDay,
+          icon: const Icon(Icons.event),
+          label: const Text('选择日期'),
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              title,
+              const SizedBox(height: 6),
+              rangeLabel,
+              const SizedBox(height: 12),
+              controls,
+              const SizedBox(height: 10),
+              customButton,
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: title),
+                rangeLabel,
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: controls),
+                const SizedBox(width: 12),
+                customButton,
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StatsPresetControl extends StatelessWidget {
+  const _StatsPresetControl({
+    required this.selectedPreset,
+    required this.compact,
+    required this.onPresetChanged,
+  });
+
+  final StatsPreset selectedPreset;
+  final bool compact;
+  final ValueChanged<StatsPreset> onPresetChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return DropdownButtonFormField<StatsPreset>(
+        initialValue: selectedPreset,
+        decoration: const InputDecoration(
+          labelText: '范围',
+          prefixIcon: Icon(Icons.date_range),
+        ),
+        items: [
+          for (final preset in StatsPreset.values)
+            DropdownMenuItem(
+              value: preset,
+              child: Text(_presetLabel(preset)),
+            ),
+        ],
+        onChanged: (value) {
+          if (value != null) {
+            onPresetChanged(value);
+          }
+        },
+      );
+    }
+
+    return SegmentedButton<StatsPreset>(
+      segments: [
+        for (final preset in StatsPreset.values)
+          ButtonSegment(
+            value: preset,
+            label: Text(_presetLabel(preset)),
+          ),
+      ],
+      selected: {selectedPreset},
+      onSelectionChanged: (value) => onPresetChanged(value.first),
+    );
+  }
+
+  String _presetLabel(StatsPreset preset) {
+    return switch (preset) {
+      StatsPreset.today => '今天',
+      StatsPreset.yesterday => '昨天',
+      StatsPreset.thisWeek => '本周',
+      StatsPreset.lastWeek => '上周',
+      StatsPreset.customDay => '单日',
+    };
+  }
+}
+
+class _StatsMetrics extends StatelessWidget {
+  const _StatsMetrics({
+    required this.totalDuration,
     required this.longestBlock,
   });
 
-  final Map<String, Duration> totals;
+  final Duration totalDuration;
   final Duration longestBlock;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
+        final cards = [
+          _MetricCard(
+            label: '范围总记录',
+            value: formatDurationCompact(totalDuration),
+          ),
+          _MetricCard(
+            label: '最长连续',
+            value: formatDurationCompact(longestBlock),
+          ),
+        ];
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              cards[0],
+              const SizedBox(height: 12),
+              cards[1],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: cards[0]),
+            const SizedBox(width: 12),
+            Expanded(child: cards[1]),
+          ],
+        );
+      },
+    );
+  }
 }
 
-Future<PeriodStats> _fetchPeriodStats(AppState state, StatsPeriod period) async {
-  final totals = await state.totalsForPeriod(period);
-  final longestBlock = await state.longestBlockForPeriod(period);
-  return PeriodStats(totals: totals, longestBlock: longestBlock);
-}
-
-class PeriodDistributionCard extends StatelessWidget {
-  const PeriodDistributionCard({
+class _StatsCharts extends StatelessWidget {
+  const _StatsCharts({
     required this.state,
+    required this.range,
+    required this.stats,
+    required this.totalMinutes,
+  });
+
+  final AppState state;
+  final StatsRange range;
+  final TimeRangeStats stats;
+  final int totalMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final expanded = constraints.maxWidth >= expandedBreakpoint;
+        final distributionCard = RangeDistributionCard(
+          state: state,
+          title: '${range.label}分布',
+          totals: stats.totalsByActivity,
+          totalMinutes: totalMinutes,
+        );
+        final dayTotalsCard = DayTotalsCard(dayTotals: stats.totalsByDay);
+        if (!expanded) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              distributionCard,
+              const SectionGap(),
+              dayTotalsCard,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 7, child: distributionCard),
+            const SizedBox(width: 16),
+            Expanded(flex: 5, child: dayTotalsCard),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class RangeDistributionCard extends StatelessWidget {
+  const RangeDistributionCard({
+    required this.state,
+    required this.title,
     required this.totals,
     required this.totalMinutes,
-    required this.title,
     super.key,
   });
 
   final AppState state;
+  final String title;
   final Map<String, Duration> totals;
   final int totalMinutes;
-  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -234,6 +471,50 @@ class PeriodDistributionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class DayTotalsCard extends StatelessWidget {
+  const DayTotalsCard({required this.dayTotals, super.key});
+
+  final Map<DateTime, Duration> dayTotals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '每日累计',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            if (dayTotals.isEmpty)
+              const Text('暂无数据')
+            else
+              for (final item in _sortedDayTotals())
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    DateFormat('yyyy-MM-dd').format(item.key),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Text(formatDurationCompact(item.value)),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<MapEntry<DateTime, Duration>> _sortedDayTotals() {
+    return dayTotals.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
   }
 }
 

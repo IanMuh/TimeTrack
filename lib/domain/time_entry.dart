@@ -44,7 +44,8 @@ class TimeEntry {
       return Duration.zero;
     }
     final clippedStart = startAt.isAfter(windowStart) ? startAt : windowStart;
-    final clippedEnd = effectiveEnd.isBefore(windowEnd) ? effectiveEnd : windowEnd;
+    final clippedEnd =
+        effectiveEnd.isBefore(windowEnd) ? effectiveEnd : windowEnd;
     if (!clippedStart.isBefore(clippedEnd)) {
       return Duration.zero;
     }
