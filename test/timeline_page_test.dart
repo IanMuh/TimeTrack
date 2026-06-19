@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
@@ -15,36 +18,129 @@ class _TimelineFixture {
   const _TimelineFixture({
     required this.state,
     required this.repository,
+    this.database,
   });
 
   final AppState state;
   final TimeRepository repository;
+  final Database? database;
+}
+
+class _DelayedOverlapAppState extends AppState {
+  _DelayedOverlapAppState({
+    required super.repository,
+    required super.syncService,
+    required super.lanSyncServer,
+    required super.lanSyncClient,
+    required super.fileInteropService,
+  });
+
+  final overlapCompleter = Completer<List<TimeEntry>>();
+  bool overlapRequested = false;
+
+  @override
+  Future<List<TimeEntry>> overlaps(TimeEntry entry) {
+    overlapRequested = true;
+    return overlapCompleter.future;
+  }
+}
+
+AppState _createAppState({
+  required LocalDatabase database,
+  required TimeRepository repository,
+  bool delayOverlaps = false,
+}) {
+  final peerStore = SyncPeerStore(database: database);
+  final syncService = SyncService(repository: repository, client: null);
+  final lanSyncServer = LanSyncServer(
+    repository: repository,
+    peerStore: peerStore,
+    portCandidates: const [0],
+  );
+  final lanSyncClient = LanSyncClient(
+    repository: repository,
+    peerStore: peerStore,
+  );
+  final fileInteropService = FileInteropService(repository: repository);
+  if (delayOverlaps) {
+    return _DelayedOverlapAppState(
+      repository: repository,
+      syncService: syncService,
+      lanSyncServer: lanSyncServer,
+      lanSyncClient: lanSyncClient,
+      fileInteropService: fileInteropService,
+    );
+  }
+  return AppState(
+    repository: repository,
+    syncService: syncService,
+    lanSyncServer: lanSyncServer,
+    lanSyncClient: lanSyncClient,
+    fileInteropService: fileInteropService,
+  );
 }
 
 _TimelineFixture _buildFixture() {
   final database = LocalDatabase();
   final repository = TimeRepository(database: database);
-  final peerStore = SyncPeerStore(database: database);
-  final state = AppState(
-    repository: repository,
-    syncService: SyncService(repository: repository, client: null),
-    lanSyncServer: LanSyncServer(
-      repository: repository,
-      peerStore: peerStore,
-      portCandidates: const [0],
-    ),
-    lanSyncClient: LanSyncClient(
-      repository: repository,
-      peerStore: peerStore,
-    ),
-    fileInteropService: FileInteropService(repository: repository),
-  );
+  final state = _createAppState(database: database, repository: repository);
   state
     ..isLoading = false
     ..activities = [_activity, _unassignedActivity]
     ..selectedDay = DateTime(2026, 1, 2)
     ..now = DateTime(2026, 1, 2, 12);
   return _TimelineFixture(state: state, repository: repository);
+}
+
+Future<_TimelineFixture> _buildPersistedFixture({
+  bool delayOverlaps = false,
+}) async {
+  sqfliteFfiInit();
+  final db = await databaseFactoryFfi.openDatabase(
+    inMemoryDatabasePath,
+    options: OpenDatabaseOptions(singleInstance: false),
+  );
+  await LocalDatabase.createSchema(db);
+  final database = LocalDatabase(database: db);
+  final repository = TimeRepository(database: database);
+  await repository.ensureSeedData();
+  final state = _createAppState(
+    database: database,
+    repository: repository,
+    delayOverlaps: delayOverlaps,
+  );
+  state
+    ..isLoading = false
+    ..selectedDay = DateTime(2026, 1, 2)
+    ..now = DateTime(2026, 1, 2, 12);
+  final activity = (await repository.activities())
+      .firstWhere((activity) => !activity.isUnassigned);
+  await repository.createManualEntry(
+    activityId: activity.id,
+    startAt: DateTime(2026, 1, 2, 9),
+    endAt: DateTime(2026, 1, 2, 10),
+    note: '',
+  );
+  await state.refresh();
+  return _TimelineFixture(
+    state: state,
+    repository: repository,
+    database: db,
+  );
+}
+
+Future<_TimelineFixture> _buildOverlappingPersistedFixture() async {
+  final fixture = await _buildPersistedFixture();
+  final activity = (await fixture.repository.activities())
+      .firstWhere((activity) => !activity.isUnassigned);
+  await fixture.repository.createManualEntry(
+    activityId: activity.id,
+    startAt: DateTime(2026, 1, 2, 9, 30),
+    endAt: DateTime(2026, 1, 2, 10, 30),
+    note: '',
+  );
+  await fixture.state.refresh();
+  return fixture;
 }
 
 final _activity = Activity(
@@ -104,6 +200,67 @@ Future<void> _pumpTimeline(
     ),
   );
   await tester.pump();
+}
+
+Future<void> _tapAndPumpUntil(
+  WidgetTester tester,
+  Finder finder,
+  Finder doneFinder,
+) async {
+  await tester.runAsync(() async {
+    await tester.tap(finder);
+  });
+  await tester.pumpAndSettle();
+  for (var attempt = 0; attempt < 40; attempt += 1) {
+    if (doneFinder.evaluate().isNotEmpty) {
+      break;
+    }
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+  expect(doneFinder, findsWidgets);
+}
+
+Future<void> _tapAndPumpUntilGone(
+  WidgetTester tester,
+  Finder finder,
+  Finder goneFinder,
+) async {
+  await tester.runAsync(() async {
+    await tester.tap(finder);
+  });
+  await tester.pumpAndSettle();
+  for (var attempt = 0; attempt < 40; attempt += 1) {
+    if (goneFinder.evaluate().isEmpty) {
+      break;
+    }
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+  expect(goneFinder, findsNothing);
+}
+
+Future<void> _tapEntryEditButton(
+  WidgetTester tester, {
+  required String title,
+}) async {
+  final entryCard = find.ancestor(
+    of: find.text(title),
+    matching: find.byType(TimelineEntryCard),
+  );
+  await tester.tap(
+    find.descendant(
+      of: entryCard,
+      matching: find.byTooltip('编辑'),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -196,6 +353,514 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('timeline editor saves an unassigned gap as a real activity', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+
+    await tester.runAsync(
+      () => fixture.repository.deleteEntry(state.dayEntries.single),
+    );
+    await tester.runAsync(state.refresh);
+    final gap = state.visibleDayEntries().singleWhere(
+          (entry) => entry.deviceId == 'unassigned-gap',
+        );
+
+    await _pumpTimeline(tester, state, width: 390);
+    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('列表').last);
+    await tester.pumpAndSettle();
+    expect(find.text('未安排'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.text('请选择一个有效事项。'),
+    );
+
+    final entriesBeforeSelection =
+        await tester.runAsync(fixture.repository.allEntries);
+    final logsBeforeSelection =
+        await tester.runAsync(fixture.repository.allActionLogs);
+    expect(
+        entriesBeforeSelection!.where((entry) => entry.id == gap.id), isEmpty);
+    expect(
+      entriesBeforeSelection.where(
+        (entry) =>
+            entry.deviceId == 'unassigned-gap' ||
+            (!entry.isDeleted &&
+                entry.activityId == state.unassignedActivity!.id),
+      ),
+      isEmpty,
+    );
+    expect(logsBeforeSelection!.where((log) => log.entryId == gap.id), isEmpty);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('工作').last);
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(
+      state.dayEntries.where((entry) => entry.deviceId != 'unassigned-gap'),
+      hasLength(1),
+    );
+    expect(state.dayEntries.single.activityId,
+        isNot(state.unassignedActivity!.id));
+    final allEntries = await tester.runAsync(fixture.repository.allEntries);
+    final allLogs = await tester.runAsync(fixture.repository.allActionLogs);
+    final realEntries = allEntries!
+        .where(
+            (entry) => !entry.isDeleted && entry.deviceId != 'unassigned-gap')
+        .toList();
+    expect(realEntries, hasLength(1));
+    expect(realEntries.single.id, isNot(gap.id));
+    expect(realEntries.single.activityId, isNot(state.unassignedActivity!.id));
+    expect(allEntries.where((entry) => entry.id == gap.id), isEmpty);
+    expect(allEntries.where((entry) => entry.deviceId == 'unassigned-gap'),
+        isEmpty);
+    expect(allLogs!.where((log) => log.entryId == gap.id), isEmpty);
+    expect(
+      allLogs.where(
+        (log) =>
+            log.actionType == 'manual' && log.entryId == realEntries.single.id,
+      ),
+      hasLength(1),
+    );
+  });
+
+  testWidgets('timeline editor cannot delete a generated unassigned gap', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+
+    await tester.runAsync(
+      () => fixture.repository.deleteEntry(state.dayEntries.single),
+    );
+    await tester.runAsync(state.refresh);
+    final gap = state.visibleDayEntries().singleWhere(
+          (entry) => entry.deviceId == 'unassigned-gap',
+        );
+
+    await _pumpTimeline(tester, state, width: 390);
+    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('列表').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '删除'), findsNothing);
+
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+
+    final allEntries = await tester.runAsync(fixture.repository.allEntries);
+    final allLogs = await tester.runAsync(fixture.repository.allActionLogs);
+    expect(
+      allEntries!.where((entry) => entry.id == gap.id),
+      isEmpty,
+    );
+    expect(
+      allLogs!.where((log) => log.entryId == gap.id),
+      isEmpty,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('timeline editor updates an existing entry activity', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final originalEntry = state.dayEntries.single;
+    final targetActivity = state.activities.firstWhere(
+      (activity) =>
+          !activity.isUnassigned && activity.id != originalEntry.activityId,
+    );
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    final originalActivity = state.activityById(originalEntry.activityId)!;
+    final entryCard = find.ancestor(
+      of: find.text(originalActivity.name),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await tester.tap(
+      find.descendant(
+        of: entryCard,
+        matching: find.byTooltip('编辑'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(targetActivity.name).last);
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final storedEntries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(tester.takeException(), isNull);
+    final realDayEntries = state.dayEntries
+        .where((entry) => entry.deviceId != 'unassigned-gap')
+        .toList();
+    expect(realDayEntries, hasLength(1));
+    expect(realDayEntries.single.activityId, targetActivity.id);
+    expect(storedEntries!.single.activityId, targetActivity.id);
+  });
+
+  testWidgets('timeline editor preserves missing activity until user selects', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final originalEntry = state.dayEntries.single;
+    final originalActivity = state.activityById(originalEntry.activityId)!;
+    final targetActivity = state.activities.firstWhere(
+      (activity) =>
+          !activity.isUnassigned && activity.id != originalEntry.activityId,
+    );
+
+    await tester.runAsync(() async {
+      await fixture.repository.replaceActivityIfRemoteNewer(
+        originalActivity.copyWith(
+          isDeleted: true,
+          updatedAt: DateTime.now().add(const Duration(seconds: 1)),
+        ),
+      );
+      await state.refresh();
+    });
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    final entryCard = find.ancestor(
+      of: find.text('未知事项'),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await tester.tap(
+      find.descendant(
+        of: entryCard,
+        matching: find.byTooltip('编辑'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.text('请选择一个有效事项。'),
+    );
+
+    var storedEntries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(find.text('请选择一个有效事项。'), findsOneWidget);
+    expect(storedEntries!.single.activityId, originalEntry.activityId);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(targetActivity.name).last);
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    storedEntries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(tester.takeException(), isNull);
+    expect(storedEntries!.single.activityId, targetActivity.id);
+  });
+
+  testWidgets('timeline editor saves an activity change after overlap warning',
+      (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildOverlappingPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final entryToEdit = state.dayEntries.first;
+    final originalActivity = state.activityById(entryToEdit.activityId)!;
+    final targetActivity = state.activities.firstWhere(
+      (activity) =>
+          !activity.isUnassigned && activity.id != entryToEdit.activityId,
+    );
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    final entryCard = find.ancestor(
+      of: find.text(originalActivity.name).first,
+      matching: find.byType(TimelineEntryCard),
+    );
+    await tester.tap(
+      find.descendant(
+        of: entryCard,
+        matching: find.byTooltip('编辑'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(targetActivity.name).last);
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.textContaining('重叠'),
+    );
+
+    expect(find.textContaining('重叠'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final storedEntries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    final editedEntry = storedEntries!.singleWhere(
+      (entry) => entry.id == entryToEdit.id,
+    );
+    expect(tester.takeException(), isNull);
+    expect(editedEntry.activityId, targetActivity.id);
+  });
+
+  testWidgets('timeline editor asks again when overlap candidate changes', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildOverlappingPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final entryToEdit = state.dayEntries.first;
+    final originalActivity = state.activityById(entryToEdit.activityId)!;
+    final targetActivities = state.activities
+        .where(
+          (activity) =>
+              !activity.isUnassigned && activity.id != entryToEdit.activityId,
+        )
+        .toList();
+    final firstTargetActivity = targetActivities.first;
+    final secondTargetActivity = targetActivities[1];
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    final entryCard = find.ancestor(
+      of: find.text(originalActivity.name).first,
+      matching: find.byType(TimelineEntryCard),
+    );
+    await tester.tap(
+      find.descendant(
+        of: entryCard,
+        matching: find.byTooltip('编辑'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(firstTargetActivity.name).last);
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.textContaining('重叠'),
+    );
+
+    expect(find.textContaining('重叠'), findsOneWidget);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(secondTargetActivity.name).last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('重叠'), findsNothing);
+
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.textContaining('重叠'),
+    );
+
+    final storedEntries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    final editedEntry = storedEntries!.singleWhere(
+      (entry) => entry.id == entryToEdit.id,
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('重叠'), findsOneWidget);
+    expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsOneWidget);
+    expect(editedEntry.activityId, isNot(secondTargetActivity.id));
+  });
+
+  testWidgets('timeline editor validates activity after refresh while open', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final originalEntry = state.dayEntries.single;
+    final deletedActivityId = originalEntry.activityId;
+    final targetActivity = state.activities.firstWhere(
+      (activity) =>
+          !activity.isUnassigned && activity.id != originalEntry.activityId,
+    );
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    final originalActivity = state.activityById(originalEntry.activityId)!;
+    final entryCard = find.ancestor(
+      of: find.text(originalActivity.name),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await tester.tap(
+      find.descendant(
+        of: entryCard,
+        matching: find.byTooltip('编辑'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.runAsync(() async {
+      await fixture.repository.replaceActivityIfRemoteNewer(
+        originalActivity.copyWith(
+          isDeleted: true,
+          updatedAt: DateTime.now().add(const Duration(seconds: 1)),
+        ),
+      );
+      await state.refresh();
+    });
+
+    expect(tester.takeException(), isNull);
+    expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsOneWidget);
+    expect(state.activityById(deletedActivityId), isNull);
+
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.text('请选择一个有效事项。'),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('请选择一个有效事项。'), findsOneWidget);
+    expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsOneWidget);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(targetActivity.name).last);
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final storedEntries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(tester.takeException(), isNull);
+    expect(storedEntries!.single.activityId, targetActivity.id);
+  });
+
+  testWidgets('timeline editor ignores delayed overlap after dialog closes', (
+    tester,
+  ) async {
+    final fixture = (await tester
+        .runAsync(() => _buildPersistedFixture(delayOverlaps: true)))!;
+    final state = fixture.state as _DelayedOverlapAppState;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    final activity = state.activityById(state.dayEntries.single.activityId)!;
+    await _tapEntryEditButton(tester, title: activity.name);
+    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+    await tester.pump();
+
+    expect(state.overlapRequested, isTrue);
+
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    state.overlapCompleter.complete([
+      state.dayEntries.single.copyWith(id: 'other-entry'),
+    ]);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'timeline editor does not reuse note controller after closing during save',
+    (tester) async {
+      final fixture = (await tester
+          .runAsync(() => _buildPersistedFixture(delayOverlaps: true)))!;
+      final state = fixture.state as _DelayedOverlapAppState;
+      addTearDown(state.dispose);
+      addTearDown(() async => fixture.database?.close());
+
+      await _pumpTimeline(tester, state, width: 920);
+      await tester.tap(find.text('列表'));
+      await tester.pumpAndSettle();
+      final activity = state.activityById(state.dayEntries.single.activityId)!;
+      await _tapEntryEditButton(tester, title: activity.name);
+      await tester.enterText(find.widgetWithText(TextField, '备注'), '关闭时仍在保存');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+      await tester.pump();
+
+      expect(state.overlapRequested, isTrue);
+
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      state.overlapCompleter.complete(<TimeEntry>[]);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('entry editor avoids overflow while editing current activity', (
     tester,
   ) async {
@@ -219,13 +884,48 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('列表').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('编辑').first);
-    await tester.pumpAndSettle();
+    await _tapEntryEditButton(tester, title: _activity.name);
     await tester.tap(find.byTooltip('编辑当前事项'));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(AlertDialog, '编辑事项'), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('timeline editor saves after renaming the current activity', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('列表'));
+    await tester.pumpAndSettle();
+    final activity = state.activityById(state.dayEntries.single.activityId)!;
+    await _tapEntryEditButton(tester, title: activity.name);
+    await tester.tap(find.byTooltip('编辑当前事项'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '名称'), '深度工作');
+    await tester.pump();
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑事项'),
+    );
+
+    expect(find.text('深度工作'), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    expect(find.text('深度工作'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
