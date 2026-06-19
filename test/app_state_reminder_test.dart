@@ -79,7 +79,9 @@ void main() {
     final fixture = await _buildState();
     final state = fixture.state;
     addTearDown(state.dispose);
-    final activity = state.activities.first;
+    final activity = state.activities.firstWhere(
+      (activity) => !activity.isUnassigned,
+    );
 
     await fixture.repository.createManualEntry(
       activityId: activity.id,
@@ -93,6 +95,31 @@ void main() {
       state.todayTotals()[activity.id],
       const Duration(minutes: 30),
     );
+  });
+
+  test('todayTotals assigns unrecorded time to unassigned activity', () async {
+    final fixture = await _buildState();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final activity = state.activities.firstWhere(
+      (activity) => !activity.isUnassigned,
+    );
+    final unassigned = state.activities.singleWhere(
+      (activity) => activity.isUnassigned,
+    );
+    state.now = DateTime(2026, 1, 2, 12);
+
+    await fixture.repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 2, 9),
+      endAt: DateTime(2026, 1, 2, 10),
+      note: 'morning',
+    );
+    await state.selectDay(DateTime(2026, 1, 2));
+
+    final totals = state.todayTotals();
+    expect(totals[activity.id], const Duration(hours: 1));
+    expect(totals[unassigned.id], const Duration(hours: 11));
   });
 
   test('weekTotals clips entries to each day before summing', () async {
@@ -260,8 +287,8 @@ void main() {
     await state.selectDay(DateTime(2026, 1, 2));
 
     final longest = await state.longestBlockForPeriod(StatsPeriod.day);
-    // Entry 2: in window Jan 2 00:00 to Jan 2 01:00 = 1h (same as entry 1)
-    expect(longest.inMinutes, 60);
+    // Unassigned gaps now behave like regular activity blocks.
+    expect(longest.inMinutes, 14 * 60);
   });
 
   test('longestBlockForPeriod month finds longest in window', () async {
@@ -279,8 +306,8 @@ void main() {
     await state.selectDay(DateTime(2026, 1, 15));
 
     final longest = await state.longestBlockForPeriod(StatsPeriod.month);
-    // In January window: Jan 1 00:00 to Jan 1 02:00 = 2 hours
-    expect(longest.inMinutes, 120);
+    // Unassigned gaps now behave like regular activity blocks.
+    expect(longest.inMinutes, 30 * 24 * 60 + 22 * 60);
   });
 
   test('longestBlockForPeriod all uses full duration', () async {

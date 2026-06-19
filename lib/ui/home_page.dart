@@ -295,125 +295,115 @@ Future<Activity?> showActivityEditorDialog(
   var selectedColor = activity?.color ??
       nextActivityColor(state.activities.map((activity) => activity.color));
   Activity? saved;
-  await showModalBottomSheet<void>(
+  await showDialog<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
-          final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    activity == null ? '新增事项' : '编辑事项',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      labelText: '名称',
-                      prefixIcon: Icon(Icons.label_outline),
+          return AlertDialog(
+            title: Text(activity == null ? '新增事项' : '编辑事项'),
+            content: SizedBox(
+              width: _dialogContentWidth(context, maxWidth: 420),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        labelText: '名称',
+                        prefixIcon: Icon(Icons.label_outline),
+                      ),
+                      autofocus: true,
                     ),
-                    autofocus: true,
-                  ),
-                  const SizedBox(height: 16),
-                  ActivityColorPicker(
-                    selectedColor: selectedColor,
-                    onColorChanged: (color) =>
-                        setState(() => selectedColor = color),
-                  ),
-                  const SizedBox(height: 18),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (activity != null)
-                        TextButton.icon(
-                          onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('删除事项'),
-                                content: Text(
-                                  '确定删除“${activity.name}”吗？已有时间记录会保留，但之后不能再选择这个事项。',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('取消'),
-                                  ),
-                                  FilledButton.icon(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    icon: const Icon(Icons.delete_outline),
-                                    label: const Text('删除'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirmed != true) {
-                              return;
-                            }
-                            await state.deleteActivity(activity);
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                            }
-                          },
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('删除'),
-                        ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('取消'),
-                      ),
-                      FilledButton.icon(
-                        onPressed: () async {
-                          final name = controller.text.trim();
-                          if (name.isEmpty) {
-                            return;
-                          }
-                          saved = activity == null
-                              ? await state.createActivity(
-                                  name,
-                                  selectedColor,
-                                )
-                              : await state.updateActivity(
-                                  activity,
-                                  name: name,
-                                  color: selectedColor,
-                                );
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                          }
-                        },
-                        icon: Icon(
-                            activity == null ? Icons.add : Icons.save_outlined),
-                        label: Text(activity == null ? '创建' : '保存'),
-                      ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    ActivityColorPicker(
+                      selectedColor: selectedColor,
+                      onColorChanged: (color) =>
+                          setState(() => selectedColor = color),
+                    ),
+                  ],
+                ),
               ),
             ),
+            actions: [
+              if (activity != null && !activity.isUnassigned)
+                TextButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('删除事项'),
+                        content: Text(
+                          '确定删除“${activity.name}”吗？已有时间记录会保留，但之后不能再选择这个事项。',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('取消'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () => Navigator.pop(context, true),
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('删除'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed != true) {
+                      return;
+                    }
+                    await state.deleteActivity(activity);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  final name = controller.text.trim();
+                  if (name.isEmpty) {
+                    return;
+                  }
+                  saved = activity == null
+                      ? await state.createActivity(
+                          name,
+                          selectedColor,
+                        )
+                      : await state.updateActivity(
+                          activity,
+                          name: name,
+                          color: selectedColor,
+                        );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                icon: Icon(activity == null ? Icons.add : Icons.save_outlined),
+                label: Text(activity == null ? '创建' : '保存'),
+              ),
+            ],
           );
         },
       );
     },
   );
   return saved;
+}
+
+double _dialogContentWidth(
+  BuildContext context, {
+  required double maxWidth,
+}) {
+  final availableWidth = MediaQuery.sizeOf(context).width - 128;
+  return availableWidth.clamp(0, maxWidth).toDouble();
 }
 
 class ActivityColorPicker extends StatelessWidget {

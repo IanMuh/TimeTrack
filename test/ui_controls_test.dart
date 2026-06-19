@@ -294,6 +294,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('showActivityEditorDialog opens as a centered dialog',
+      (tester) async {
+    final state = _FakeAppState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () => showActivityEditorDialog(context, state),
+                child: const Text('open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.widgetWithText(AlertDialog, '新增事项'), findsOneWidget);
+    expect(tester.getCenter(find.byType(AlertDialog)).dy, closeTo(300, 1));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('showEntryEditor keeps dropdown stable after editing activity',
       (tester) async {
     final state = _FakeAppState();

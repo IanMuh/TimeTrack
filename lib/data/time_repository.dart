@@ -25,8 +25,10 @@ class TimeRepository {
 
   Future<void> ensureSeedData() async {
     final db = await _database.db;
+    await _ensureUnassignedActivity();
     final count = Sqflite.firstIntValue(
-      await db.rawQuery('select count(*) from activities'),
+      await db
+          .rawQuery('select count(*) from activities where is_unassigned = 0'),
     );
     if (count == 0) {
       final now = DateTime.now();
@@ -89,6 +91,10 @@ class TimeRepository {
       orderBy: 'is_favorite desc, name asc',
     );
     return rows.map(Activity.fromMap).toList();
+  }
+
+  Future<Activity> unassignedActivity() async {
+    return _ensureUnassignedActivity();
   }
 
   Future<SyncBundle> exportBundle() async {
@@ -220,6 +226,9 @@ class TimeRepository {
   }
 
   Future<void> deleteActivity(Activity activity) async {
+    if (activity.isUnassigned) {
+      return;
+    }
     final now = DateTime.now();
     final running = await runningEntry();
     if (running?.activityId == activity.id) {
@@ -315,10 +324,12 @@ class TimeRepository {
     final now = at ?? DateTime.now();
     final running = await runningEntry();
     if (running == null) {
+      await _startUnassigned(at: now);
       return;
     }
     if (running.startAt.isAfter(now)) {
       await saveEntry(running.copyWith(isDeleted: true, updatedAt: now));
+      await _startUnassigned(at: now);
       return;
     }
     await saveEntry(running.copyWith(endAt: now, updatedAt: now));
@@ -329,6 +340,7 @@ class TimeRepository {
       occurredAt: now,
       message: '停止事项',
     );
+    await _startUnassigned(at: now);
   }
 
   Future<void> saveEntry(TimeEntry entry, {bool logEdit = false}) async {
@@ -678,6 +690,69 @@ class TimeRepository {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
+  }
+
+  Future<Activity> _ensureUnassignedActivity() async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'activities',
+      where: 'is_unassigned = 1',
+      orderBy: 'is_deleted asc, updated_at desc',
+    );
+    if (rows.isNotEmpty) {
+      var keep = Activity.fromMap(rows.first);
+      if (keep.isDeleted) {
+        keep = keep.copyWith(isDeleted: false, updatedAt: DateTime.now());
+        await upsertActivity(keep);
+      }
+      for (final row in rows.skip(1)) {
+        final duplicate = Activity.fromMap(row);
+        await upsertActivity(
+          duplicate.copyWith(isDeleted: true, updatedAt: DateTime.now()),
+        );
+      }
+      return keep;
+    }
+
+    final legacyRows = await db.query(
+      'activities',
+      where: 'name = ? and is_deleted = 0',
+      whereArgs: ['未安排'],
+      orderBy: 'updated_at desc',
+      limit: 1,
+    );
+    if (legacyRows.isNotEmpty) {
+      final legacy = Activity.fromMap(legacyRows.first).copyWith(
+        isFavorite: false,
+        isUnassigned: true,
+        updatedAt: DateTime.now(),
+      );
+      await upsertActivity(legacy);
+      return legacy;
+    }
+
+    final now = DateTime.now();
+    final activity = Activity(
+      id: _uuid.v4(),
+      userId: null,
+      name: '未安排',
+      color: 0xff64748b,
+      isFavorite: false,
+      updatedAt: now,
+      isDeleted: false,
+      isUnassigned: true,
+    );
+    await upsertActivity(activity);
+    return activity;
+  }
+
+  Future<void> _startUnassigned({required DateTime at}) async {
+    final activity = await _ensureUnassignedActivity();
+    final running = await runningEntry();
+    if (running?.activityId == activity.id) {
+      return;
+    }
+    await switchToActivity(activity.id, at: at);
   }
 
   bool _shouldReplace<T>(

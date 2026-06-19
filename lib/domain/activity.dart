@@ -7,6 +7,7 @@ class Activity {
     required this.isFavorite,
     required this.updatedAt,
     required this.isDeleted,
+    this.isUnassigned = false,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class Activity {
   final bool isFavorite;
   final DateTime updatedAt;
   final bool isDeleted;
+  final bool isUnassigned;
 
   Activity copyWith({
     String? id,
@@ -25,6 +27,7 @@ class Activity {
     bool? isFavorite,
     DateTime? updatedAt,
     bool? isDeleted,
+    bool? isUnassigned,
   }) {
     return Activity(
       id: id ?? this.id,
@@ -34,6 +37,7 @@ class Activity {
       isFavorite: isFavorite ?? this.isFavorite,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      isUnassigned: isUnassigned ?? this.isUnassigned,
     );
   }
 
@@ -46,6 +50,7 @@ class Activity {
       'is_favorite': isFavorite ? 1 : 0,
       'updated_at': updatedAt.toUtc().toIso8601String(),
       'is_deleted': isDeleted ? 1 : 0,
+      'is_unassigned': isUnassigned ? 1 : 0,
     };
   }
 
@@ -58,6 +63,7 @@ class Activity {
       'is_favorite': isFavorite,
       'updated_at': updatedAt.toUtc().toIso8601String(),
       'is_deleted': isDeleted,
+      'is_unassigned': isUnassigned,
     };
   }
 
@@ -70,6 +76,7 @@ class Activity {
       isFavorite: _readBool(map['is_favorite']),
       updatedAt: DateTime.parse(map['updated_at'] as String).toLocal(),
       isDeleted: _readBool(map['is_deleted']),
+      isUnassigned: _readBool(map['is_unassigned']),
     );
   }
 

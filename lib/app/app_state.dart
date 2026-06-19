@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/date_time_ext.dart';
 import '../data/file_interop_service.dart';
@@ -166,6 +167,15 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  Activity? get unassignedActivity {
+    for (final activity in activities) {
+      if (activity.isUnassigned) {
+        return activity;
+      }
+    }
+    return null;
+  }
+
   Future<void> switchTo(Activity activity) async {
     await _repository.switchToActivity(activity.id);
     await refresh();
@@ -272,8 +282,9 @@ class AppState extends ChangeNotifier {
   Future<List<TimeEntry>> entriesForRange({
     required DateTime start,
     required DateTime end,
-  }) {
-    return _repository.entriesForRange(start, end);
+  }) async {
+    final entries = await _repository.entriesForRange(start, end);
+    return _entriesWithUnassignedGaps(entries, start, end);
   }
 
   Future<List<ActionLog>> actionLogsForRange({
@@ -287,7 +298,7 @@ class AppState extends ChangeNotifier {
     required DateTime start,
     required DateTime end,
   }) async {
-    final entries = await _repository.entriesForRange(start, end);
+    final entries = await entriesForRange(start: start, end: end);
     return TimeRangeStats.fromEntries(
       entries: entries,
       start: start,
@@ -453,8 +464,10 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, Duration> todayTotals() {
-    return _totalsInWindow(dayEntries, selectedDay.startOfDay,
-        selectedDay.startOfDay.add(const Duration(days: 1)), now);
+    final start = selectedDay.startOfDay;
+    final end = start.add(const Duration(days: 1));
+    return _totalsInWindow(
+        _entriesWithUnassignedGaps(dayEntries, start, end), start, end, now);
   }
 
   Future<Map<String, Duration>> weekTotals() async {
@@ -464,7 +477,12 @@ class AppState extends ChangeNotifier {
   Future<Map<String, Duration>> totalsForPeriod(StatsPeriod period) async {
     final (start, end) = period.windowFor(selectedDay);
     if (period == StatsPeriod.day) {
-      return _totalsInWindow(dayEntries, start, end, now);
+      return _totalsInWindow(
+        _entriesWithUnassignedGaps(dayEntries, start, end),
+        start,
+        end,
+        now,
+      );
     }
     List<TimeEntry> entries;
     if (period == StatsPeriod.all) {
@@ -477,7 +495,7 @@ class AppState extends ChangeNotifier {
       }
       entries = filtered;
     } else {
-      entries = await _repository.entriesForRange(start, end);
+      entries = await entriesForRange(start: start, end: end);
     }
     return _totalsInWindow(entries, start, end, now);
   }
@@ -491,7 +509,12 @@ class AppState extends ChangeNotifier {
   Future<Duration> longestBlockForPeriod(StatsPeriod period) async {
     final (start, end) = period.windowFor(selectedDay);
     if (period == StatsPeriod.day) {
-      return _longestInWindow(dayEntries, start, end, now);
+      return _longestInWindow(
+        _entriesWithUnassignedGaps(dayEntries, start, end),
+        start,
+        end,
+        now,
+      );
     }
     List<TimeEntry> entries;
     if (period == StatsPeriod.all) {
@@ -507,7 +530,7 @@ class AppState extends ChangeNotifier {
       }
       return longest;
     }
-    entries = await _repository.entriesForRange(start, end);
+    entries = await entriesForRange(start: start, end: end);
     return _longestInWindow(entries, start, end, now);
   }
 
@@ -555,11 +578,87 @@ class AppState extends ChangeNotifier {
 
   List<TimeEntry> visibleDayEntries() {
     final start = selectedDay.startOfDay;
-    final end = selectedDay.endOfDay;
-    return dayEntries.where((entry) {
+    final end = start.add(const Duration(days: 1));
+    final visible = dayEntries.where((entry) {
       final entryEnd = entry.endAt ?? now;
       return entry.startAt.isBefore(end) && entryEnd.isAfter(start);
     }).toList();
+    return _entriesWithUnassignedGaps(visible, start, end);
+  }
+
+  List<TimeEntry> _entriesWithUnassignedGaps(
+    List<TimeEntry> entries,
+    DateTime windowStart,
+    DateTime windowEnd,
+  ) {
+    final unassigned = unassignedActivity;
+    final effectiveEnd = _earlier(windowEnd, now);
+    if (unassigned == null || !windowStart.isBefore(effectiveEnd)) {
+      return entries;
+    }
+
+    final coverage = [
+      for (final entry in entries)
+        if (!entry.isDeleted &&
+            entry.startAt.isBefore(effectiveEnd) &&
+            (entry.endAt ?? now).isAfter(windowStart))
+          entry,
+    ]..sort((a, b) => a.startAt.compareTo(b.startAt));
+
+    final gaps = <TimeEntry>[];
+    var cursor = windowStart;
+    for (final entry in coverage) {
+      final entryStart = _later(entry.startAt, windowStart);
+      final entryEnd = _earlier(entry.endAt ?? now, effectiveEnd);
+      if (!entryEnd.isAfter(entryStart)) {
+        continue;
+      }
+      if (cursor.isBefore(entryStart)) {
+        gaps.add(_unassignedEntry(unassigned, cursor, entryStart));
+      }
+      if (cursor.isBefore(entryEnd)) {
+        cursor = entryEnd;
+      }
+    }
+    if (cursor.isBefore(effectiveEnd)) {
+      gaps.add(_unassignedEntry(unassigned, cursor, effectiveEnd));
+    }
+
+    final combined = [...entries, ...gaps]
+      ..sort((a, b) => a.startAt.compareTo(b.startAt));
+    return combined;
+  }
+
+  TimeEntry _unassignedEntry(
+    Activity activity,
+    DateTime start,
+    DateTime end,
+  ) {
+    final id = const Uuid().v5(
+      Namespace.url.value,
+      'timetrack:unassigned:${activity.id}:'
+      '${start.toUtc().toIso8601String()}:'
+      '${end.toUtc().toIso8601String()}',
+    );
+    return TimeEntry(
+      id: id,
+      userId: activity.userId,
+      activityId: activity.id,
+      startAt: start,
+      endAt: end,
+      note: '',
+      deviceId: 'unassigned-gap',
+      updatedAt: now,
+      isDeleted: false,
+    );
+  }
+
+  DateTime _later(DateTime first, DateTime second) {
+    return first.isAfter(second) ? first : second;
+  }
+
+  DateTime _earlier(DateTime first, DateTime second) {
+    return first.isBefore(second) ? first : second;
   }
 
   @override

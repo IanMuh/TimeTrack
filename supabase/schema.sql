@@ -7,8 +7,12 @@ create table if not exists public.activities (
   color integer not null,
   is_favorite boolean not null default true,
   updated_at timestamptz not null default now(),
-  is_deleted boolean not null default false
+  is_deleted boolean not null default false,
+  is_unassigned boolean not null default false
 );
+
+alter table public.activities
+  add column if not exists is_unassigned boolean not null default false;
 
 create table if not exists public.time_entries (
   id uuid primary key default gen_random_uuid(),

@@ -41,7 +41,7 @@ _TimelineFixture _buildFixture() {
   );
   state
     ..isLoading = false
-    ..activities = [_activity]
+    ..activities = [_activity, _unassignedActivity]
     ..selectedDay = DateTime(2026, 1, 2)
     ..now = DateTime(2026, 1, 2, 12);
   return _TimelineFixture(state: state, repository: repository);
@@ -55,6 +55,17 @@ final _activity = Activity(
   isFavorite: true,
   updatedAt: DateTime(2026, 1, 1),
   isDeleted: false,
+);
+
+final _unassignedActivity = Activity(
+  id: 'unassigned',
+  userId: null,
+  name: '未安排',
+  color: 0xff64748b,
+  isFavorite: false,
+  updatedAt: DateTime(2026, 1, 1),
+  isDeleted: false,
+  isUnassigned: true,
 );
 
 TimeEntry _entry({
@@ -144,12 +155,77 @@ void main() {
     await _pumpTimeline(tester, state, width: 920);
     await tester.tap(find.text('列表'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('编辑').first);
+    final runningCard = find.ancestor(
+      of: find.text('工作'),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await tester.tap(
+      find.descendant(
+        of: runningCard,
+        matching: find.byTooltip('编辑'),
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('保持进行中'), findsWidgets);
     expect(find.text('关闭后可把这条记录保存为已结束。'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('timeline list shows unassigned gaps as activity entries', (
+    tester,
+  ) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    state
+      ..selectedDay = DateTime(2026, 1, 1)
+      ..now = DateTime(2026, 1, 2, 12);
+
+    await _pumpTimeline(tester, state, width: 390);
+    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('列表').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('未安排'), findsOneWidget);
+    expect(find.text('24 小时 0 分钟'), findsOneWidget);
+    expect(find.text('00:00:00 - 24:00:00'), findsOneWidget);
+    expect(find.text('这一天还没有记录。'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('entry editor avoids overflow while editing current activity', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final entry = _entry(
+      id: 'entry',
+      startAt: DateTime(2026, 1, 2, 9),
+      endAt: DateTime(2026, 1, 2, 10),
+    );
+    state.dayEntries = [entry];
+
+    await _pumpTimeline(tester, state, width: 360);
+    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('列表').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('编辑当前事项'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AlertDialog, '编辑事项'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
