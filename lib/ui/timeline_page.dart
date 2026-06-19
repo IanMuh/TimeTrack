@@ -1456,14 +1456,22 @@ Future<void> showEntryEditor(
     return;
   }
   final selectedDay = state.selectedDay;
+  final editingGeneratedGap = entry?.deviceId == 'unassigned-gap';
   var activities = [...state.activities];
-  var activity = entry == null
-      ? state.activities.first
-      : state.activityById(entry.activityId) ?? state.activities.first;
+  String? selectedActivityId;
+  if (entry == null) {
+    selectedActivityId = state.activities.first.id;
+  } else if (editingGeneratedGap) {
+    final selected = state.activityById(entry.activityId);
+    selectedActivityId =
+        selected == null || selected.isUnassigned ? null : selected.id;
+  } else {
+    selectedActivityId = state.activityById(entry.activityId)?.id;
+  }
   var start = entry?.startAt ?? _defaultEntryStart(selectedDay, state.now);
   var end = entry?.endAt ?? _defaultEntryEnd(start, selectedDay, state.now);
   var keepRunning = entry?.isRunning ?? false;
-  final noteController = TextEditingController(text: entry?.note ?? '');
+  var note = entry?.note ?? '';
   String? formError;
 
   Future<void> pickDateTime({
@@ -1508,7 +1516,7 @@ Future<void> showEntryEditor(
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
-          Activity? findActivity(String id) {
+          Activity? findActivity(String? id) {
             for (final item in activities) {
               if (item.id == id) {
                 return item;
@@ -1517,9 +1525,21 @@ Future<void> showEntryEditor(
             return null;
           }
 
-          void refreshActivities(Activity selected) {
+          Activity activityForSelector() {
+            return findActivity(selectedActivityId) ??
+                (activities.isNotEmpty
+                    ? activities.first
+                    : state.activities.first);
+          }
+
+          void refreshActivities([String? preferredActivityId]) {
             activities = [...state.activities];
-            activity = findActivity(selected.id) ?? selected;
+            final preferred = preferredActivityId ?? selectedActivityId;
+            if (findActivity(preferred) != null) {
+              selectedActivityId = preferred!;
+            } else {
+              selectedActivityId = null;
+            }
           }
 
           return AlertDialog(
@@ -1531,14 +1551,17 @@ Future<void> showEntryEditor(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _EntryActivitySelector(
-                      activity: activity,
+                      activity: activityForSelector(),
                       activities: activities,
-                      selectedActivityId: findActivity(activity.id)?.id,
+                      selectedActivityId: findActivity(selectedActivityId)?.id,
                       onActivityChanged: (value) {
                         final selected =
                             value == null ? null : findActivity(value);
                         if (selected != null) {
-                          setState(() => activity = selected);
+                          setState(() {
+                            selectedActivityId = selected.id;
+                            formError = null;
+                          });
                         }
                       },
                       onCreateActivity: () async {
@@ -1546,18 +1569,35 @@ Future<void> showEntryEditor(
                           context,
                           state,
                         );
-                        if (created != null) {
-                          setState(() => refreshActivities(created));
+                        if (context.mounted) {
+                          setState(() {
+                            refreshActivities(created?.id);
+                            if (created != null) {
+                              selectedActivityId = created.id;
+                            }
+                            formError = null;
+                          });
                         }
                       },
                       onEditActivity: () async {
+                        final selected = findActivity(selectedActivityId);
+                        if (selected == null) {
+                          setState(() => formError = '请选择一个有效事项。');
+                          return;
+                        }
                         final updated = await showActivityEditorDialog(
                           context,
                           state,
-                          activity: activity,
+                          activity: selected,
                         );
-                        if (updated != null) {
-                          setState(() => refreshActivities(updated));
+                        if (context.mounted) {
+                          setState(() {
+                            refreshActivities(updated?.id);
+                            if (updated != null) {
+                              selectedActivityId = updated.id;
+                            }
+                            formError = null;
+                          });
                         }
                       },
                     ),
@@ -1606,8 +1646,9 @@ Future<void> showEntryEditor(
                           });
                         },
                       ),
-                    TextField(
-                      controller: noteController,
+                    TextFormField(
+                      initialValue: note,
+                      onChanged: (value) => note = value,
                       maxLines: 3,
                       decoration: const InputDecoration(
                         labelText: '备注',
@@ -1631,7 +1672,7 @@ Future<void> showEntryEditor(
               ),
             ),
             actions: [
-              if (entry != null)
+              if (entry != null && !editingGeneratedGap)
                 TextButton.icon(
                   onPressed: () async {
                     await state.deleteEntry(entry);
@@ -1648,6 +1689,13 @@ Future<void> showEntryEditor(
               ),
               FilledButton.icon(
                 onPressed: () async {
+                  refreshActivities();
+                  final selectedActivity = findActivity(selectedActivityId);
+                  if (selectedActivity == null ||
+                      (editingGeneratedGap && selectedActivity.isUnassigned)) {
+                    setState(() => formError = '请选择一个有效事项。');
+                    return;
+                  }
                   if (keepRunning && start.isAfter(state.now)) {
                     setState(() => formError = '进行中的记录不能从未来开始。');
                     return;
@@ -1656,30 +1704,34 @@ Future<void> showEntryEditor(
                     setState(() => formError = '结束时间必须晚于开始时间。');
                     return;
                   }
+                  final trimmedNote = note.trim();
                   final next = TimeEntry(
                     id: entry?.id ?? 'preview',
                     userId: entry?.userId,
-                    activityId: activity.id,
+                    activityId: selectedActivity.id,
                     startAt: start,
                     endAt: keepRunning ? null : end,
-                    note: noteController.text.trim(),
+                    note: trimmedNote,
                     deviceId: entry?.deviceId ?? 'manual-entry',
                     updatedAt: DateTime.now(),
                     isDeleted: false,
                   );
                   final overlaps = await state.overlaps(next);
+                  if (!context.mounted) {
+                    return;
+                  }
                   if (overlaps.isNotEmpty && formError == null) {
                     setState(() {
                       formError = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
                     });
                     return;
                   }
-                  if (entry == null) {
+                  if (entry == null || editingGeneratedGap) {
                     await state.createManualEntry(
-                      activityId: activity.id,
+                      activityId: selectedActivity.id,
                       startAt: start,
                       endAt: end,
-                      note: noteController.text.trim(),
+                      note: trimmedNote,
                     );
                   } else {
                     await state.saveEntry(next);
@@ -1697,7 +1749,6 @@ Future<void> showEntryEditor(
       );
     },
   );
-  noteController.dispose();
 }
 
 class _EntryActivitySelector extends StatelessWidget {
