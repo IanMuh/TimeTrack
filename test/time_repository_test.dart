@@ -6,7 +6,14 @@ import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
 
-Future<TimeRepository> buildRepository() async {
+class RepositoryFixture {
+  const RepositoryFixture({required this.repository, required this.database});
+
+  final TimeRepository repository;
+  final Database database;
+}
+
+Future<RepositoryFixture> buildRepositoryFixture() async {
   sqfliteFfiInit();
   final db = await databaseFactoryFfi.openDatabase(
     inMemoryDatabasePath,
@@ -15,11 +22,15 @@ Future<TimeRepository> buildRepository() async {
   await LocalDatabase.createSchema(db);
   final repository = TimeRepository(database: LocalDatabase(database: db));
   await repository.ensureSeedData();
-  return repository;
+  return RepositoryFixture(repository: repository, database: db);
+}
+
+Future<TimeRepository> buildRepository() async {
+  return (await buildRepositoryFixture()).repository;
 }
 
 void main() {
-  test('seed data includes editable unassigned activity', () async {
+  test('seed data includes immutable unassigned activity', () async {
     final repository = await buildRepository();
 
     final unassigned = (await repository.activities())
@@ -36,9 +47,11 @@ void main() {
 
     final activities = await repository.activities();
     expect(updated.isUnassigned, isTrue);
+    expect(updated.name, '未安排');
+    expect(updated.color, unassigned.color);
     expect(
       activities.singleWhere((activity) => activity.isUnassigned).name,
-      '空档',
+      '未安排',
     );
   });
 
@@ -93,6 +106,123 @@ void main() {
     expect(closed.endAt, secondStart);
     expect(await repository.runningEntry(), isNotNull);
     expect(logs.map((log) => log.actionType), ['switch', 'switch']);
+  });
+
+  test('stopping while already unassigned does not split it', () async {
+    final repository = await buildRepository();
+    final activities = await repository.activities();
+    final activity =
+        activities.firstWhere((activity) => !activity.isUnassigned);
+    final unassigned =
+        activities.singleWhere((activity) => activity.isUnassigned);
+
+    await repository.switchToActivity(activity.id, at: DateTime(2026, 1, 1, 9));
+    await repository.stopRunning(at: DateTime(2026, 1, 1, 10));
+    final runningBefore = await repository.runningEntry();
+
+    await repository.stopRunning(at: DateTime(2026, 1, 1, 11));
+
+    final runningAfter = await repository.runningEntry();
+    final activeUnassigned = (await repository.allEntries())
+        .where(
+          (entry) =>
+              entry.activityId == unassigned.id &&
+              !entry.isDeleted &&
+              entry.endAt == null,
+        )
+        .toList();
+    final logs = await repository.actionLogsForDay(DateTime(2026, 1, 1));
+
+    expect(runningBefore, isNotNull);
+    expect(runningAfter?.id, runningBefore?.id);
+    expect(activeUnassigned, hasLength(1));
+    expect(activeUnassigned.single.startAt, DateTime(2026, 1, 1, 10));
+    expect(logs.map((log) => log.actionType), ['switch', 'stop', 'switch']);
+  });
+
+  test('switching to running unassigned does not split it', () async {
+    final repository = await buildRepository();
+    final activities = await repository.activities();
+    final activity =
+        activities.firstWhere((activity) => !activity.isUnassigned);
+    final unassigned =
+        activities.singleWhere((activity) => activity.isUnassigned);
+
+    await repository.switchToActivity(activity.id, at: DateTime(2026, 1, 1, 9));
+    await repository.stopRunning(at: DateTime(2026, 1, 1, 10));
+    final runningBefore = await repository.runningEntry();
+
+    final returned = await repository.switchToActivity(
+      unassigned.id,
+      at: DateTime(2026, 1, 1, 11),
+    );
+
+    final runningAfter = await repository.runningEntry();
+    final activeUnassigned = (await repository.allEntries())
+        .where(
+          (entry) =>
+              entry.activityId == unassigned.id &&
+              !entry.isDeleted &&
+              entry.endAt == null,
+        )
+        .toList();
+
+    expect(returned.id, runningBefore?.id);
+    expect(runningAfter?.id, runningBefore?.id);
+    expect(activeUnassigned, hasLength(1));
+    expect(activeUnassigned.single.startAt, DateTime(2026, 1, 1, 10));
+  });
+
+  test('seed data merges adjacent unassigned entries', () async {
+    final fixture = await buildRepositoryFixture();
+    final repository = fixture.repository;
+    final unassigned = (await repository.activities())
+        .singleWhere((activity) => activity.isUnassigned);
+    final firstStart = DateTime(2026, 1, 1, 9);
+    final firstEnd = DateTime(2026, 1, 1, 10);
+    final secondEnd = DateTime(2026, 1, 1, 11);
+
+    await fixture.database.insert('time_entries', {
+      'id': 'unassigned-1',
+      'user_id': null,
+      'activity_id': unassigned.id,
+      'start_at': firstStart.toIso8601String(),
+      'end_at': firstEnd.toIso8601String(),
+      'note': '',
+      'device_id': 'test-device',
+      'updated_at': DateTime(2026, 1, 1, 9).toIso8601String(),
+      'is_deleted': 0,
+    });
+    await fixture.database.insert('time_entries', {
+      'id': 'unassigned-2',
+      'user_id': null,
+      'activity_id': unassigned.id,
+      'start_at': firstEnd.toIso8601String(),
+      'end_at': secondEnd.toIso8601String(),
+      'note': '',
+      'device_id': 'test-device',
+      'updated_at': DateTime(2026, 1, 1, 10).toIso8601String(),
+      'is_deleted': 0,
+    });
+
+    await repository.ensureSeedData();
+
+    final entries = await repository.allEntries();
+    final activeUnassigned = entries
+        .where(
+          (entry) => entry.activityId == unassigned.id && !entry.isDeleted,
+        )
+        .toList();
+    final deletedUnassigned = entries
+        .where(
+          (entry) => entry.activityId == unassigned.id && entry.isDeleted,
+        )
+        .toList();
+
+    expect(activeUnassigned, hasLength(1));
+    expect(activeUnassigned.single.startAt, firstStart);
+    expect(activeUnassigned.single.endAt, secondEnd);
+    expect(deletedUnassigned.map((entry) => entry.id), ['unassigned-2']);
   });
 
   test('overlap detection reports conflicting entries without deleting them',

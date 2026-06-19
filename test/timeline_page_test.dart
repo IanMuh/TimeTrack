@@ -378,6 +378,42 @@ void main() {
 
     await tester.tap(find.byTooltip('编辑').first);
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byType(DropdownButtonFormField<String>),
+          )
+          .initialValue,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byWidgetPredicate(
+              (widget) => widget is IconButton && widget.tooltip == '编辑当前事项',
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    expect(
+      find.ancestor(
+        of: find.text('工作'),
+        matching: find.byType(DropdownMenuItem<String>),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(
+        of: find.text('未安排'),
+        matching: find.byType(DropdownMenuItem<String>),
+      ),
+      findsNothing,
+    );
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
     await _tapAndPumpUntil(
       tester,
       find.widgetWithText(FilledButton, '保存').last,

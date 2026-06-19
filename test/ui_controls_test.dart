@@ -279,6 +279,11 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    expect(find.text('未安排'), findsNothing);
+    await tester.tap(find.text('工作').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新增事项'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
@@ -319,6 +324,37 @@ void main() {
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.widgetWithText(AlertDialog, '新增事项'), findsOneWidget);
     expect(tester.getCenter(find.byType(AlertDialog)).dy, closeTo(300, 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('HomePage shows unassigned activity as locked', (tester) async {
+    final state = _FakeAppState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomePage(state: state),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('未安排'), findsOneWidget);
+    expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+    expect(find.byTooltip('系统事项，不能编辑'), findsOneWidget);
+    expect(find.byTooltip('编辑事项'), findsOneWidget);
+
+    final unassignedButton = find.ancestor(
+      of: find.text('未安排'),
+      matching: find.byType(ActivitySwitchButton),
+    );
+    expect(
+      find.descendant(
+        of: unassignedButton,
+        matching: find.byTooltip('编辑事项'),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -387,6 +423,16 @@ class _FakeAppState extends AppState {
         isFavorite: true,
         updatedAt: now,
         isDeleted: false,
+      ),
+      Activity(
+        id: 'unassigned',
+        userId: null,
+        name: '未安排',
+        color: 0xff64748b,
+        isFavorite: false,
+        updatedAt: now,
+        isDeleted: false,
+        isUnassigned: true,
       ),
     ];
   }

@@ -127,11 +127,13 @@ class _HomePageState extends State<HomePage> {
                             runningActivity?.id != activity.id,
                         onTap: () => _confirmOrSwitch(activity),
                         onDoubleTap: () => _confirmOrSwitch(activity),
-                        onEdit: () => showActivityEditorDialog(
-                          context,
-                          state,
-                          activity: activity,
-                        ),
+                        onEdit: activity.isUnassigned
+                            ? null
+                            : () => showActivityEditorDialog(
+                                  context,
+                                  state,
+                                  activity: activity,
+                                ),
                       ),
                     OutlinedButton.icon(
                       onPressed: () => showActivityEditorDialog(context, state),
@@ -225,7 +227,7 @@ class ActivitySwitchButton extends StatelessWidget {
   final bool pending;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -268,16 +270,30 @@ class ActivitySwitchButton extends StatelessWidget {
                   color: color,
                   size: 18,
                 ),
-              IconButton(
-                tooltip: '编辑事项',
-                visualDensity: VisualDensity.compact,
-                onPressed: onEdit,
-                icon: Icon(
-                  Icons.edit_outlined,
-                  color: active && selected ? Colors.white : color,
-                  size: 18,
+              if (activity.isUnassigned)
+                SizedBox.square(
+                  dimension: 40,
+                  child: Tooltip(
+                    message: '系统事项，不能编辑',
+                    child: Icon(
+                      Icons.lock_outline,
+                      color: (active && selected ? Colors.white : color)
+                          .withValues(alpha: 0.72),
+                      size: 18,
+                    ),
+                  ),
+                )
+              else
+                IconButton(
+                  tooltip: '编辑事项',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onEdit,
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    color: active && selected ? Colors.white : color,
+                    size: 18,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -291,6 +307,9 @@ Future<Activity?> showActivityEditorDialog(
   AppState state, {
   Activity? activity,
 }) async {
+  if (activity?.isUnassigned ?? false) {
+    return activity;
+  }
   final controller = TextEditingController(text: activity?.name ?? '');
   var selectedColor = activity?.color ??
       nextActivityColor(state.activities.map((activity) => activity.color));

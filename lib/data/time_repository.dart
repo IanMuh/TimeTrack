@@ -25,7 +25,8 @@ class TimeRepository {
 
   Future<void> ensureSeedData() async {
     final db = await _database.db;
-    await _ensureUnassignedActivity();
+    final unassigned = await _ensureUnassignedActivity();
+    await _mergeAdjacentUnassignedEntries(unassigned.id);
     final count = Sqflite.firstIntValue(
       await db
           .rawQuery('select count(*) from activities where is_unassigned = 0'),
@@ -182,6 +183,8 @@ class TimeRepository {
     });
 
     await normalizeRunningEntriesAfterMerge();
+    final unassigned = await _ensureUnassignedActivity();
+    await _mergeAdjacentUnassignedEntries(unassigned.id);
   }
 
   Future<void> upsertActivity(Activity activity) async {
@@ -216,6 +219,9 @@ class TimeRepository {
     required String name,
     required int color,
   }) async {
+    if (activity.isUnassigned || await _activityIdIsUnassigned(activity.id)) {
+      return _ensureUnassignedActivity();
+    }
     final updated = activity.copyWith(
       name: name.trim(),
       color: color,
@@ -266,6 +272,7 @@ class TimeRepository {
   Future<TimeEntry> switchToActivity(String activityId, {DateTime? at}) async {
     final now = at ?? DateTime.now();
     final deviceId = await currentDeviceId();
+    final targetIsUnassigned = await _activityIdIsUnassigned(activityId);
     final db = await _database.db;
     late TimeEntry next;
     String? previousActivityId;
@@ -275,6 +282,14 @@ class TimeRepository {
         where: 'end_at is null and is_deleted = 0',
         orderBy: 'start_at desc',
       );
+
+      if (targetIsUnassigned && runningRows.isNotEmpty) {
+        final running = TimeEntry.fromMap(runningRows.first);
+        if (running.activityId == activityId) {
+          next = running;
+          return;
+        }
+      }
 
       for (final row in runningRows) {
         final running = TimeEntry.fromMap(row);
@@ -317,14 +332,23 @@ class TimeRepository {
         ).toLocalMap(),
       );
     });
+    if (targetIsUnassigned) {
+      await _mergeAdjacentUnassignedEntries(activityId);
+      return await runningEntry() ?? next;
+    }
     return next;
   }
 
   Future<void> stopRunning({DateTime? at}) async {
     final now = at ?? DateTime.now();
+    final unassigned = await _ensureUnassignedActivity();
     final running = await runningEntry();
     if (running == null) {
       await _startUnassigned(at: now);
+      return;
+    }
+    if (running.activityId == unassigned.id) {
+      await _mergeAdjacentUnassignedEntries(unassigned.id);
       return;
     }
     if (running.startAt.isAfter(now)) {
@@ -750,9 +774,123 @@ class TimeRepository {
     final activity = await _ensureUnassignedActivity();
     final running = await runningEntry();
     if (running?.activityId == activity.id) {
+      await _mergeAdjacentUnassignedEntries(activity.id);
       return;
     }
     await switchToActivity(activity.id, at: at);
+  }
+
+  Future<bool> _activityIdIsUnassigned(String activityId) async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'activities',
+      columns: ['is_unassigned'],
+      where: 'id = ?',
+      whereArgs: [activityId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return false;
+    }
+    return _readBool(rows.first['is_unassigned']);
+  }
+
+  Future<void> _mergeAdjacentUnassignedEntries(String activityId) async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'time_entries',
+      where: 'activity_id = ? and is_deleted = 0',
+      whereArgs: [activityId],
+      orderBy: 'start_at asc, end_at asc',
+    );
+    if (rows.length <= 1) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final entries = rows.map(TimeEntry.fromMap).toList();
+    var survivor = entries.first;
+    var survivorChanged = false;
+    final survivorUpdates = <TimeEntry>[];
+    final deletedEntries = <TimeEntry>[];
+
+    for (final entry in entries.skip(1)) {
+      if (_unassignedEntriesAreContinuous(survivor, entry)) {
+        survivor = _mergedUnassignedEntry(survivor, entry, now);
+        survivorChanged = true;
+        deletedEntries.add(entry.copyWith(isDeleted: true, updatedAt: now));
+        continue;
+      }
+      if (survivorChanged) {
+        survivorUpdates.add(survivor);
+      }
+      survivor = entry;
+      survivorChanged = false;
+    }
+    if (survivorChanged) {
+      survivorUpdates.add(survivor);
+    }
+
+    for (final entry in survivorUpdates) {
+      await db.insert(
+        'time_entries',
+        entry.toLocalMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    for (final entry in deletedEntries) {
+      await db.insert(
+        'time_entries',
+        entry.toLocalMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  bool _unassignedEntriesAreContinuous(TimeEntry first, TimeEntry second) {
+    final firstEnd = first.endAt;
+    return firstEnd == null || !second.startAt.isAfter(firstEnd);
+  }
+
+  TimeEntry _mergedUnassignedEntry(
+    TimeEntry first,
+    TimeEntry second,
+    DateTime updatedAt,
+  ) {
+    final endAt = _latestEnd(first.endAt, second.endAt);
+    return first.copyWith(
+      endAt: endAt,
+      clearEndAt: endAt == null,
+      note: _mergedNotes(first.note, second.note),
+      updatedAt: updatedAt,
+    );
+  }
+
+  DateTime? _latestEnd(DateTime? first, DateTime? second) {
+    if (first == null || second == null) {
+      return null;
+    }
+    return first.isAfter(second) ? first : second;
+  }
+
+  String _mergedNotes(String first, String second) {
+    final notes = <String>{};
+    for (final note in [first.trim(), second.trim()]) {
+      if (note.isNotEmpty) {
+        notes.add(note);
+      }
+    }
+    return notes.join('\n');
+  }
+
+  bool _readBool(Object? value) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    return false;
   }
 
   bool _shouldReplace<T>(
