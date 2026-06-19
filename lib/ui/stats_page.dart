@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
 import 'adaptive_layout.dart';
+import 'ui_components.dart';
 
 enum StatsPreset { today, yesterday, thisWeek, lastWeek, customDay }
 
@@ -155,15 +156,14 @@ class StatsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = Text(
-      '统计',
-      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-    );
-    final rangeLabel = Text(
-      range.label,
-      style: Theme.of(context).textTheme.titleMedium,
+    final header = PageHeader(
+      title: '统计',
+      subtitle: '查看 ${range.label} 的时间分布和每日累计。',
+      trailing: StatusPill(
+        label: range.label,
+        icon: Icons.insights_outlined,
+        color: Theme.of(context).colorScheme.primary,
+      ),
     );
 
     return LayoutBuilder(
@@ -184,9 +184,7 @@ class StatsHeader extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              title,
-              const SizedBox(height: 6),
-              rangeLabel,
+              header,
               const SizedBox(height: 12),
               controls,
               const SizedBox(height: 10),
@@ -198,12 +196,7 @@ class StatsHeader extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(child: title),
-                rangeLabel,
-              ],
-            ),
+            header,
             const SizedBox(height: 12),
             Row(
               children: [
@@ -388,87 +381,86 @@ class RangeDistributionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 520;
-                final chart = SizedBox(
-                  height: compact ? 220 : 260,
-                  child: totals.isEmpty
-                      ? const Center(child: Text('暂无数据'))
-                      : PieChart(
-                          PieChartData(
-                            sectionsSpace: 2,
-                            centerSpaceRadius: compact ? 44 : 54,
-                            sections: [
-                              for (final item in totals.entries)
-                                PieChartSectionData(
-                                  value: item.value.inMinutes
-                                      .clamp(1, 1 << 31)
-                                      .toDouble(),
-                                  title:
-                                      '${(item.value.inMinutes / totalMinutes * 100).round()}%',
-                                  radius: compact ? 74 : 88,
-                                  color: Color(
-                                    state.activityById(item.key)?.color ??
-                                        0xff64748b,
-                                  ),
+    return QuietPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(
+            title: title,
+            subtitle: totals.isEmpty ? '暂无可视化数据' : '按事项汇总，颜色与事项保持一致。',
+            icon: Icons.pie_chart_outline,
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 520;
+              final chart = SizedBox(
+                height: compact ? 220 : 260,
+                child: totals.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.pie_chart_outline,
+                        title: '暂无数据',
+                        message: '开始记录或选择其他范围后会显示分布。',
+                      )
+                    : PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: compact ? 44 : 54,
+                          sections: [
+                            for (final item in totals.entries)
+                              PieChartSectionData(
+                                value: item.value.inMinutes
+                                    .clamp(1, 1 << 31)
+                                    .toDouble(),
+                                title:
+                                    '${(item.value.inMinutes / totalMinutes * 100).round()}%',
+                                radius: compact ? 74 : 88,
+                                titleStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
                                 ),
-                            ],
-                          ),
+                                color: Color(
+                                  state.activityById(item.key)?.color ??
+                                      0xff64748b,
+                                ),
+                              ),
+                          ],
                         ),
-                );
-                final legend = Column(
-                  children: [
-                    for (final item in totals.entries)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          Icons.circle,
-                          color: Color(
-                            state.activityById(item.key)?.color ?? 0xff64748b,
-                          ),
-                        ),
-                        title: Text(
-                          state.activityById(item.key)?.name ?? '未知事项',
-                        ),
-                        trailing: Text(formatDurationCompact(item.value)),
                       ),
-                  ],
-                );
-                if (compact) {
-                  return Column(
-                    children: [
-                      chart,
-                      const SizedBox(height: 12),
-                      legend,
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+              );
+              final legend = Column(
+                children: [
+                  for (final item in totals.entries)
+                    _LegendRow(
+                      color: Color(
+                        state.activityById(item.key)?.color ?? 0xff64748b,
+                      ),
+                      label: state.activityById(item.key)?.name ?? '未知事项',
+                      value: formatDurationCompact(item.value),
+                    ),
+                ],
+              );
+              if (compact) {
+                return Column(
                   children: [
-                    Expanded(child: chart),
-                    const SizedBox(width: 20),
-                    Expanded(child: legend),
+                    chart,
+                    const SizedBox(height: 12),
+                    legend,
                   ],
                 );
-              },
-            ),
-          ],
-        ),
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: chart),
+                  const SizedBox(width: 20),
+                  Expanded(child: legend),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -481,34 +473,35 @@ class DayTotalsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '每日累计',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            if (dayTotals.isEmpty)
-              const Text('暂无数据')
-            else
-              for (final item in _sortedDayTotals())
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    DateFormat('yyyy-MM-dd').format(item.key),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: Text(formatDurationCompact(item.value)),
+    return QuietPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            title: '每日累计',
+            subtitle: '用于观察本周或自选范围的记录节奏。',
+            icon: Icons.calendar_view_week_outlined,
+          ),
+          const SizedBox(height: 12),
+          if (dayTotals.isEmpty)
+            const EmptyState(
+              icon: Icons.event_busy_outlined,
+              title: '暂无数据',
+              message: '有记录后会按日期列出总时长。',
+            )
+          else
+            for (final item in _sortedDayTotals())
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  DateFormat('yyyy-MM-dd').format(item.key),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-          ],
-        ),
+                trailing: Text(formatDurationCompact(item.value)),
+              ),
+        ],
       ),
     );
   }
@@ -526,22 +519,70 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+    return QuietPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ],
       ),
     );
   }

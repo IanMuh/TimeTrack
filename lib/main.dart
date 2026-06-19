@@ -11,6 +11,7 @@ import 'data/sync_peer_store.dart';
 import 'data/sync_service.dart';
 import 'data/time_repository.dart';
 import 'ui/app_shell.dart';
+import 'ui/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,14 +66,7 @@ class TimeTrackApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xff2563eb),
-              brightness: Brightness.light,
-            ),
-            scaffoldBackgroundColor: const Color(0xfff7f8fa),
-          ),
+          theme: TimeTrackTheme.light(),
           home: AppShell(state: state),
         );
       },

@@ -40,24 +40,29 @@ class AdaptivePage extends StatelessWidget {
         final verticalPadding =
             sizeClass == AdaptiveSizeClass.compact ? 16.0 : 24.0;
 
-        return Scrollbar(
-          child: ListView(
-            key: pageKey,
-            padding: EdgeInsets.symmetric(
-              horizontal: horizontalPadding,
-              vertical: verticalPadding,
-            ),
-            children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: children,
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+          ),
+          child: Scrollbar(
+            child: ListView(
+              key: pageKey,
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: verticalPadding,
+              ),
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

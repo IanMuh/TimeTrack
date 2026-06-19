@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/ui/adaptive_layout.dart';
+import 'package:timetrack/ui/ui_components.dart';
 import 'package:timetrack/ui/timeline_page.dart';
 
 void main() {
@@ -50,6 +51,33 @@ void main() {
 
     await pumpAtWidth(1200);
     expect(find.text('Body'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shared page header keeps actions visible at narrow widths', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: PageHeader(
+              title: '统计',
+              subtitle: '查看今天的时间分布。',
+              trailing: StatusPill(
+                label: '今天',
+                icon: Icons.insights_outlined,
+                color: Colors.blue,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('统计'), findsOneWidget);
+    expect(find.text('今天'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

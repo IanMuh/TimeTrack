@@ -7,6 +7,8 @@ import '../domain/activity.dart';
 import 'adaptive_layout.dart';
 import 'activity_colors.dart';
 import 'app_shell.dart';
+import 'app_theme.dart';
+import 'ui_components.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({required this.state, super.key});
@@ -45,22 +47,18 @@ class _HomePageState extends State<HomePage> {
         return AdaptivePage(
           pageKey: const PageStorageKey('home-page'),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'TimeTrack',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '同步',
-                  onPressed: state.hasSyncTarget ? state.sync : null,
-                  icon: const Icon(Icons.sync),
-                ),
-              ],
+            PageHeader(
+              title: 'TimeTrack',
+              subtitle: '离线优先记录，按下一个事项就开始。',
+              trailing: StatusPill(
+                label: state.hasSyncTarget ? '可同步' : '本地模式',
+                icon: state.hasSyncTarget
+                    ? Icons.cloud_done_outlined
+                    : Icons.offline_bolt_outlined,
+                color: state.hasSyncTarget
+                    ? Theme.of(context).colorScheme.primary
+                    : TimeTrackTheme.secondary,
+              ),
             ),
             const SectionGap(),
             LayoutBuilder(
@@ -92,32 +90,30 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             const SectionGap(height: 18),
-            Text(
-              '切换',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            if (pendingActivity != null &&
-                pendingActivity.id != runningActivity?.id) ...[
-              const SizedBox(height: 6),
-              Text(
-                '已选择 ${pendingActivity.name}，双击事项按钮后切换。',
-                style: Theme.of(context).textTheme.bodySmall,
+            PageHeader(
+              title: '切换事项',
+              subtitle: pendingActivity == null ||
+                      pendingActivity.id == runningActivity?.id
+                  ? '轻点选择，再点一次确认切换。'
+                  : '已选择 ${pendingActivity.name}，再次点击后切换。',
+              trailing: IconButton.filledTonal(
+                tooltip: '同步',
+                onPressed: state.hasSyncTarget ? state.sync : null,
+                icon: const Icon(Icons.sync),
               ),
-            ],
-            const SizedBox(height: 10),
+            ),
+            const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < compactBreakpoint;
-                final tileExtent = compact ? 190.0 : 240.0;
+                final tileExtent = compact ? 190.0 : 250.0;
                 return GridView.extent(
                   maxCrossAxisExtent: tileExtent,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: compact ? 2.25 : 3.2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
+                  childAspectRatio: compact ? 2.1 : 3.15,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
                   children: [
                     for (final activity in state.activities)
                       ActivitySwitchButton(
@@ -135,10 +131,8 @@ class _HomePageState extends State<HomePage> {
                                   activity: activity,
                                 ),
                       ),
-                    OutlinedButton.icon(
+                    _AddActivityTile(
                       onPressed: () => showActivityEditorDialog(context, state),
-                      icon: const Icon(Icons.add),
-                      label: const Text('新增事项'),
                     ),
                   ],
                 );
@@ -172,15 +166,42 @@ class CurrentStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final colorScheme = Theme.of(context).colorScheme;
+    final runningColor = runningActivity == null
+        ? colorScheme.primary
+        : Color(runningActivity!.color);
+    return QuietPanel(
+      padding: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '当前正在做',
-              style: Theme.of(context).textTheme.labelLarge,
+            Row(
+              children: [
+                IconBadge(
+                  icon: runningActivity == null
+                      ? Icons.timer_outlined
+                      : Icons.play_arrow_rounded,
+                  color: runningColor,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '当前正在做',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+                StatusPill(
+                  label: runningActivity == null ? '未开始' : '记录中',
+                  icon: runningActivity == null
+                      ? Icons.pause_circle_outline
+                      : Icons.radio_button_checked,
+                  color: runningColor,
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Text(
@@ -191,12 +212,14 @@ class CurrentStatusCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               runningActivity == null
                   ? '选择一个事项开始记录今天的时间。'
                   : '已持续 ${formatDurationCompact(runningDuration)}',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
             ),
             const SizedBox(height: 18),
             FilledButton.icon(
@@ -233,11 +256,21 @@ class ActivitySwitchButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Color(activity.color);
     final active = selected || pending;
+    final foreground = selected ? Colors.white : color;
     return Material(
-      color: selected ? color : color.withValues(alpha: pending ? 0.20 : 0.10),
-      borderRadius: BorderRadius.circular(8),
+      color: selected ? color : color.withValues(alpha: pending ? 0.16 : 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: active
+              ? color.withValues(alpha: selected ? 0.0 : 0.42)
+              : color.withValues(alpha: 0.18),
+          width: pending ? 1.5 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         onDoubleTap: onDoubleTap,
         child: Padding(
@@ -250,7 +283,7 @@ class ActivitySwitchButton extends StatelessWidget {
                     : pending
                         ? Icons.touch_app_outlined
                         : Icons.circle,
-                color: selected ? Colors.white : color,
+                color: foreground,
                 size: 18,
               ),
               const SizedBox(width: 10),
@@ -259,7 +292,7 @@ class ActivitySwitchButton extends StatelessWidget {
                   activity.name,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: selected ? Colors.white : color,
+                    color: foreground,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -267,7 +300,7 @@ class ActivitySwitchButton extends StatelessWidget {
               if (pending)
                 Icon(
                   Icons.keyboard_double_arrow_right,
-                  color: color,
+                  color: foreground,
                   size: 18,
                 ),
               if (activity.isUnassigned)
@@ -277,8 +310,7 @@ class ActivitySwitchButton extends StatelessWidget {
                     message: '系统事项，不能编辑',
                     child: Icon(
                       Icons.lock_outline,
-                      color: (active && selected ? Colors.white : color)
-                          .withValues(alpha: 0.72),
+                      color: foreground.withValues(alpha: 0.72),
                       size: 18,
                     ),
                   ),
@@ -290,12 +322,32 @@ class ActivitySwitchButton extends StatelessWidget {
                   onPressed: onEdit,
                   icon: Icon(
                     Icons.edit_outlined,
-                    color: active && selected ? Colors.white : color,
+                    color: foreground,
                     size: 18,
                   ),
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddActivityTile extends StatelessWidget {
+  const _AddActivityTile({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.add),
+      label: const Text('新增事项'),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant,
         ),
       ),
     );

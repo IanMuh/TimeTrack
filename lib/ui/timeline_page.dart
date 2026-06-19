@@ -11,6 +11,7 @@ import '../domain/activity.dart';
 import '../domain/time_entry.dart';
 import 'adaptive_layout.dart';
 import 'home_page.dart';
+import 'ui_components.dart';
 
 enum TimelineViewMode { timeline, list, actions }
 
@@ -229,11 +230,11 @@ class TimelineHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rangeEnd = selectedDay.add(Duration(days: span.days - 1));
-    final title = Text(
-      '时间轴',
-      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+    final header = PageHeader(
+      title: '时间轴',
+      subtitle: span == TimelineSpan.day
+          ? DateFormat('yyyy-MM-dd').format(selectedDay)
+          : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
     );
     final daySelector = _DaySelector(
       selectedDay: selectedDay,
@@ -293,7 +294,7 @@ class TimelineHeader extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              title,
+              header,
               const SizedBox(height: 12),
               daySelector,
               const SizedBox(height: 12),
@@ -317,7 +318,7 @@ class TimelineHeader extends StatelessWidget {
           children: [
             Row(
               children: [
-                Expanded(child: title),
+                Expanded(child: header),
                 daySelector,
               ],
             ),
@@ -430,7 +431,11 @@ class _TimelineZoomControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(Icons.zoom_in, size: 20),
+        Icon(
+          Icons.zoom_in,
+          size: 20,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Slider(
@@ -474,7 +479,7 @@ class _DaySelector extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
@@ -488,7 +493,7 @@ class _DaySelector extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 104, maxWidth: 172),
             child: InkWell(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
               onTap: onDateTap,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -535,36 +540,92 @@ class FutureDayBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Card(
-        color: Theme.of(context)
-            .colorScheme
-            .tertiaryContainer
-            .withValues(alpha: 0.6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                size: 20,
-                color: Theme.of(context).colorScheme.onTertiaryContainer,
+      child: QuietPanel(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            IconBadge(
+              icon: Icons.info_outline,
+              color: Theme.of(context).colorScheme.primary,
+              size: 34,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${DateFormat('yyyy-MM-dd').format(selectedDay)} 尚未到来。'
+                '记录会在这一天实际发生后才出现在这里。',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${DateFormat('yyyy-MM-dd').format(selectedDay)} 尚未到来。'
-                  '记录会在这一天实际发生后才出现在这里。',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color:
-                            Theme.of(context).colorScheme.onTertiaryContainer,
-                      ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+class TimelineCardHeader extends StatelessWidget {
+  const TimelineCardHeader({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionTitle(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+    );
+  }
+}
+
+class TimelineEmptyState extends StatelessWidget {
+  const TimelineEmptyState({required this.text, super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return EmptyState(
+      icon: Icons.inbox_outlined,
+      title: text,
+      message: '切换到补记或选择其他日期继续查看。',
+    );
+  }
+}
+
+class TimelineSurface extends StatelessWidget {
+  const TimelineSurface({
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    super.key,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return QuietPanel(
+      padding: padding,
+      child: child,
+    );
+  }
+}
+
+class TimelineBlockColor {
+  const TimelineBlockColor._();
+
+  static Color textOn(Color color) {
+    return color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
   }
 }
 
@@ -732,71 +793,67 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
         );
         final canvasHeight =
             metrics.timeScaleHeight + metrics.laneHeight * widget.span.days;
-        return Card(
-          child: Padding(
-            padding: EdgeInsets.all(metrics.cardPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '可缩放时间线',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                if (compact)
-                  _ScrollableTimelineCanvas(
-                    controller: _horizontalController,
-                    width: metrics.dayWidth,
-                    height: canvasHeight,
-                    child: _TimelineCanvas(
-                      state: widget.state,
-                      entries: widget.entries,
+        return TimelineSurface(
+          padding: EdgeInsets.all(metrics.cardPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const TimelineCardHeader(
+                title: '可缩放时间线',
+                subtitle: '横向拖动查看全天刻度，缩放后仍保留同一时间尺度。',
+                icon: Icons.timeline,
+              ),
+              const SizedBox(height: 14),
+              if (compact)
+                _ScrollableTimelineCanvas(
+                  controller: _horizontalController,
+                  width: metrics.dayWidth,
+                  height: canvasHeight,
+                  child: _TimelineCanvas(
+                    state: widget.state,
+                    entries: widget.entries,
+                    rangeStart: widget.rangeStart,
+                    span: widget.span,
+                    density: widget.density,
+                    metrics: metrics,
+                    showInlineDayLabels: true,
+                  ),
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _TimelineDateColumn(
                       rangeStart: widget.rangeStart,
-                      span: widget.span,
-                      density: widget.density,
-                      metrics: metrics,
-                      showInlineDayLabels: true,
+                      days: widget.span.days,
+                      laneHeight: metrics.laneHeight,
+                      timeScaleHeight: metrics.timeScaleHeight,
+                      height: canvasHeight,
                     ),
-                  )
-                else
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _TimelineDateColumn(
-                        rangeStart: widget.rangeStart,
-                        days: widget.span.days,
-                        laneHeight: metrics.laneHeight,
-                        timeScaleHeight: metrics.timeScaleHeight,
+                    SizedBox(width: metrics.dateColumnGap),
+                    Expanded(
+                      child: _ScrollableTimelineCanvas(
+                        controller: _horizontalController,
+                        width: metrics.dayWidth,
                         height: canvasHeight,
-                      ),
-                      SizedBox(width: metrics.dateColumnGap),
-                      Expanded(
-                        child: _ScrollableTimelineCanvas(
-                          controller: _horizontalController,
-                          width: metrics.dayWidth,
-                          height: canvasHeight,
-                          child: _TimelineCanvas(
-                            state: widget.state,
-                            entries: widget.entries,
-                            rangeStart: widget.rangeStart,
-                            span: widget.span,
-                            density: widget.density,
-                            metrics: metrics,
-                            showInlineDayLabels: false,
-                          ),
+                        child: _TimelineCanvas(
+                          state: widget.state,
+                          entries: widget.entries,
+                          rangeStart: widget.rangeStart,
+                          span: widget.span,
+                          density: widget.density,
+                          metrics: metrics,
+                          showInlineDayLabels: false,
                         ),
                       ),
-                    ],
-                  ),
-                if (widget.entries.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Text('这个范围还没有记录。'),
-                  ),
+                    ),
+                  ],
+                ),
+              if (widget.entries.isEmpty) ...[
+                const SizedBox(height: 12),
+                const TimelineEmptyState(text: '这个范围还没有记录。'),
               ],
-            ),
+            ],
           ),
         );
       },
@@ -1071,7 +1128,10 @@ class _TimelineDayLane extends StatelessWidget {
           child: DecoratedBox(
             key: ValueKey<String>('timeline-lane-${label ?? top}'),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.72),
               borderRadius: BorderRadius.circular(8),
             ),
           ),
@@ -1085,7 +1145,10 @@ class _TimelineDayLane extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(
                   left: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outlineVariant
+                        .withValues(alpha: 0.80),
                   ),
                 ),
               ),
@@ -1131,8 +1194,7 @@ class _TimelineBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final activity = state.activityById(entry.activityId);
     final color = Color(activity?.color ?? 0xff64748b);
-    final textColor =
-        color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    final textColor = TimelineBlockColor.textOn(color);
     final timeText =
         '${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}';
     return Tooltip(
@@ -1198,12 +1260,7 @@ class _EntryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(emptyText),
-        ),
-      );
+      return TimelineEmptyState(text: emptyText);
     }
     return Column(
       children: [
@@ -1234,12 +1291,7 @@ class _ActionLogList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (logs.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(emptyText),
-        ),
-      );
+      return TimelineEmptyState(text: emptyText);
     }
     return Column(
       children: [
@@ -1272,9 +1324,10 @@ class TimelineEntryCard extends StatelessWidget {
         ? '进行中'
         : _formatVisibleEndTime(interval, state.selectedDay);
     final timeText = '${_formatTime(interval.start)} - $endText';
-    return Card(
+    return QuietPanel(
+      padding: EdgeInsets.zero,
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         onTap: () => showEntryEditor(context, state, entry: entry),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -1384,52 +1437,50 @@ class ActionLogCard extends StatelessWidget {
     final activity =
         log.activityId == null ? null : state.activityById(log.activityId!);
     final color = Color(activity?.color ?? 0xff64748b);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: color.withValues(alpha: 0.14),
-              child: Icon(_logIcon(log.actionType), color: color, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 82,
-                    child: Text(_formatTime(log.occurredAt)),
+    return QuietPanel(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: color.withValues(alpha: 0.14),
+            child: Icon(_logIcon(log.actionType), color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 82,
+                  child: Text(_formatTime(log.occurredAt)),
+                ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 180),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        activity == null
+                            ? log.message
+                            : '${log.message}：${activity.name}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 3),
+                      Text('设备 ${log.deviceId}'),
+                    ],
                   ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 180),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          activity == null
-                              ? log.message
-                              : '${log.message}：${activity.name}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 3),
-                        Text('设备 ${log.deviceId}'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
