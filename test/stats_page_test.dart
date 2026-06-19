@@ -100,4 +100,18 @@ void main() {
     expect(find.text('范围总记录'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('stats page keeps quiet metric and empty states on compact width',
+      (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+
+    await _pumpStats(tester, state, width: 390);
+
+    expect(find.text('统计'), findsOneWidget);
+    expect(find.text('暂无数据'), findsWidgets);
+    expect(find.text('每日累计'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
 import 'adaptive_layout.dart';
+import 'app_theme.dart';
 import 'home_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
@@ -132,49 +133,107 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       body: SafeArea(
-        child: Row(
-          children: [
-            if (showRail) ...[
-              NavigationRail(
-                selectedIndex: _index,
-                onDestinationSelected: (value) =>
-                    setState(() => _index = value),
-                labelType: NavigationRailLabelType.all,
-                minWidth: 88,
-                groupAlignment: -0.85,
-                destinations: [
-                  for (final destination in _destinations)
-                    NavigationRailDestination(
-                      icon: Icon(destination.icon),
-                      selectedIcon: Icon(destination.selectedIcon),
-                      label: Text(destination.label),
-                    ),
-                ],
-              ),
-              const VerticalDivider(width: 1),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: TimeTrackTheme.background),
+          child: Row(
+            children: [
+              if (showRail) ...[
+                _DesktopNavigationRail(
+                  selectedIndex: _index,
+                  destinations: _destinations,
+                  onDestinationSelected: (value) =>
+                      setState(() => _index = value),
+                ),
+                const VerticalDivider(width: 1),
+              ],
+              Expanded(child: pages[_index]),
             ],
-            Expanded(child: pages[_index]),
-          ],
+          ),
         ),
       ),
       bottomNavigationBar: showRail
           ? null
           : SafeArea(
               top: false,
-              child: NavigationBar(
-                selectedIndex: _index,
-                onDestinationSelected: (value) =>
-                    setState(() => _index = value),
-                destinations: [
-                  for (final destination in _destinations)
-                    NavigationDestination(
-                      icon: Icon(destination.icon),
-                      selectedIcon: Icon(destination.selectedIcon),
-                      label: destination.label,
-                    ),
-                ],
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: TimeTrackTheme.surface,
+                  border: Border(
+                    top: BorderSide(color: TimeTrackTheme.outline),
+                  ),
+                ),
+                child: NavigationBar(
+                  selectedIndex: _index,
+                  onDestinationSelected: (value) =>
+                      setState(() => _index = value),
+                  destinations: [
+                    for (final destination in _destinations)
+                      NavigationDestination(
+                        icon: Icon(destination.icon),
+                        selectedIcon: Icon(destination.selectedIcon),
+                        label: destination.label,
+                      ),
+                  ],
+                ),
               ),
             ),
+    );
+  }
+}
+
+class _DesktopNavigationRail extends StatelessWidget {
+  const _DesktopNavigationRail({
+    required this.selectedIndex,
+    required this.destinations,
+    required this.onDestinationSelected,
+  });
+
+  final int selectedIndex;
+  final List<_AppDestination> destinations;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      color: TimeTrackTheme.surface,
+      child: Column(
+        children: [
+          const SizedBox(height: 18),
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: TimeTrackTheme.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.timer,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: NavigationRail(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: onDestinationSelected,
+              labelType: NavigationRailLabelType.all,
+              minWidth: 96,
+              groupAlignment: -0.95,
+              destinations: [
+                for (final destination in destinations)
+                  NavigationRailDestination(
+                    icon: Icon(destination.icon),
+                    selectedIcon: Icon(destination.selectedIcon),
+                    label: Text(destination.label),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

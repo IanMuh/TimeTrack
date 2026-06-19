@@ -47,4 +47,40 @@ void main() {
 
     expect(taps, 2);
   });
+
+  testWidgets('activity button exposes selected and pending visual states', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              ActivitySwitchButton(
+                activity: _activity(),
+                selected: true,
+                pending: false,
+                onTap: () {},
+                onDoubleTap: () {},
+                onEdit: () {},
+              ),
+              ActivitySwitchButton(
+                activity: _activity(),
+                selected: false,
+                pending: true,
+                onTap: () {},
+                onDoubleTap: () {},
+                onEdit: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+    expect(find.byIcon(Icons.touch_app_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_double_arrow_right), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

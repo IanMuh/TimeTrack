@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/app_state.dart';
 import '../domain/profile_settings.dart';
 import 'adaptive_layout.dart';
+import 'app_theme.dart';
+import 'ui_components.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({required this.state, super.key});
@@ -18,11 +20,9 @@ class SettingsPage extends StatelessWidget {
           pageKey: const PageStorageKey('settings-page'),
           maxWidth: 920,
           children: [
-            Text(
-              '设置',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+            const PageHeader(
+              title: '设置',
+              subtitle: '提醒、同步和设备互通都保持本地优先。',
             ),
             const SectionGap(),
             LayoutBuilder(
@@ -89,104 +89,101 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
     final intervalMinutes =
         (_draftIntervalMinutes ?? settings.reminderIntervalMinutes.toDouble())
             .round();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '提醒',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+    return QuietPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            title: '提醒',
+            subtitle: '用轻提示确认长时间运行的事项。',
+            icon: Icons.notifications_outlined,
+          ),
+          const SizedBox(height: 14),
+          _ReminderField(
+            icon: Icons.schedule_outlined,
+            label: '触发时间',
+            value: _formatReminderTime(
+              context,
+              settings.reminderTimeOfDayMinutes,
             ),
-            const SizedBox(height: 12),
-            _ReminderField(
-              icon: Icons.schedule_outlined,
-              label: '触发时间',
-              value: _formatReminderTime(
-                context,
-                settings.reminderTimeOfDayMinutes,
+            child: _ReminderTimeButton(
+              value: settings.reminderTimeOfDayMinutes,
+              onChanged: (value) => state.updateReminderSettings(
+                reminderTimeOfDayMinutes: value,
               ),
-              child: _ReminderTimeButton(
-                value: settings.reminderTimeOfDayMinutes,
-                onChanged: (value) => state.updateReminderSettings(
-                  reminderTimeOfDayMinutes: value,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ReminderField(
+            icon: Icons.notifications_outlined,
+            label: '持续时间',
+            value: '$reminderMinutes 分钟',
+            child: Slider(
+              min: 15,
+              max: 180,
+              divisions: 11,
+              value: reminderMinutes.toDouble(),
+              label: '$reminderMinutes 分钟',
+              onChanged: (value) =>
+                  setState(() => _draftReminderMinutes = value),
+              onChangeEnd: (value) {
+                _draftReminderMinutes = null;
+                state.updateReminderSettings(reminderMinutes: value.round());
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ReminderField(
+            icon: Icons.timelapse_outlined,
+            label: '间隔',
+            value: _formatInterval(intervalMinutes),
+            child: Slider(
+              min: 5,
+              max: 60,
+              divisions: 11,
+              value: intervalMinutes.toDouble(),
+              label: _formatInterval(intervalMinutes),
+              onChanged: (value) =>
+                  setState(() => _draftIntervalMinutes = value),
+              onChangeEnd: (value) {
+                _draftIntervalMinutes = null;
+                state.updateReminderSettings(
+                  reminderIntervalMinutes: value.round(),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ReminderField(
+            icon: Icons.notification_add_outlined,
+            label: '方式',
+            value: _formatMethod(settings.reminderMethod),
+            child: SegmentedButton<ReminderMethod>(
+              segments: const [
+                ButtonSegment(
+                  value: ReminderMethod.dialog,
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: Text('对话框'),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _ReminderField(
-              icon: Icons.notifications_outlined,
-              label: '持续时间',
-              value: '$reminderMinutes 分钟',
-              child: Slider(
-                min: 15,
-                max: 180,
-                divisions: 11,
-                value: reminderMinutes.toDouble(),
-                label: '$reminderMinutes 分钟',
-                onChanged: (value) =>
-                    setState(() => _draftReminderMinutes = value),
-                onChangeEnd: (value) {
-                  _draftReminderMinutes = null;
-                  state.updateReminderSettings(reminderMinutes: value.round());
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            _ReminderField(
-              icon: Icons.timelapse_outlined,
-              label: '间隔',
-              value: _formatInterval(intervalMinutes),
-              child: Slider(
-                min: 5,
-                max: 60,
-                divisions: 11,
-                value: intervalMinutes.toDouble(),
-                label: _formatInterval(intervalMinutes),
-                onChanged: (value) =>
-                    setState(() => _draftIntervalMinutes = value),
-                onChangeEnd: (value) {
-                  _draftIntervalMinutes = null;
-                  state.updateReminderSettings(
-                    reminderIntervalMinutes: value.round(),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            _ReminderField(
-              icon: Icons.notification_add_outlined,
-              label: '方式',
-              value: _formatMethod(settings.reminderMethod),
-              child: SegmentedButton<ReminderMethod>(
-                segments: const [
-                  ButtonSegment(
-                    value: ReminderMethod.dialog,
-                    icon: Icon(Icons.chat_bubble_outline),
-                    label: Text('对话框'),
-                  ),
-                  ButtonSegment(
-                    value: ReminderMethod.banner,
-                    icon: Icon(Icons.drafts_outlined),
-                    label: Text('横幅'),
-                  ),
-                  ButtonSegment(
-                    value: ReminderMethod.silent,
-                    icon: Icon(Icons.notifications_off_outlined),
-                    label: Text('静默'),
-                  ),
-                ],
-                selected: {settings.reminderMethod},
-                onSelectionChanged: (value) => state.updateReminderSettings(
-                  reminderMethod: value.first,
+                ButtonSegment(
+                  value: ReminderMethod.banner,
+                  icon: Icon(Icons.drafts_outlined),
+                  label: Text('横幅'),
                 ),
+                ButtonSegment(
+                  value: ReminderMethod.silent,
+                  icon: Icon(Icons.notifications_off_outlined),
+                  label: Text('静默'),
+                ),
+              ],
+              selected: {settings.reminderMethod},
+              onSelectionChanged: (value) => state.updateReminderSettings(
+                reminderMethod: value.first,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -282,58 +279,58 @@ class CloudSyncSettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusTitle = state.canCloudSync ? 'Supabase 已配置' : 'Supabase 未配置';
     final statusSubtitle = state.isSignedIn ? '已登录' : '未登录或本地模式';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '云同步',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  state.canCloudSync
-                      ? Icons.cloud_done_outlined
-                      : Icons.cloud_off_outlined,
+    return QuietPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            title: '云同步',
+            subtitle: '未配置 Supabase 时应用继续以本地模式运行。',
+            icon: Icons.cloud_sync_outlined,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: state.canCloudSync
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_off_outlined,
+                color: state.canCloudSync
+                    ? Theme.of(context).colorScheme.primary
+                    : TimeTrackTheme.secondary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      statusTitle,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(statusSubtitle),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        statusTitle,
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(statusSubtitle),
-                    ],
-                  ),
+              ),
+              if (state.isSignedIn)
+                TextButton.icon(
+                  onPressed: state.signOut,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('退出'),
                 ),
-                if (state.isSignedIn)
-                  TextButton.icon(
-                    onPressed: state.signOut,
-                    icon: const Icon(Icons.logout),
-                    label: const Text('退出'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed:
-                  state.canCloudSync && state.isSignedIn ? state.sync : null,
-              icon: const Icon(Icons.sync),
-              label: const Text('立即同步'),
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed:
+                state.canCloudSync && state.isSignedIn ? state.sync : null,
+            icon: const Icon(Icons.sync),
+            label: const Text('立即同步'),
+          ),
+        ],
       ),
     );
   }
@@ -366,78 +363,78 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
       _addressController.text = state.lanPeer!.baseUrl!;
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '设备互通',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final expanded = constraints.maxWidth >= expandedBreakpoint;
-                final host = _LanHostPanel(state: state);
-                final client = _LanClientPanel(
-                  state: state,
-                  addressController: _addressController,
-                  codeController: _codeController,
-                );
-                if (!expanded) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      host,
-                      const SizedBox(height: 16),
-                      client,
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return QuietPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            title: '设备互通',
+            subtitle: '同一 Wi-Fi 下可通过局域网或文件互通数据。',
+            icon: Icons.devices_other_outlined,
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final expanded = constraints.maxWidth >= expandedBreakpoint;
+              final host = _LanHostPanel(state: state);
+              final client = _LanClientPanel(
+                state: state,
+                addressController: _addressController,
+                codeController: _codeController,
+              );
+              if (!expanded) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: host),
-                    const SizedBox(width: 16),
-                    Expanded(child: client),
+                    host,
+                    const SizedBox(height: 16),
+                    client,
                   ],
                 );
-              },
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                FilledButton.icon(
-                  onPressed: state.importInteropFile,
-                  icon: const Icon(Icons.upload_file_outlined),
-                  label: const Text('导入文件'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: state.exportInteropFile,
-                  icon: const Icon(Icons.download_outlined),
-                  label: const Text('导出文件'),
-                ),
-                FilledButton.icon(
-                  onPressed: state.hasSyncTarget && !state.isSyncing
-                      ? state.sync
-                      : null,
-                  icon: const Icon(Icons.sync),
-                  label: Text(state.isSyncing ? '同步中' : '立即同步'),
-                ),
-              ],
-            ),
-            if (state.interopMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(state.interopMessage!),
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: host),
+                  const SizedBox(width: 16),
+                  Expanded(child: client),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: state.importInteropFile,
+                icon: const Icon(Icons.upload_file_outlined),
+                label: const Text('导入文件'),
+              ),
+              OutlinedButton.icon(
+                onPressed: state.exportInteropFile,
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('导出文件'),
+              ),
+              FilledButton.icon(
+                onPressed:
+                    state.hasSyncTarget && !state.isSyncing ? state.sync : null,
+                icon: const Icon(Icons.sync),
+                label: Text(state.isSyncing ? '同步中' : '立即同步'),
+              ),
             ],
+          ),
+          if (state.interopMessage != null) ...[
+            const SizedBox(height: 12),
+            StatusPill(
+              label: state.interopMessage!,
+              icon: Icons.info_outline,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -453,15 +450,10 @@ class _LanHostPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(Icons.router_outlined),
-            const SizedBox(width: 8),
-            Text(
-              '局域网主机',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ],
+        SectionTitle(
+          title: '局域网主机',
+          subtitle: state.isLanServerRunning ? '正在等待同网段设备连接。' : null,
+          icon: Icons.router_outlined,
         ),
         const SizedBox(height: 8),
         Text(
@@ -477,11 +469,15 @@ class _LanHostPanel extends StatelessWidget {
             state.lanServerUrls.isEmpty
                 ? 'http://127.0.0.1'
                 : state.lanServerUrls.join('\n'),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
           ),
           const SizedBox(height: 10),
-          Text(
-            '配对码：${state.lanPairingCode ?? ''}',
-            style: Theme.of(context).textTheme.titleMedium,
+          StatusPill(
+            label: '配对码：${state.lanPairingCode ?? ''}',
+            icon: Icons.pin_outlined,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ],
         const SizedBox(height: 12),
@@ -526,19 +522,18 @@ class _LanClientPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(Icons.phone_android_outlined),
-            const SizedBox(width: 8),
-            Text(
-              '连接局域网主机',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ],
+        const SectionTitle(
+          title: '连接局域网主机',
+          subtitle: '输入地址和配对码后会立即尝试同步。',
+          icon: Icons.phone_android_outlined,
         ),
         const SizedBox(height: 8),
         if (peer != null) ...[
-          Text('已配对：${peer.displayName}'),
+          StatusPill(
+            label: '已配对：${peer.displayName}',
+            icon: Icons.link_outlined,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           if (peer.baseUrl != null) Text(peer.baseUrl!),
           const SizedBox(height: 12),
           OutlinedButton.icon(

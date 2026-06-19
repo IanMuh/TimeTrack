@@ -11,6 +11,7 @@ import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/time_entry.dart';
 import 'package:timetrack/ui/home_page.dart';
+import 'package:timetrack/ui/settings_page.dart';
 import 'package:timetrack/ui/stats_page.dart';
 import 'package:timetrack/ui/timeline_page.dart';
 
@@ -355,6 +356,33 @@ void main() {
       ),
       findsNothing,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'SettingsPage keeps sync and LAN controls usable on compact width',
+      (tester) async {
+    final state = _FakeAppState();
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            height: 1200,
+            child: SettingsPage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('提醒'), findsOneWidget);
+    expect(find.text('云同步'), findsOneWidget);
+    expect(find.text('设备互通'), findsOneWidget);
+    expect(find.text('配对并同步'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

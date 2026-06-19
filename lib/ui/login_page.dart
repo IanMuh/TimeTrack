@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import 'ui_components.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({required this.state, super.key});
@@ -27,27 +28,17 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
+    return QuietPanel(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.cloud_sync_outlined),
-              const SizedBox(width: 8),
-              Text(
-                '登录后开启多设备同步',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ],
+          const SectionTitle(
+            title: '多设备同步',
+            subtitle: '本地记录始终可用，登录后再同步到云端。',
+            icon: Icons.cloud_sync_outlined,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 520;
