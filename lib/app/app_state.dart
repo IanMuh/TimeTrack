@@ -259,6 +259,9 @@ class AppState extends ChangeNotifier {
     required String name,
     required int color,
   }) async {
+    if (activity.isUnassigned) {
+      return unassignedActivity ?? activity;
+    }
     final updated = await _repository.updateActivity(
       activity: activity,
       name: name,
@@ -487,13 +490,7 @@ class AppState extends ChangeNotifier {
     List<TimeEntry> entries;
     if (period == StatsPeriod.all) {
       entries = await _repository.allEntries();
-      final filtered = <TimeEntry>[];
-      for (final entry in entries) {
-        if (!entry.isDeleted) {
-          filtered.add(entry);
-        }
-      }
-      entries = filtered;
+      entries = _visibleStoredEntries(entries);
     } else {
       entries = await entriesForRange(start: start, end: end);
     }
@@ -503,7 +500,12 @@ class AppState extends ChangeNotifier {
   Duration longestBlock() {
     final dayStart = selectedDay.startOfDay;
     final dayEnd = dayStart.add(const Duration(days: 1));
-    return _longestInWindow(dayEntries, dayStart, dayEnd, now);
+    return _longestInWindow(
+      _entriesWithUnassignedGaps(dayEntries, dayStart, dayEnd),
+      dayStart,
+      dayEnd,
+      now,
+    );
   }
 
   Future<Duration> longestBlockForPeriod(StatsPeriod period) async {
@@ -521,8 +523,7 @@ class AppState extends ChangeNotifier {
       entries = await _repository.allEntries();
       // For "all", don't clip — use full durations.
       var longest = Duration.zero;
-      for (final entry in entries) {
-        if (entry.isDeleted) continue;
+      for (final entry in _visibleStoredEntries(entries)) {
         final duration = entry.durationUntil(now);
         if (duration > longest) {
           longest = duration;
@@ -532,6 +533,16 @@ class AppState extends ChangeNotifier {
     }
     entries = await entriesForRange(start: start, end: end);
     return _longestInWindow(entries, start, end, now);
+  }
+
+  List<TimeEntry> _visibleStoredEntries(List<TimeEntry> entries) {
+    final unassigned = unassignedActivity;
+    return [
+      for (final entry in entries)
+        if (!entry.isDeleted &&
+            (unassigned == null || entry.activityId != unassigned.id))
+          entry,
+    ];
   }
 
   Map<String, Duration> _totalsInWindow(
@@ -593,12 +604,16 @@ class AppState extends ChangeNotifier {
   ) {
     final unassigned = unassignedActivity;
     final effectiveEnd = _earlier(windowEnd, now);
+    final visibleEntries = [
+      for (final entry in entries)
+        if (unassigned == null || entry.activityId != unassigned.id) entry,
+    ];
     if (unassigned == null || !windowStart.isBefore(effectiveEnd)) {
-      return entries;
+      return visibleEntries;
     }
 
     final coverage = [
-      for (final entry in entries)
+      for (final entry in visibleEntries)
         if (!entry.isDeleted &&
             entry.startAt.isBefore(effectiveEnd) &&
             (entry.endAt ?? now).isAfter(windowStart))
@@ -624,7 +639,7 @@ class AppState extends ChangeNotifier {
       gaps.add(_unassignedEntry(unassigned, cursor, effectiveEnd));
     }
 
-    final combined = [...entries, ...gaps]
+    final combined = [...visibleEntries, ...gaps]
       ..sort((a, b) => a.startAt.compareTo(b.startAt));
     return combined;
   }

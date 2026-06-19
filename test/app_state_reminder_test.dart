@@ -122,6 +122,35 @@ void main() {
     expect(totals[unassigned.id], const Duration(hours: 11));
   });
 
+  test('visibleDayEntries collapses real unassigned records into one gap',
+      () async {
+    final fixture = await _buildState();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final unassigned = state.activities.singleWhere(
+      (activity) => activity.isUnassigned,
+    );
+    state.now = DateTime(2026, 1, 2, 12);
+
+    await fixture.repository.createManualEntry(
+      activityId: unassigned.id,
+      startAt: DateTime(2026, 1, 2, 9),
+      endAt: DateTime(2026, 1, 2, 10),
+      note: 'legacy unassigned',
+    );
+    await state.selectDay(DateTime(2026, 1, 2));
+
+    final visibleEntries = state.visibleDayEntries();
+    final totals = state.todayTotals();
+
+    expect(visibleEntries, hasLength(1));
+    expect(visibleEntries.single.activityId, unassigned.id);
+    expect(visibleEntries.single.deviceId, 'unassigned-gap');
+    expect(visibleEntries.single.startAt, DateTime(2026, 1, 2));
+    expect(visibleEntries.single.endAt, DateTime(2026, 1, 2, 12));
+    expect(totals[unassigned.id], const Duration(hours: 12));
+  });
+
   test('weekTotals clips entries to each day before summing', () async {
     final fixture = await _buildState();
     final state = fixture.state;
@@ -230,6 +259,9 @@ void main() {
     final state = fixture.state;
     addTearDown(state.dispose);
     final activity = state.activities.first;
+    final unassigned = state.activities.singleWhere(
+      (activity) => activity.isUnassigned,
+    );
 
     await fixture.repository.createManualEntry(
       activityId: activity.id,
@@ -243,9 +275,16 @@ void main() {
       endAt: DateTime(2027, 1, 1, 10),
       note: 'future',
     );
+    await fixture.repository.createManualEntry(
+      activityId: unassigned.id,
+      startAt: DateTime(2026, 1, 1, 12),
+      endAt: DateTime(2026, 1, 1, 14),
+      note: 'legacy unassigned',
+    );
 
     final allTotals = await state.totalsForPeriod(StatsPeriod.all);
     expect(allTotals[activity.id], const Duration(hours: 2));
+    expect(allTotals.containsKey(unassigned.id), isFalse);
   });
 
   test('totalsForPeriod uses state.now for running entry', () async {
@@ -315,12 +354,21 @@ void main() {
     final state = fixture.state;
     addTearDown(state.dispose);
     final activity = state.activities.first;
+    final unassigned = state.activities.singleWhere(
+      (activity) => activity.isUnassigned,
+    );
 
     await fixture.repository.createManualEntry(
       activityId: activity.id,
       startAt: DateTime(2026, 1, 1, 9),
       endAt: DateTime(2026, 1, 2, 9),
       note: '24h',
+    );
+    await fixture.repository.createManualEntry(
+      activityId: unassigned.id,
+      startAt: DateTime(2026, 1, 3, 9),
+      endAt: DateTime(2026, 1, 5, 9),
+      note: 'legacy unassigned',
     );
 
     final longest = await state.longestBlockForPeriod(StatsPeriod.all);

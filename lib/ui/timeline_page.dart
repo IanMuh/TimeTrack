@@ -1457,16 +1457,17 @@ Future<void> showEntryEditor(
   }
   final selectedDay = state.selectedDay;
   final editingGeneratedGap = entry?.deviceId == 'unassigned-gap';
-  var activities = [...state.activities];
+  var activities = [
+    for (final activity in state.activities)
+      if (!activity.isUnassigned) activity,
+  ];
   String? selectedActivityId;
   if (entry == null) {
-    selectedActivityId = state.activities.first.id;
-  } else if (editingGeneratedGap) {
+    selectedActivityId = activities.isEmpty ? null : activities.first.id;
+  } else {
     final selected = state.activityById(entry.activityId);
     selectedActivityId =
         selected == null || selected.isUnassigned ? null : selected.id;
-  } else {
-    selectedActivityId = state.activityById(entry.activityId)?.id;
   }
   var start = entry?.startAt ?? _defaultEntryStart(selectedDay, state.now);
   var end = entry?.endAt ?? _defaultEntryEnd(start, selectedDay, state.now);
@@ -1529,11 +1530,14 @@ Future<void> showEntryEditor(
             return findActivity(selectedActivityId) ??
                 (activities.isNotEmpty
                     ? activities.first
-                    : state.activities.first);
+                    : state.unassignedActivity ?? state.activities.first);
           }
 
           void refreshActivities([String? preferredActivityId]) {
-            activities = [...state.activities];
+            activities = [
+              for (final activity in state.activities)
+                if (!activity.isUnassigned) activity,
+            ];
             final preferred = preferredActivityId ?? selectedActivityId;
             if (findActivity(preferred) != null) {
               selectedActivityId = preferred!;
@@ -1579,27 +1583,31 @@ Future<void> showEntryEditor(
                           });
                         }
                       },
-                      onEditActivity: () async {
-                        final selected = findActivity(selectedActivityId);
-                        if (selected == null) {
-                          setState(() => formError = '请选择一个有效事项。');
-                          return;
-                        }
-                        final updated = await showActivityEditorDialog(
-                          context,
-                          state,
-                          activity: selected,
-                        );
-                        if (context.mounted) {
-                          setState(() {
-                            refreshActivities(updated?.id);
-                            if (updated != null) {
-                              selectedActivityId = updated.id;
-                            }
-                            formError = null;
-                          });
-                        }
-                      },
+                      onEditActivity: selectedActivityId == null
+                          ? null
+                          : () async {
+                              final selected = findActivity(selectedActivityId);
+                              if (selected == null) {
+                                setState(
+                                  () => formError = '请选择一个有效事项。',
+                                );
+                                return;
+                              }
+                              final updated = await showActivityEditorDialog(
+                                context,
+                                state,
+                                activity: selected,
+                              );
+                              if (context.mounted) {
+                                setState(() {
+                                  refreshActivities(updated?.id);
+                                  if (updated != null) {
+                                    selectedActivityId = updated.id;
+                                  }
+                                  formError = null;
+                                });
+                              }
+                            },
                     ),
                     const SizedBox(height: 12),
                     ListTile(
@@ -1691,8 +1699,7 @@ Future<void> showEntryEditor(
                 onPressed: () async {
                   refreshActivities();
                   final selectedActivity = findActivity(selectedActivityId);
-                  if (selectedActivity == null ||
-                      (editingGeneratedGap && selectedActivity.isUnassigned)) {
+                  if (selectedActivity == null) {
                     setState(() => formError = '请选择一个有效事项。');
                     return;
                   }
@@ -1766,7 +1773,7 @@ class _EntryActivitySelector extends StatelessWidget {
   final String? selectedActivityId;
   final ValueChanged<String?> onActivityChanged;
   final VoidCallback onCreateActivity;
-  final VoidCallback onEditActivity;
+  final VoidCallback? onEditActivity;
 
   @override
   Widget build(BuildContext context) {

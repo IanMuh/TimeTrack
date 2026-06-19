@@ -156,9 +156,25 @@ void main() {
       ),
     );
 
-    expect(await target.repository.activities(), isEmpty);
+    final visibleActivities = await target.repository.activities();
     expect(
-        await target.repository.activities(includeDeleted: true), hasLength(1));
+        visibleActivities.where((activity) => !activity.isUnassigned), isEmpty);
+    expect(
+      visibleActivities.singleWhere((activity) => activity.isUnassigned).name,
+      '未安排',
+    );
+
+    final allActivities = await target.repository.activities(
+      includeDeleted: true,
+    );
+    expect(allActivities.where((activity) => !activity.isUnassigned),
+        hasLength(1));
+    expect(
+      allActivities
+          .singleWhere((activity) => activity.id == 'activity-1')
+          .isDeleted,
+      isTrue,
+    );
   });
 
   test('invalid bundle schema is rejected before mutating data', () async {
