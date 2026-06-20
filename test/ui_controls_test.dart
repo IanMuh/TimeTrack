@@ -14,6 +14,7 @@ import 'package:timetrack/ui/home_page.dart';
 import 'package:timetrack/ui/settings_page.dart';
 import 'package:timetrack/ui/stats_page.dart';
 import 'package:timetrack/ui/timeline_page.dart';
+import 'package:timetrack/ui/ui_components.dart';
 
 void main() {
   testWidgets('ActivityColorPicker updates preview from RGB input', (
@@ -69,6 +70,8 @@ void main() {
                 selectedPreset: StatsPreset.thisWeek,
                 onPresetChanged: (_) {},
                 onPickCustomDay: () {},
+                onPreviousDay: () {},
+                onNextDay: () {},
               ),
             ),
           ),
@@ -80,11 +83,73 @@ void main() {
     await pumpAtWidth(390);
     expect(find.text('范围'), findsOneWidget);
     expect(find.text('选择日期'), findsOneWidget);
+    expect(find.byTooltip('前一天'), findsOneWidget);
+    expect(find.byTooltip('后一天'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await pumpAtWidth(920);
     expect(find.text('今天'), findsOneWidget);
     expect(find.text('上周'), findsOneWidget);
+    expect(find.byTooltip('前一天'), findsOneWidget);
+    expect(find.byTooltip('后一天'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('StatusPill wraps long export paths on compact width', (
+    tester,
+  ) async {
+    const longExportMessage =
+        '已导出：/data/user/0/com.example.timetrack/app_flutter/'
+        'timetrack-export-20260620-123456.json';
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: StatusPill(
+              label: longExportMessage,
+              icon: Icons.info_outline,
+              color: Colors.blue,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text(longExportMessage), findsOneWidget);
+    expect(
+        tester.getSize(find.text(longExportMessage)).height, greaterThan(20));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SettingsPage shows full exported path on compact width', (
+    tester,
+  ) async {
+    const exportPath = '/data/user/0/com.example.timetrack/app_flutter/'
+        'timetrack-export-20260620-123456.timetrack.json';
+    final state = _FakeAppState()..interopMessage = '已导出：$exportPath';
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 1100,
+            child: SettingsPage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pathFinder = find.byWidgetPredicate(
+      (widget) => widget is SelectableText && widget.data == exportPath,
+    );
+    expect(find.text('已导出'), findsOneWidget);
+    expect(pathFinder, findsOneWidget);
+    expect(tester.getSize(pathFinder).height, greaterThan(20));
     expect(tester.takeException(), isNull);
   });
 

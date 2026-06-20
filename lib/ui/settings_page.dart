@@ -4,6 +4,7 @@ import '../app/app_state.dart';
 import '../domain/profile_settings.dart';
 import 'adaptive_layout.dart';
 import 'app_theme.dart';
+import 'interop_message_panel.dart';
 import 'ui_components.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -428,11 +429,7 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
           ),
           if (state.interopMessage != null) ...[
             const SizedBox(height: 12),
-            StatusPill(
-              label: state.interopMessage!,
-              icon: Icons.info_outline,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            InteropMessagePanel(message: state.interopMessage!),
           ],
         ],
       ),

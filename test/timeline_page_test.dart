@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/core/date_time_ext.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
@@ -187,6 +188,7 @@ Future<void> _pumpTimeline(
   WidgetTester tester,
   AppState state, {
   required double width,
+  bool defaultToTodayOnOpen = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -194,7 +196,10 @@ Future<void> _pumpTimeline(
         body: SizedBox(
           width: width,
           height: 900,
-          child: TimelinePage(state: state),
+          child: TimelinePage(
+            state: state,
+            defaultToTodayOnOpen: defaultToTodayOnOpen,
+          ),
         ),
       ),
     ),
@@ -254,16 +259,99 @@ Future<void> _tapEntryEditButton(
     of: find.text(title),
     matching: find.byType(TimelineEntryCard),
   );
+  await _tapEntryEditButtonInCard(tester, entryCard);
+}
+
+Future<void> _tapEntryEditButtonInCard(
+  WidgetTester tester,
+  Finder entryCard,
+) async {
+  expect(entryCard, findsOneWidget);
+  await tester.ensureVisible(entryCard);
+  await tester.pumpAndSettle();
+  final editButton = find.descendant(
+    of: entryCard,
+    matching: find.byTooltip('编辑'),
+  );
+  expect(editButton, findsOneWidget);
   await tester.tap(
-    find.descendant(
-      of: entryCard,
-      matching: find.byTooltip('编辑'),
-    ),
+    editButton,
   );
   await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets('timeline defaults to today and shows timeline with list', (
+    tester,
+  ) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final today = DateTime.now().startOfDay;
+    state
+      ..selectedDay = DateTime(2026, 1, 2)
+      ..now = today.add(const Duration(hours: 12))
+      ..dayEntries = [
+        _entry(
+          id: 'today-entry',
+          startAt: today.add(const Duration(hours: 9)),
+          endAt: today.add(const Duration(hours: 10)),
+        ),
+      ];
+
+    await _pumpTimeline(
+      tester,
+      state,
+      width: 920,
+      defaultToTodayOnOpen: true,
+    );
+
+    expect(state.selectedDay.isSameDate(today), isTrue);
+    expect(find.text('可缩放时间线'), findsOneWidget);
+    expect(find.byType(TimelineEntryCard), findsWidgets);
+    expect(find.text('记录列表'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('timeline appears above the entry list at common widths', (
+    tester,
+  ) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    state.dayEntries = [
+      _entry(
+        id: 'entry',
+        startAt: DateTime(2026, 1, 2, 9),
+        endAt: DateTime(2026, 1, 2, 10),
+      ),
+    ];
+
+    for (final width in [390.0, 920.0]) {
+      await _pumpTimeline(tester, state, width: width);
+
+      expect(
+        tester.getTopLeft(find.text('可缩放时间线')).dy,
+        lessThan(tester.getTopLeft(find.text('记录列表')).dy),
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('actions view hides timeline zoom controls', (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('指令'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Slider), findsNothing);
+    expect(find.text('可缩放时间线'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('cross-day entries render the selected-day interval', (
     tester,
   ) async {
@@ -282,10 +370,6 @@ void main() {
     state.now = DateTime(2026, 1, 2, 12);
 
     await _pumpTimeline(tester, state, width: 390);
-    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('列表').last);
-    await tester.pumpAndSettle();
 
     expect(find.text('30 分钟'), findsOneWidget);
     expect(find.text('00:00:00 - 00:30:00'), findsOneWidget);
@@ -310,20 +394,11 @@ void main() {
       ..now = DateTime(2026, 1, 2, 10, 15);
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final runningCard = find.ancestor(
       of: find.text('工作'),
       matching: find.byType(TimelineEntryCard),
     );
-    await tester.tap(
-      find.descendant(
-        of: runningCard,
-        matching: find.byTooltip('编辑'),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await _tapEntryEditButtonInCard(tester, runningCard);
 
     expect(find.text('保持进行中'), findsWidgets);
     expect(find.text('关闭后可把这条记录保存为已结束。'), findsOneWidget);
@@ -341,12 +416,14 @@ void main() {
       ..now = DateTime(2026, 1, 2, 12);
 
     await _pumpTimeline(tester, state, width: 390);
-    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('列表').last);
-    await tester.pumpAndSettle();
 
-    expect(find.text('未安排'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('未安排'),
+        matching: find.byType(TimelineEntryCard),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('24 小时 0 分钟'), findsOneWidget);
     expect(find.text('00:00:00 - 24:00:00'), findsOneWidget);
     expect(find.text('这一天还没有记录。'), findsNothing);
@@ -370,14 +447,13 @@ void main() {
         );
 
     await _pumpTimeline(tester, state, width: 390);
-    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('列表').last);
-    await tester.pumpAndSettle();
-    expect(find.text('未安排'), findsOneWidget);
+    final gapCard = find.ancestor(
+      of: find.text('未安排'),
+      matching: find.byType(TimelineEntryCard),
+    );
+    expect(gapCard, findsOneWidget);
 
-    await tester.tap(find.byTooltip('编辑').first);
-    await tester.pumpAndSettle();
+    await _tapEntryEditButtonInCard(tester, gapCard);
     expect(
       tester
           .widget<DropdownButtonFormField<String>>(
@@ -493,12 +569,11 @@ void main() {
         );
 
     await _pumpTimeline(tester, state, width: 390);
-    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('列表').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('编辑').first);
-    await tester.pumpAndSettle();
+    final gapCard = find.ancestor(
+      of: find.text('未安排'),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await _tapEntryEditButtonInCard(tester, gapCard);
 
     expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '删除'), findsNothing);
@@ -533,20 +608,12 @@ void main() {
     );
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final originalActivity = state.activityById(originalEntry.activityId)!;
     final entryCard = find.ancestor(
       of: find.text(originalActivity.name),
       matching: find.byType(TimelineEntryCard),
     );
-    await tester.tap(
-      find.descendant(
-        of: entryCard,
-        matching: find.byTooltip('编辑'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _tapEntryEditButtonInCard(tester, entryCard);
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text(targetActivity.name).last);
@@ -594,19 +661,11 @@ void main() {
     });
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final entryCard = find.ancestor(
       of: find.text('未知事项'),
       matching: find.byType(TimelineEntryCard),
     );
-    await tester.tap(
-      find.descendant(
-        of: entryCard,
-        matching: find.byTooltip('编辑'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _tapEntryEditButtonInCard(tester, entryCard);
 
     await _tapAndPumpUntil(
       tester,
@@ -646,26 +705,17 @@ void main() {
     addTearDown(state.dispose);
     addTearDown(() async => fixture.database?.close());
     final entryToEdit = state.dayEntries.first;
-    final originalActivity = state.activityById(entryToEdit.activityId)!;
     final targetActivity = state.activities.firstWhere(
       (activity) =>
           !activity.isUnassigned && activity.id != entryToEdit.activityId,
     );
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final entryCard = find.ancestor(
-      of: find.text(originalActivity.name).first,
+      of: find.text('09:00:00 - 10:00:00'),
       matching: find.byType(TimelineEntryCard),
     );
-    await tester.tap(
-      find.descendant(
-        of: entryCard,
-        matching: find.byTooltip('编辑'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _tapEntryEditButtonInCard(tester, entryCard);
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text(targetActivity.name).last);
@@ -703,7 +753,6 @@ void main() {
     addTearDown(state.dispose);
     addTearDown(() async => fixture.database?.close());
     final entryToEdit = state.dayEntries.first;
-    final originalActivity = state.activityById(entryToEdit.activityId)!;
     final targetActivities = state.activities
         .where(
           (activity) =>
@@ -714,19 +763,11 @@ void main() {
     final secondTargetActivity = targetActivities[1];
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final entryCard = find.ancestor(
-      of: find.text(originalActivity.name).first,
+      of: find.text('09:00:00 - 10:00:00'),
       matching: find.byType(TimelineEntryCard),
     );
-    await tester.tap(
-      find.descendant(
-        of: entryCard,
-        matching: find.byTooltip('编辑'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _tapEntryEditButtonInCard(tester, entryCard);
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text(firstTargetActivity.name).last);
@@ -778,20 +819,12 @@ void main() {
     );
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final originalActivity = state.activityById(originalEntry.activityId)!;
     final entryCard = find.ancestor(
       of: find.text(originalActivity.name),
       matching: find.byType(TimelineEntryCard),
     );
-    await tester.tap(
-      find.descendant(
-        of: entryCard,
-        matching: find.byTooltip('编辑'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _tapEntryEditButtonInCard(tester, entryCard);
 
     await tester.runAsync(() async {
       await fixture.repository.replaceActivityIfRemoteNewer(
@@ -844,8 +877,6 @@ void main() {
     addTearDown(() async => fixture.database?.close());
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final activity = state.activityById(state.dayEntries.single.activityId)!;
     await _tapEntryEditButton(tester, title: activity.name);
     await tester.tap(find.widgetWithText(FilledButton, '保存').last);
@@ -875,8 +906,6 @@ void main() {
       addTearDown(() async => fixture.database?.close());
 
       await _pumpTimeline(tester, state, width: 920);
-      await tester.tap(find.text('列表'));
-      await tester.pumpAndSettle();
       final activity = state.activityById(state.dayEntries.single.activityId)!;
       await _tapEntryEditButton(tester, title: activity.name);
       await tester.enterText(find.widgetWithText(TextField, '备注'), '关闭时仍在保存');
@@ -916,10 +945,6 @@ void main() {
     state.dayEntries = [entry];
 
     await _pumpTimeline(tester, state, width: 360);
-    await tester.tap(find.byType(DropdownButtonFormField<TimelineViewMode>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('列表').last);
-    await tester.pumpAndSettle();
     await _tapEntryEditButton(tester, title: _activity.name);
     await tester.tap(find.byTooltip('编辑当前事项'));
     await tester.pumpAndSettle();
@@ -938,8 +963,6 @@ void main() {
     addTearDown(() async => fixture.database?.close());
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('列表'));
-    await tester.pumpAndSettle();
     final activity = state.activityById(state.dayEntries.single.activityId)!;
     await _tapEntryEditButton(tester, title: activity.name);
     await tester.tap(find.byTooltip('编辑当前事项'));

@@ -13,7 +13,7 @@ import 'adaptive_layout.dart';
 import 'home_page.dart';
 import 'ui_components.dart';
 
-enum TimelineViewMode { timeline, list, actions }
+enum TimelineViewMode { entries, actions }
 
 enum TimelineDensity { compact, detailed }
 
@@ -69,19 +69,39 @@ _VisibleEntryInterval _visibleEntryInterval(
 }
 
 class TimelinePage extends StatefulWidget {
-  const TimelinePage({required this.state, super.key});
+  const TimelinePage({
+    required this.state,
+    this.defaultToTodayOnOpen = true,
+    super.key,
+  });
 
   final AppState state;
+  final bool defaultToTodayOnOpen;
 
   @override
   State<TimelinePage> createState() => _TimelinePageState();
 }
 
 class _TimelinePageState extends State<TimelinePage> {
-  TimelineViewMode _mode = TimelineViewMode.timeline;
+  TimelineViewMode _mode = TimelineViewMode.entries;
   TimelineDensity _density = TimelineDensity.detailed;
   TimelineSpan _span = TimelineSpan.day;
   double _zoom = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.defaultToTodayOnOpen) {
+      _defaultToToday();
+    }
+  }
+
+  void _defaultToToday() {
+    final today = widget.state.now.startOfDay;
+    if (!widget.state.selectedDay.isSameDate(today)) {
+      widget.state.selectedDay = today;
+    }
+  }
 
   Future<void> _pickDate() async {
     final state = widget.state;
@@ -135,17 +155,13 @@ class _TimelinePageState extends State<TimelinePage> {
               builder: (context, snapshot) {
                 final data = snapshot.data ?? const _TimelineRangeData.empty();
                 return switch (_mode) {
-                  TimelineViewMode.timeline => RangeTimelineCard(
+                  TimelineViewMode.entries => _EntriesTimelineView(
                       state: state,
                       entries: data.entries,
                       rangeStart: rangeStart,
                       span: _span,
                       density: _density,
                       zoom: _zoom,
-                    ),
-                  TimelineViewMode.list => _EntryList(
-                      state: state,
-                      entries: data.entries,
                       emptyText: _span == TimelineSpan.day
                           ? '这一天还没有记录。'
                           : '这个范围还没有记录。',
@@ -247,6 +263,7 @@ class TimelineHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < compactBreakpoint;
+        final showRecordControls = mode == TimelineViewMode.entries;
         final modeSelector = _TimelineModeControl(
           selectedMode: mode,
           compact: compact,
@@ -299,12 +316,16 @@ class TimelineHeader extends StatelessWidget {
               daySelector,
               const SizedBox(height: 12),
               modeSelector,
-              const SizedBox(height: 10),
-              densitySelector,
+              if (showRecordControls) ...[
+                const SizedBox(height: 10),
+                densitySelector,
+              ],
               const SizedBox(height: 10),
               spanSelector,
-              const SizedBox(height: 10),
-              zoomControl,
+              if (showRecordControls) ...[
+                const SizedBox(height: 10),
+                zoomControl,
+              ],
               const SizedBox(height: 10),
               FilledButton.icon(
                 onPressed: onAddEntry,
@@ -326,8 +347,10 @@ class TimelineHeader extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: modeSelector),
-                const SizedBox(width: 12),
-                densitySelector,
+                if (showRecordControls) ...[
+                  const SizedBox(width: 12),
+                  densitySelector,
+                ],
                 const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: onAddEntry,
@@ -340,8 +363,10 @@ class TimelineHeader extends StatelessWidget {
             Row(
               children: [
                 spanSelector,
-                const SizedBox(width: 16),
-                Expanded(child: zoomControl),
+                if (showRecordControls) ...[
+                  const SizedBox(width: 16),
+                  Expanded(child: zoomControl),
+                ],
               ],
             ),
           ],
@@ -389,14 +414,9 @@ class _TimelineModeControl extends StatelessWidget {
     return SegmentedButton<TimelineViewMode>(
       segments: const [
         ButtonSegment(
-          value: TimelineViewMode.timeline,
+          value: TimelineViewMode.entries,
           icon: Icon(Icons.timeline),
-          label: Text('时间线'),
-        ),
-        ButtonSegment(
-          value: TimelineViewMode.list,
-          icon: Icon(Icons.view_list_outlined),
-          label: Text('列表'),
+          label: Text('记录'),
         ),
         ButtonSegment(
           value: TimelineViewMode.actions,
@@ -411,8 +431,7 @@ class _TimelineModeControl extends StatelessWidget {
 
   String _modeLabel(TimelineViewMode mode) {
     return switch (mode) {
-      TimelineViewMode.timeline => '时间线',
-      TimelineViewMode.list => '列表',
+      TimelineViewMode.entries => '记录',
       TimelineViewMode.actions => '指令',
     };
   }
@@ -758,6 +777,7 @@ class RangeTimelineCard extends StatefulWidget {
     required this.span,
     required this.density,
     required this.zoom,
+    this.showEmptyState = true,
     super.key,
   });
 
@@ -767,6 +787,7 @@ class RangeTimelineCard extends StatefulWidget {
   final TimelineSpan span;
   final TimelineDensity density;
   final double zoom;
+  final bool showEmptyState;
 
   @override
   State<RangeTimelineCard> createState() => _RangeTimelineCardState();
@@ -849,7 +870,7 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
                     ),
                   ],
                 ),
-              if (widget.entries.isEmpty) ...[
+              if (widget.showEmptyState && widget.entries.isEmpty) ...[
                 const SizedBox(height: 12),
                 const TimelineEmptyState(text: '这个范围还没有记录。'),
               ],
@@ -1242,6 +1263,84 @@ class _TimelineBlock extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _EntriesTimelineView extends StatelessWidget {
+  const _EntriesTimelineView({
+    required this.state,
+    required this.entries,
+    required this.rangeStart,
+    required this.span,
+    required this.density,
+    required this.zoom,
+    required this.emptyText,
+  });
+
+  final AppState state;
+  final List<TimeEntry> entries;
+  final DateTime rangeStart;
+  final TimelineSpan span;
+  final TimelineDensity density;
+  final double zoom;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    final timeline = RangeTimelineCard(
+      state: state,
+      entries: entries,
+      rangeStart: rangeStart,
+      span: span,
+      density: density,
+      zoom: zoom,
+      showEmptyState: false,
+    );
+    final list = _TimelineEntryListSection(
+      state: state,
+      entries: entries,
+      emptyText: emptyText,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        timeline,
+        const SectionGap(),
+        list,
+      ],
+    );
+  }
+}
+
+class _TimelineEntryListSection extends StatelessWidget {
+  const _TimelineEntryListSection({
+    required this.state,
+    required this.entries,
+    required this.emptyText,
+  });
+
+  final AppState state;
+  final List<TimeEntry> entries;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const TimelineCardHeader(
+          title: '记录列表',
+          subtitle: '按开始时间排列，点击任一记录可编辑。',
+          icon: Icons.view_list_outlined,
+        ),
+        const SizedBox(height: 12),
+        _EntryList(
+          state: state,
+          entries: entries,
+          emptyText: emptyText,
+        ),
+      ],
     );
   }
 }

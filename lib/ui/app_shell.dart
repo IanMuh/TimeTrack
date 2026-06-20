@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import '../core/date_time_ext.dart';
 import 'adaptive_layout.dart';
 import 'app_theme.dart';
 import 'home_page.dart';
@@ -112,6 +115,17 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  void _selectDestination(int value) {
+    setState(() => _index = value);
+    if (value != 1) {
+      return;
+    }
+    final today = widget.state.now.startOfDay;
+    if (!widget.state.selectedDay.isSameDate(today)) {
+      unawaited(widget.state.selectDay(today));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
@@ -141,8 +155,7 @@ class _AppShellState extends State<AppShell> {
                 _DesktopNavigationRail(
                   selectedIndex: _index,
                   destinations: _destinations,
-                  onDestinationSelected: (value) =>
-                      setState(() => _index = value),
+                  onDestinationSelected: _selectDestination,
                 ),
                 const VerticalDivider(width: 1),
               ],
@@ -164,8 +177,7 @@ class _AppShellState extends State<AppShell> {
                 ),
                 child: NavigationBar(
                   selectedIndex: _index,
-                  onDestinationSelected: (value) =>
-                      setState(() => _index = value),
+                  onDestinationSelected: _selectDestination,
                   destinations: [
                     for (final destination in _destinations)
                       NavigationDestination(

@@ -92,7 +92,7 @@ void main() {
               width: width,
               child: TimelineHeader(
                 selectedDay: DateTime(2026, 6, 13),
-                mode: TimelineViewMode.timeline,
+                mode: TimelineViewMode.entries,
                 density: TimelineDensity.detailed,
                 span: TimelineSpan.week,
                 zoom: 1.25,
@@ -119,45 +119,52 @@ void main() {
 
     await pumpAtWidth(920);
     expect(find.text('时间轴'), findsOneWidget);
-    expect(find.text('列表'), findsOneWidget);
+    expect(find.text('记录'), findsOneWidget);
     expect(find.text('7日'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('TimelineHeader supports smaller timeline zoom levels', (
+  testWidgets('TimelineHeader shows zoom only for record view', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 390,
-            child: TimelineHeader(
-              selectedDay: DateTime(2026, 6, 13),
-              mode: TimelineViewMode.timeline,
-              density: TimelineDensity.detailed,
-              span: TimelineSpan.day,
-              zoom: 0.25,
-              onPreviousRange: () {},
-              onNextRange: () {},
-              onDateTap: () {},
-              onModeChanged: (_) {},
-              onDensityChanged: (_) {},
-              onSpanChanged: (_) {},
-              onZoomChanged: (_) {},
-              onAddEntry: () {},
+    Future<void> pumpMode(TimelineViewMode mode) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 390,
+              child: TimelineHeader(
+                selectedDay: DateTime(2026, 6, 13),
+                mode: mode,
+                density: TimelineDensity.detailed,
+                span: TimelineSpan.day,
+                zoom: 0.25,
+                onPreviousRange: () {},
+                onNextRange: () {},
+                onDateTap: () {},
+                onModeChanged: (_) {},
+                onDensityChanged: (_) {},
+                onSpanChanged: (_) {},
+                onZoomChanged: (_) {},
+                onAddEntry: () {},
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
+    }
 
+    await pumpMode(TimelineViewMode.entries);
     final slider = tester.widget<Slider>(find.byType(Slider));
     expect(slider.min, 0.25);
     expect(slider.max, 3);
     expect(slider.divisions, 11);
     expect(find.text('0.25x'), findsOneWidget);
+
+    await pumpMode(TimelineViewMode.actions);
+    expect(find.byType(Slider), findsNothing);
+    expect(find.text('0.25x'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

@@ -49,6 +49,8 @@ class _StatsPageState extends State<StatsPage> {
               selectedPreset: _preset,
               onPresetChanged: (preset) => setState(() => _preset = preset),
               onPickCustomDay: () => _pickCustomDay(context),
+              onPreviousDay: () => _shiftCustomDay(-1),
+              onNextDay: () => _shiftCustomDay(1),
             ),
             const SectionGap(),
             FutureBuilder<TimeRangeStats>(
@@ -138,6 +140,16 @@ class _StatsPageState extends State<StatsPage> {
       _customDay = next;
     });
   }
+
+  void _shiftCustomDay(int days) {
+    setState(() {
+      final anchor = _preset == StatsPreset.customDay
+          ? _customDay
+          : _rangeFor(widget.state.now).start;
+      _preset = StatsPreset.customDay;
+      _customDay = anchor.add(Duration(days: days));
+    });
+  }
 }
 
 class StatsHeader extends StatelessWidget {
@@ -146,6 +158,8 @@ class StatsHeader extends StatelessWidget {
     required this.selectedPreset,
     required this.onPresetChanged,
     required this.onPickCustomDay,
+    required this.onPreviousDay,
+    required this.onNextDay,
     super.key,
   });
 
@@ -153,6 +167,8 @@ class StatsHeader extends StatelessWidget {
   final StatsPreset selectedPreset;
   final ValueChanged<StatsPreset> onPresetChanged;
   final VoidCallback onPickCustomDay;
+  final VoidCallback onPreviousDay;
+  final VoidCallback onNextDay;
 
   @override
   Widget build(BuildContext context) {
@@ -174,10 +190,10 @@ class StatsHeader extends StatelessWidget {
           compact: compact,
           onPresetChanged: onPresetChanged,
         );
-        final customButton = OutlinedButton.icon(
-          onPressed: onPickCustomDay,
-          icon: const Icon(Icons.event),
-          label: const Text('选择日期'),
+        final dayStepper = _StatsDayStepper(
+          onPreviousDay: onPreviousDay,
+          onPickCustomDay: onPickCustomDay,
+          onNextDay: onNextDay,
         );
 
         if (compact) {
@@ -188,7 +204,7 @@ class StatsHeader extends StatelessWidget {
               const SizedBox(height: 12),
               controls,
               const SizedBox(height: 10),
-              customButton,
+              dayStepper,
             ],
           );
         }
@@ -202,12 +218,55 @@ class StatsHeader extends StatelessWidget {
               children: [
                 Expanded(child: controls),
                 const SizedBox(width: 12),
-                customButton,
+                dayStepper,
               ],
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _StatsDayStepper extends StatelessWidget {
+  const _StatsDayStepper({
+    required this.onPreviousDay,
+    required this.onPickCustomDay,
+    required this.onNextDay,
+  });
+
+  final VoidCallback onPreviousDay;
+  final VoidCallback onPickCustomDay;
+  final VoidCallback onNextDay;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: '前一天',
+            onPressed: onPreviousDay,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          OutlinedButton.icon(
+            onPressed: onPickCustomDay,
+            icon: const Icon(Icons.event),
+            label: const Text('选择日期'),
+          ),
+          IconButton(
+            tooltip: '后一天',
+            onPressed: onNextDay,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
     );
   }
 }
