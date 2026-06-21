@@ -8,6 +8,7 @@ class Activity {
     required this.updatedAt,
     required this.isDeleted,
     this.isUnassigned = false,
+    this.isOneOff = false,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class Activity {
   final DateTime updatedAt;
   final bool isDeleted;
   final bool isUnassigned;
+  final bool isOneOff;
 
   Activity copyWith({
     String? id,
@@ -28,6 +30,7 @@ class Activity {
     DateTime? updatedAt,
     bool? isDeleted,
     bool? isUnassigned,
+    bool? isOneOff,
   }) {
     return Activity(
       id: id ?? this.id,
@@ -38,6 +41,7 @@ class Activity {
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       isUnassigned: isUnassigned ?? this.isUnassigned,
+      isOneOff: isOneOff ?? this.isOneOff,
     );
   }
 
@@ -51,6 +55,7 @@ class Activity {
       'updated_at': updatedAt.toUtc().toIso8601String(),
       'is_deleted': isDeleted ? 1 : 0,
       'is_unassigned': isUnassigned ? 1 : 0,
+      'is_one_off': isOneOff ? 1 : 0,
     };
   }
 
@@ -64,6 +69,7 @@ class Activity {
       'updated_at': updatedAt.toUtc().toIso8601String(),
       'is_deleted': isDeleted,
       'is_unassigned': isUnassigned,
+      'is_one_off': isOneOff,
     };
   }
 
@@ -77,6 +83,7 @@ class Activity {
       updatedAt: DateTime.parse(map['updated_at'] as String).toLocal(),
       isDeleted: _readBool(map['is_deleted']),
       isUnassigned: _readBool(map['is_unassigned']),
+      isOneOff: _readBool(map['is_one_off']),
     );
   }
 

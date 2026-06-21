@@ -54,6 +54,45 @@ void main() {
     expect((await target.repository.settings()).reminderMinutes, 90);
   });
 
+  test('bundle preserves one-off flags entry snapshots and merge threshold',
+      () async {
+    final source = await buildSyncRepo('source');
+    await source.repository.ensureSeedData();
+    final activity = await source.repository.createActivity(
+      name: '一次性协助',
+      color: 0xffdb2777,
+      isOneOff: true,
+    );
+    final entry = await source.repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: 'snapshot',
+    );
+    await source.repository.saveSettings(
+      ProfileSettings.defaults().copyWith(
+        mergeNeighborThresholdMinutes: 8,
+        updatedAt: DateTime(2026, 1, 2),
+      ),
+    );
+
+    final target = await buildSyncRepo('target');
+    await target.repository.mergeBundle(await source.repository.exportBundle());
+
+    final importedActivity = (await target.repository.activities(
+      includeDeleted: true,
+    ))
+        .singleWhere((item) => item.id == activity.id);
+    final importedEntry = (await target.repository.allEntries())
+        .singleWhere((item) => item.id == entry.id);
+    final settings = await target.repository.settings();
+
+    expect(importedActivity.isOneOff, isTrue);
+    expect(importedEntry.activityNameSnapshot, '一次性协助');
+    expect(importedEntry.activityColorSnapshot, 0xffdb2777);
+    expect(settings.mergeNeighborThresholdMinutes, 8);
+  });
+
   test('newer records win and older records do not overwrite local data',
       () async {
     final target = await buildSyncRepo('target');

@@ -30,6 +30,7 @@ class SettingsPage extends StatelessWidget {
               builder: (context, constraints) {
                 final expanded = constraints.maxWidth >= expandedBreakpoint;
                 final reminder = ReminderSettingsCard(state: state);
+                final timeline = TimelineSettingsCard(state: state);
                 final cloudSync = CloudSyncSettingsCard(state: state);
                 final interop = InteropSettingsCard(state: state);
                 if (!expanded) {
@@ -37,6 +38,8 @@ class SettingsPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       reminder,
+                      const SectionGap(),
+                      timeline,
                       const SectionGap(),
                       cloudSync,
                       const SectionGap(),
@@ -52,11 +55,18 @@ class SettingsPage extends StatelessWidget {
                       children: [
                         Expanded(child: reminder),
                         const SizedBox(width: 16),
-                        Expanded(child: cloudSync),
+                        Expanded(child: timeline),
                       ],
                     ),
                     const SectionGap(),
-                    interop,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: cloudSync),
+                        const SizedBox(width: 16),
+                        Expanded(child: interop),
+                      ],
+                    ),
                   ],
                 );
               },
@@ -64,6 +74,62 @@ class SettingsPage extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class TimelineSettingsCard extends StatefulWidget {
+  const TimelineSettingsCard({required this.state, super.key});
+
+  final AppState state;
+
+  @override
+  State<TimelineSettingsCard> createState() => _TimelineSettingsCardState();
+}
+
+class _TimelineSettingsCardState extends State<TimelineSettingsCard> {
+  double? _draftMergeThresholdMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final settings = state.settings;
+    final thresholdMinutes = (_draftMergeThresholdMinutes ??
+            settings.mergeNeighborThresholdMinutes.toDouble())
+        .round();
+    return QuietPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            title: '时间线',
+            subtitle: '控制相邻记录合并时是否需要确认。',
+            icon: Icons.timeline,
+          ),
+          const SizedBox(height: 14),
+          _ReminderField(
+            icon: Icons.merge_type_outlined,
+            label: '合并阈值',
+            value: '$thresholdMinutes 分钟',
+            child: Slider(
+              min: 1,
+              max: 60,
+              divisions: 59,
+              value: thresholdMinutes.toDouble(),
+              label: '$thresholdMinutes 分钟',
+              onChanged: (value) =>
+                  setState(() => _draftMergeThresholdMinutes = value),
+              onChangeEnd: (value) {
+                _draftMergeThresholdMinutes = null;
+                state.updateReminderSettings(
+                  mergeNeighborThresholdMinutes: value.round(),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

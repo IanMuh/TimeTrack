@@ -23,6 +23,7 @@ class ProfileSettings {
     required this.reminderIntervalMinutes,
     required this.reminderMethod,
     required this.reminderTimeOfDayMinutes,
+    this.mergeNeighborThresholdMinutes = 1,
     required this.timezone,
     required this.updatedAt,
   });
@@ -32,6 +33,7 @@ class ProfileSettings {
   final int reminderIntervalMinutes;
   final ReminderMethod reminderMethod;
   final int reminderTimeOfDayMinutes;
+  final int mergeNeighborThresholdMinutes;
   final String timezone;
   final DateTime updatedAt;
 
@@ -42,6 +44,7 @@ class ProfileSettings {
       reminderIntervalMinutes: 10,
       reminderMethod: ReminderMethod.dialog,
       reminderTimeOfDayMinutes: 9 * 60,
+      mergeNeighborThresholdMinutes: 1,
       timezone: DateTime.now().timeZoneName,
       updatedAt: DateTime.now(),
     );
@@ -53,6 +56,7 @@ class ProfileSettings {
     int? reminderIntervalMinutes,
     ReminderMethod? reminderMethod,
     int? reminderTimeOfDayMinutes,
+    int? mergeNeighborThresholdMinutes,
     String? timezone,
     DateTime? updatedAt,
   }) {
@@ -64,6 +68,8 @@ class ProfileSettings {
       reminderMethod: reminderMethod ?? this.reminderMethod,
       reminderTimeOfDayMinutes:
           reminderTimeOfDayMinutes ?? this.reminderTimeOfDayMinutes,
+      mergeNeighborThresholdMinutes:
+          mergeNeighborThresholdMinutes ?? this.mergeNeighborThresholdMinutes,
       timezone: timezone ?? this.timezone,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -77,6 +83,7 @@ class ProfileSettings {
       'reminder_interval_minutes': reminderIntervalMinutes,
       'reminder_method': reminderMethod.storageValue,
       'reminder_time_of_day_minutes': reminderTimeOfDayMinutes,
+      'merge_neighbor_threshold_minutes': mergeNeighborThresholdMinutes,
       'timezone': timezone,
       'updated_at': updatedAt.toUtc().toIso8601String(),
     };
@@ -89,6 +96,7 @@ class ProfileSettings {
       'reminder_interval_minutes': reminderIntervalMinutes,
       'reminder_method': reminderMethod.storageValue,
       'reminder_time_of_day_minutes': reminderTimeOfDayMinutes,
+      'merge_neighbor_threshold_minutes': mergeNeighborThresholdMinutes,
       'timezone': timezone,
       'updated_at': updatedAt.toUtc().toIso8601String(),
     };
@@ -103,6 +111,8 @@ class ProfileSettings {
       reminderMethod: ReminderMethod.fromStorageValue(map['reminder_method']),
       reminderTimeOfDayMinutes:
           ((map['reminder_time_of_day_minutes'] as num?) ?? 9 * 60).toInt(),
+      mergeNeighborThresholdMinutes:
+          ((map['merge_neighbor_threshold_minutes'] as num?) ?? 1).toInt(),
       timezone: map['timezone'] as String,
       updatedAt: DateTime.parse(map['updated_at'] as String).toLocal(),
     );

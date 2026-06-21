@@ -365,6 +365,7 @@ class _StatsCharts extends StatelessWidget {
           state: state,
           title: '${range.label}分布',
           totals: stats.totalsByActivity,
+          activitySnapshots: stats.activitySnapshots,
           totalMinutes: totalMinutes,
         );
         final dayTotalsCard = DayTotalsCard(dayTotals: stats.totalsByDay);
@@ -396,6 +397,7 @@ class RangeDistributionCard extends StatelessWidget {
     required this.state,
     required this.title,
     required this.totals,
+    required this.activitySnapshots,
     required this.totalMinutes,
     super.key,
   });
@@ -403,6 +405,7 @@ class RangeDistributionCard extends StatelessWidget {
   final AppState state;
   final String title;
   final Map<String, Duration> totals;
+  final Map<String, ActivityStatsSnapshot> activitySnapshots;
   final int totalMinutes;
 
   @override
@@ -446,10 +449,7 @@ class RangeDistributionCard extends StatelessWidget {
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
                                 ),
-                                color: Color(
-                                  state.activityById(item.key)?.color ??
-                                      0xff64748b,
-                                ),
+                                color: Color(_activityColor(item.key)),
                               ),
                           ],
                         ),
@@ -459,10 +459,8 @@ class RangeDistributionCard extends StatelessWidget {
                 children: [
                   for (final item in totals.entries)
                     _LegendRow(
-                      color: Color(
-                        state.activityById(item.key)?.color ?? 0xff64748b,
-                      ),
-                      label: state.activityById(item.key)?.name ?? '未知事项',
+                      color: Color(_activityColor(item.key)),
+                      label: _activityName(item.key),
                       value: formatDurationCompact(item.value),
                     ),
                 ],
@@ -489,6 +487,24 @@ class RangeDistributionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _activityName(String activityId) {
+    final activity = state.activityById(activityId);
+    if (activity != null) {
+      return activity.name;
+    }
+    final snapshot = activitySnapshots[activityId]?.name.trim();
+    if (snapshot != null && snapshot.isNotEmpty) {
+      return snapshot;
+    }
+    return '未知事项';
+  }
+
+  int _activityColor(String activityId) {
+    return state.activityById(activityId)?.color ??
+        activitySnapshots[activityId]?.color ??
+        0xff64748b;
   }
 }
 

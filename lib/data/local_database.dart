@@ -23,7 +23,7 @@ class LocalDatabase {
     final dbPath = p.join(appDir.path, 'timetrack.sqlite');
     _database = await openDatabase(
       dbPath,
-      version: 6,
+      version: 7,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
@@ -50,6 +50,9 @@ class LocalDatabase {
     if (oldVersion < 6) {
       await migrateUnassignedActivitySchema(db);
     }
+    if (oldVersion < 7) {
+      await migrateEntrySnapshotsAndOneOffSchema(db);
+    }
   }
 
   static Future<void> createSchema(Database db) async {
@@ -62,7 +65,8 @@ class LocalDatabase {
         is_favorite integer not null default 1,
         updated_at text not null,
         is_deleted integer not null default 0,
-        is_unassigned integer not null default 0
+        is_unassigned integer not null default 0,
+        is_one_off integer not null default 0
       )
     ''');
 
@@ -71,6 +75,8 @@ class LocalDatabase {
         id text primary key,
         user_id text,
         activity_id text not null,
+        activity_name text not null default '',
+        activity_color integer,
         start_at text not null,
         end_at text,
         note text not null default '',
@@ -89,6 +95,7 @@ class LocalDatabase {
         reminder_interval_minutes integer not null default 10,
         reminder_method text not null default 'dialog',
         reminder_time_of_day_minutes integer not null default 540,
+        merge_neighbor_threshold_minutes integer not null default 1,
         timezone text not null,
         updated_at text not null
       )
@@ -183,6 +190,33 @@ class LocalDatabase {
       table: 'activities',
       column: 'is_unassigned',
       definition: 'integer not null default 0',
+    );
+  }
+
+  static Future<void> migrateEntrySnapshotsAndOneOffSchema(Database db) async {
+    await _addColumnIfMissing(
+      db,
+      table: 'activities',
+      column: 'is_one_off',
+      definition: 'integer not null default 0',
+    );
+    await _addColumnIfMissing(
+      db,
+      table: 'time_entries',
+      column: 'activity_name',
+      definition: "text not null default ''",
+    );
+    await _addColumnIfMissing(
+      db,
+      table: 'time_entries',
+      column: 'activity_color',
+      definition: 'integer',
+    );
+    await _addColumnIfMissing(
+      db,
+      table: 'profile_settings',
+      column: 'merge_neighbor_threshold_minutes',
+      definition: 'integer not null default 1',
     );
   }
 

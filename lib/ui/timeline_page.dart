@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
+import '../data/time_repository.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
 import '../domain/time_entry.dart';
@@ -673,7 +674,8 @@ class _CoverageSegment extends StatelessWidget {
         interval.end.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
     final left = width * startRatio;
     final segmentWidth = (width * (endRatio - startRatio)).clamp(2.0, width);
-    final activity = state.activityById(entry.activityId);
+    final activityName = state.activityNameForEntry(entry);
+    final activityColor = state.activityColorForEntry(entry);
     final endText = interval.isRunningNow
         ? '进行中'
         : _formatVisibleEndTime(interval, state.selectedDay);
@@ -683,12 +685,11 @@ class _CoverageSegment extends StatelessWidget {
       top: 16,
       width: segmentWidth,
       child: Tooltip(
-        message:
-            '${activity?.name ?? '未知事项'} ${_formatTime(interval.start)} - $endText',
+        message: '$activityName ${_formatTime(interval.start)} - $endText',
         child: Container(
           height: 20,
           decoration: BoxDecoration(
-            color: Color(activity?.color ?? 0xff64748b),
+            color: Color(activityColor),
             borderRadius: BorderRadius.circular(8),
           ),
         ),
@@ -1141,13 +1142,13 @@ class _TimelineBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activity = state.activityById(entry.activityId);
-    final color = Color(activity?.color ?? 0xff64748b);
+    final activityName = state.activityNameForEntry(entry);
+    final color = Color(state.activityColorForEntry(entry));
     final textColor = TimelineBlockColor.textOn(color);
     final timeText =
         '${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}';
     return Tooltip(
-      message: '${activity?.name ?? '未知事项'} $timeText',
+      message: '$activityName $timeText',
       child: Material(
         color: color,
         borderRadius: BorderRadius.circular(8),
@@ -1158,7 +1159,7 @@ class _TimelineBlock extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: density == TimelineDensity.compact
                 ? Text(
-                    activity?.name ?? '未知事项',
+                    activityName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1171,7 +1172,7 @@ class _TimelineBlock extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        activity?.name ?? '未知事项',
+                        activityName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1344,8 +1345,7 @@ class TimelineEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activity = state.activityById(entry.activityId);
-    final color = Color(activity?.color ?? 0xff64748b);
+    final color = Color(state.activityColorForEntry(entry));
     final interval = _visibleEntryInterval(entry, state.selectedDay, state.now);
     final endText = interval.isRunningNow
         ? '进行中'
@@ -1372,7 +1372,7 @@ class TimelineEntryCard extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: _TimelineEntryContent(
-                  title: activity?.name ?? '未知事项',
+                  title: state.activityNameForEntry(entry),
                   duration: formatDurationCompact(interval.duration),
                   timeText: timeText,
                   note: entry.note,
@@ -1519,6 +1519,7 @@ class ActionLogCard extends StatelessWidget {
       'manual' => Icons.add_circle_outline,
       'edit' => Icons.edit_outlined,
       'delete' => Icons.delete_outline,
+      'merge' => Icons.merge_type_outlined,
       'activity_delete' => Icons.label_off_outlined,
       _ => Icons.bolt_outlined,
     };
@@ -1741,6 +1742,20 @@ Future<void> showEntryEditor(
                         prefixIcon: Icon(Icons.notes_outlined),
                       ),
                     ),
+                    if (entry != null &&
+                        !editingGeneratedGap &&
+                        !entry.isRunning) ...[
+                      const SizedBox(height: 12),
+                      _EntryMergeActions(
+                        state: state,
+                        entry: entry,
+                        onMerged: () {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    ],
                     if (formError != null) ...[
                       const SizedBox(height: 12),
                       Semantics(
@@ -1834,6 +1849,133 @@ Future<void> showEntryEditor(
       );
     },
   );
+}
+
+class _EntryMergeActions extends StatelessWidget {
+  const _EntryMergeActions({
+    required this.state,
+    required this.entry,
+    required this.onMerged,
+  });
+
+  final AppState state;
+  final TimeEntry entry;
+  final VoidCallback onMerged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      children: [
+        _EntryMergeButton(
+          state: state,
+          entry: entry,
+          direction: EntryMergeDirection.previous,
+          onMerged: onMerged,
+        ),
+        _EntryMergeButton(
+          state: state,
+          entry: entry,
+          direction: EntryMergeDirection.next,
+          onMerged: onMerged,
+        ),
+      ],
+    );
+  }
+}
+
+class _EntryMergeButton extends StatelessWidget {
+  const _EntryMergeButton({
+    required this.state,
+    required this.entry,
+    required this.direction,
+    required this.onMerged,
+  });
+
+  final AppState state;
+  final TimeEntry entry;
+  final EntryMergeDirection direction;
+  final VoidCallback onMerged;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => _mergeEntryWithNeighbor(
+        context,
+        state,
+        entry,
+        direction,
+        onMerged,
+      ),
+      icon: Icon(
+        direction == EntryMergeDirection.previous
+            ? Icons.keyboard_arrow_left
+            : Icons.keyboard_arrow_right,
+      ),
+      label: Text(
+        direction == EntryMergeDirection.previous ? '合并左侧' : '合并右侧',
+      ),
+    );
+  }
+}
+
+Future<void> _mergeEntryWithNeighbor(
+  BuildContext context,
+  AppState state,
+  TimeEntry entry,
+  EntryMergeDirection direction,
+  VoidCallback onMerged,
+) async {
+  final candidate = await state.mergeCandidate(entry.id, direction);
+  if (!context.mounted) {
+    return;
+  }
+  if (candidate == null) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(content: Text('没有可合并的相邻记录')),
+    );
+    return;
+  }
+  final neighborName = state.activityNameForEntry(candidate.neighbor);
+  if (candidate.requiresConfirmation) {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final directionText =
+            candidate.direction == EntryMergeDirection.previous ? '左侧' : '右侧';
+        return AlertDialog(
+          title: Text('合并$directionText记录'),
+          content: Text(
+            '$neighborName 的时长为 ${formatDurationCompact(candidate.neighborDuration)}，'
+            '超过 ${candidate.threshold.inMinutes} 分钟阈值。确定合并吗？',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Icon(Icons.merge_type_outlined),
+              label: const Text('合并'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) {
+      return;
+    }
+  }
+  await state.mergeEntryWithNeighbor(
+    entryId: candidate.current.id,
+    direction: candidate.direction,
+    confirmed: true,
+  );
+  if (context.mounted) {
+    onMerged();
+  }
 }
 
 class _EntryActivitySelector extends StatelessWidget {
