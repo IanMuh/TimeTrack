@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../core/date_time_ext.dart';
 import 'app_theme.dart';
 
 class PageHeader extends StatelessWidget {
@@ -204,6 +206,89 @@ class StatusPill extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class DayRangeSelector extends StatelessWidget {
+  const DayRangeSelector({
+    required this.selectedDay,
+    required this.rangeEnd,
+    required this.onPreviousDay,
+    required this.onNextDay,
+    required this.onDateTap,
+    this.previousTooltip = '前一天',
+    this.nextTooltip = '后一天',
+    super.key,
+  });
+
+  final DateTime selectedDay;
+  final DateTime rangeEnd;
+  final VoidCallback onPreviousDay;
+  final VoidCallback onNextDay;
+  final VoidCallback onDateTap;
+  final String previousTooltip;
+  final String nextTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: previousTooltip,
+            onPressed: onPreviousDay,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 104, maxWidth: 172),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onDateTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _formatRange(),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: nextTooltip,
+            onPressed: onNextDay,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatRange() {
+    if (selectedDay.isSameDate(rangeEnd)) {
+      return DateFormat('yyyy-MM-dd').format(selectedDay);
+    }
+    return '${DateFormat('MM-dd').format(selectedDay)} - '
+        '${DateFormat('MM-dd').format(rangeEnd)}';
   }
 }
 

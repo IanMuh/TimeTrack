@@ -252,7 +252,7 @@ class TimelineHeader extends StatelessWidget {
           ? DateFormat('yyyy-MM-dd').format(selectedDay)
           : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
     );
-    final daySelector = _DaySelector(
+    final daySelector = DayRangeSelector(
       selectedDay: selectedDay,
       rangeEnd: rangeEnd,
       onPreviousDay: onPreviousRange,
@@ -474,78 +474,6 @@ class _TimelineZoomControl extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _DaySelector extends StatelessWidget {
-  const _DaySelector({
-    required this.selectedDay,
-    required this.rangeEnd,
-    required this.onPreviousDay,
-    required this.onNextDay,
-    required this.onDateTap,
-  });
-
-  final DateTime selectedDay;
-  final DateTime rangeEnd;
-  final VoidCallback onPreviousDay;
-  final VoidCallback onNextDay;
-  final VoidCallback onDateTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: '前一天',
-            onPressed: onPreviousDay,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 104, maxWidth: 172),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: onDateTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        selectedDay.isSameDate(rangeEnd)
-                            ? DateFormat('yyyy-MM-dd').format(selectedDay)
-                            : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.calendar_today,
-                      size: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: '后一天',
-            onPressed: onNextDay,
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
-      ),
     );
   }
 }

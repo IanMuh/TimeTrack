@@ -190,9 +190,11 @@ class StatsHeader extends StatelessWidget {
           compact: compact,
           onPresetChanged: onPresetChanged,
         );
-        final dayStepper = _StatsDayStepper(
+        final dayStepper = DayRangeSelector(
+          selectedDay: range.start,
+          rangeEnd: _displayRangeEnd(range),
           onPreviousDay: onPreviousDay,
-          onPickCustomDay: onPickCustomDay,
+          onDateTap: onPickCustomDay,
           onNextDay: onNextDay,
         );
 
@@ -226,48 +228,13 @@ class StatsHeader extends StatelessWidget {
       },
     );
   }
-}
 
-class _StatsDayStepper extends StatelessWidget {
-  const _StatsDayStepper({
-    required this.onPreviousDay,
-    required this.onPickCustomDay,
-    required this.onNextDay,
-  });
-
-  final VoidCallback onPreviousDay;
-  final VoidCallback onPickCustomDay;
-  final VoidCallback onNextDay;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: '前一天',
-            onPressed: onPreviousDay,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          OutlinedButton.icon(
-            onPressed: onPickCustomDay,
-            icon: const Icon(Icons.event),
-            label: const Text('选择日期'),
-          ),
-          IconButton(
-            tooltip: '后一天',
-            onPressed: onNextDay,
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
-      ),
-    );
+  DateTime _displayRangeEnd(StatsRange range) {
+    final endDay = range.end.startOfDay;
+    if (range.end == endDay && range.end.isAfter(range.start)) {
+      return endDay.subtract(const Duration(days: 1));
+    }
+    return endDay;
   }
 }
 

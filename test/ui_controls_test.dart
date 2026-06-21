@@ -64,7 +64,7 @@ void main() {
               child: StatsHeader(
                 range: StatsRange(
                   start: DateTime(2026, 6, 15),
-                  end: DateTime(2026, 6, 21, 23, 59, 59),
+                  end: DateTime(2026, 6, 22),
                   label: '本周',
                 ),
                 selectedPreset: StatsPreset.thisWeek,
@@ -82,7 +82,8 @@ void main() {
 
     await pumpAtWidth(390);
     expect(find.text('范围'), findsOneWidget);
-    expect(find.text('选择日期'), findsOneWidget);
+    expect(find.text('06-15 - 06-21'), findsOneWidget);
+    expect(find.text('选择日期'), findsNothing);
     expect(find.byTooltip('前一天'), findsOneWidget);
     expect(find.byTooltip('后一天'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -90,6 +91,7 @@ void main() {
     await pumpAtWidth(920);
     expect(find.text('今天'), findsOneWidget);
     expect(find.text('上周'), findsOneWidget);
+    expect(find.text('06-15 - 06-21'), findsOneWidget);
     expect(find.byTooltip('前一天'), findsOneWidget);
     expect(find.byTooltip('后一天'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -393,7 +395,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('HomePage shows unassigned activity as locked', (tester) async {
+  testWidgets('HomePage hides unassigned activity from the switcher',
+      (tester) async {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
@@ -405,22 +408,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('未安排'), findsOneWidget);
-    expect(find.byIcon(Icons.lock_outline), findsOneWidget);
-    expect(find.byTooltip('系统事项，不能编辑'), findsOneWidget);
+    expect(find.text('未安排'), findsNothing);
+    expect(find.byType(ActivitySwitchButton), findsOneWidget);
+    expect(find.byIcon(Icons.lock_outline), findsNothing);
+    expect(find.byTooltip('系统事项，不能编辑'), findsNothing);
     expect(find.byTooltip('编辑事项'), findsOneWidget);
-
-    final unassignedButton = find.ancestor(
-      of: find.text('未安排'),
-      matching: find.byType(ActivitySwitchButton),
-    );
-    expect(
-      find.descendant(
-        of: unassignedButton,
-        matching: find.byTooltip('编辑事项'),
-      ),
-      findsNothing,
-    );
     expect(tester.takeException(), isNull);
   });
 
