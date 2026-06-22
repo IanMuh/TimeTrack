@@ -75,12 +75,16 @@ class AppState extends ChangeNotifier {
     if (entry == null) {
       return null;
     }
-    return activityById(entry.activityId);
+    final activity = activityById(entry.activityId);
+    if (activity == null || activity.isUnassigned) {
+      return null;
+    }
+    return activity;
   }
 
   Duration get runningDuration {
     final entry = runningEntry;
-    if (entry == null) {
+    if (entry == null || _entryIsUnassigned(entry)) {
       return Duration.zero;
     }
     return entry.durationUntil(now);
@@ -88,7 +92,7 @@ class AppState extends ChangeNotifier {
 
   bool get shouldShowReminder {
     final entry = runningEntry;
-    if (entry == null) {
+    if (entry == null || _entryIsUnassigned(entry)) {
       return false;
     }
     final reminderDuration = Duration(minutes: settings.reminderMinutes);
@@ -118,6 +122,7 @@ class AppState extends ChangeNotifier {
   bool get hasSuspiciousRunningEntry {
     final entry = runningEntry;
     return entry != null &&
+        !_entryIsUnassigned(entry) &&
         entry.id != ignoredSuspiciousEntryId &&
         entry.durationUntil(now) > const Duration(hours: 12);
   }
@@ -133,6 +138,7 @@ class AppState extends ChangeNotifier {
       }
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         now = DateTime.now();
+        unawaited(_rolloverRunningEntryIfNeeded());
         notifyListeners();
       });
     } catch (error) {
@@ -144,6 +150,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    await _repository.rolloverRunningEntriesIfNeeded(at: now);
     activities = await _repository.activities();
     settings = await _repository.settings();
     lanPeer = await _lanSyncClient.currentPeer();
@@ -167,6 +174,21 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  String activityNameForEntry(TimeEntry entry) {
+    final activity = activityById(entry.activityId);
+    if (activity != null) {
+      return activity.name;
+    }
+    final snapshot = entry.activityNameSnapshot.trim();
+    return snapshot.isEmpty ? '未知事项' : snapshot;
+  }
+
+  int activityColorForEntry(TimeEntry entry) {
+    return activityById(entry.activityId)?.color ??
+        entry.activityColorSnapshot ??
+        0xff64748b;
+  }
+
   Activity? get unassignedActivity {
     for (final activity in activities) {
       if (activity.isUnassigned) {
@@ -174,6 +196,18 @@ class AppState extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  bool _entryIsUnassigned(TimeEntry entry) {
+    return activityById(entry.activityId)?.isUnassigned ?? false;
+  }
+
+  Future<void> _rolloverRunningEntryIfNeeded() async {
+    final entry = runningEntry;
+    if (entry == null || !entry.startAt.startOfDay.isBefore(now.startOfDay)) {
+      return;
+    }
+    await refresh();
   }
 
   Future<void> switchTo(Activity activity) async {
@@ -254,6 +288,18 @@ class AppState extends ChangeNotifier {
     return activity;
   }
 
+  Future<Activity> createOneOffActivity(String name, int color) async {
+    final activity = await _repository.createActivity(
+      name: name,
+      color: color,
+      isOneOff: true,
+    );
+    await _repository.switchToActivity(activity.id);
+    await refresh();
+    await sync();
+    return activity;
+  }
+
   Future<Activity> updateActivity(
     Activity activity, {
     required String name,
@@ -280,6 +326,27 @@ class AppState extends ChangeNotifier {
 
   Future<List<TimeEntry>> overlaps(TimeEntry entry) {
     return _repository.overlappingEntries(entry);
+  }
+
+  Future<EntryMergeCandidate?> mergeCandidate(
+    String entryId,
+    EntryMergeDirection direction,
+  ) {
+    return _repository.mergeCandidateForEntry(entryId, direction);
+  }
+
+  Future<void> mergeEntryWithNeighbor({
+    required String entryId,
+    required EntryMergeDirection direction,
+    required bool confirmed,
+  }) async {
+    await _repository.mergeEntryWithNeighbor(
+      entryId: entryId,
+      direction: direction,
+      confirmed: confirmed,
+    );
+    await refresh();
+    await sync();
   }
 
   Future<List<TimeEntry>> entriesForRange({
@@ -319,12 +386,14 @@ class AppState extends ChangeNotifier {
     int? reminderIntervalMinutes,
     ReminderMethod? reminderMethod,
     int? reminderTimeOfDayMinutes,
+    int? mergeNeighborThresholdMinutes,
   }) async {
     settings = settings.copyWith(
       reminderMinutes: reminderMinutes,
       reminderIntervalMinutes: reminderIntervalMinutes,
       reminderMethod: reminderMethod,
       reminderTimeOfDayMinutes: reminderTimeOfDayMinutes,
+      mergeNeighborThresholdMinutes: mergeNeighborThresholdMinutes,
       updatedAt: DateTime.now(),
     );
     await _repository.saveSettings(settings);
@@ -659,6 +728,8 @@ class AppState extends ChangeNotifier {
       id: id,
       userId: activity.userId,
       activityId: activity.id,
+      activityNameSnapshot: activity.name,
+      activityColorSnapshot: activity.color,
       startAt: start,
       endAt: end,
       note: '',
@@ -690,12 +761,14 @@ class TimeRangeStats {
     required this.totalsByDay,
     required this.totalDuration,
     required this.longestBlock,
+    this.activitySnapshots = const {},
   });
 
   final Map<String, Duration> totalsByActivity;
   final Map<DateTime, Duration> totalsByDay;
   final Duration totalDuration;
   final Duration longestBlock;
+  final Map<String, ActivityStatsSnapshot> activitySnapshots;
 
   static TimeRangeStats fromEntries({
     required List<TimeEntry> entries,
@@ -714,6 +787,7 @@ class TimeRangeStats {
 
     final totalsByActivity = <String, Duration>{};
     final totalsByDay = <DateTime, Duration>{};
+    final activitySnapshots = <String, ActivityStatsSnapshot>{};
     var totalDuration = Duration.zero;
     var longestBlock = Duration.zero;
 
@@ -728,6 +802,13 @@ class TimeRangeStats {
       totalsByActivity[entry.activityId] =
           (totalsByActivity[entry.activityId] ?? Duration.zero) +
               clippedDuration;
+      if (entry.activityNameSnapshot.trim().isNotEmpty ||
+          entry.activityColorSnapshot != null) {
+        activitySnapshots[entry.activityId] = ActivityStatsSnapshot(
+          name: entry.activityNameSnapshot.trim(),
+          color: entry.activityColorSnapshot,
+        );
+      }
       totalDuration += clippedDuration;
       if (clippedDuration > longestBlock) {
         longestBlock = clippedDuration;
@@ -749,6 +830,7 @@ class TimeRangeStats {
       totalsByDay: totalsByDay,
       totalDuration: totalDuration,
       longestBlock: longestBlock,
+      activitySnapshots: activitySnapshots,
     );
   }
 
@@ -759,4 +841,14 @@ class TimeRangeStats {
   static DateTime _earlier(DateTime first, DateTime second) {
     return first.isBefore(second) ? first : second;
   }
+}
+
+class ActivityStatsSnapshot {
+  const ActivityStatsSnapshot({
+    required this.name,
+    required this.color,
+  });
+
+  final String name;
+  final int? color;
 }

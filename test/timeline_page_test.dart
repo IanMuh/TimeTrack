@@ -636,9 +636,9 @@ void main() {
     expect(storedEntries!.single.activityId, targetActivity.id);
   });
 
-  testWidgets('timeline editor preserves missing activity until user selects', (
-    tester,
-  ) async {
+  testWidgets(
+      'timeline editor shows deleted activity snapshot until user selects',
+      (tester) async {
     final fixture = (await tester.runAsync(_buildPersistedFixture))!;
     final state = fixture.state;
     addTearDown(state.dispose);
@@ -662,7 +662,7 @@ void main() {
 
     await _pumpTimeline(tester, state, width: 920);
     final entryCard = find.ancestor(
-      of: find.text('未知事项'),
+      of: find.text(originalActivity.name),
       matching: find.byType(TimelineEntryCard),
     );
     await _tapEntryEditButtonInCard(tester, entryCard);
@@ -743,6 +743,88 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(editedEntry.activityId, targetActivity.id);
+  });
+
+  testWidgets('timeline editor merges a short right neighbor directly',
+      (tester) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final activity = state.activities.firstWhere(
+      (activity) => !activity.isUnassigned,
+    );
+    await tester.runAsync(() async {
+      await fixture.repository.createManualEntry(
+        activityId: activity.id,
+        startAt: DateTime(2026, 1, 2, 10),
+        endAt: DateTime(2026, 1, 2, 10, 1),
+        note: '',
+      );
+      await state.refresh();
+    });
+
+    await _pumpTimeline(tester, state, width: 920);
+    final entryCard = find.ancestor(
+      of: find.text('09:00:00 - 10:00:00'),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(OutlinedButton, '合并右侧'),
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final entries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(entries, hasLength(1));
+    expect(entries!.single.startAt, DateTime(2026, 1, 2, 9));
+    expect(entries.single.endAt, DateTime(2026, 1, 2, 10, 1));
+  });
+
+  testWidgets('timeline editor confirms before merging a longer neighbor',
+      (tester) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final activity = state.activities.firstWhere(
+      (activity) => !activity.isUnassigned,
+    );
+    await tester.runAsync(() async {
+      await fixture.repository.createManualEntry(
+        activityId: activity.id,
+        startAt: DateTime(2026, 1, 2, 10),
+        endAt: DateTime(2026, 1, 2, 10, 2),
+        note: '',
+      );
+      await state.refresh();
+    });
+
+    await _pumpTimeline(tester, state, width: 920);
+    final entryCard = find.ancestor(
+      of: find.text('09:00:00 - 10:00:00'),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(OutlinedButton, '合并右侧'),
+      find.widgetWithText(AlertDialog, '合并右侧记录'),
+    );
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '合并'),
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final entries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(entries, hasLength(1));
+    expect(entries!.single.endAt, DateTime(2026, 1, 2, 10, 2));
   });
 
   testWidgets('timeline editor asks again when overlap candidate changes', (

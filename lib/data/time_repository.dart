@@ -9,6 +9,26 @@ import '../domain/time_entry.dart';
 import 'local_database.dart';
 import 'sync_bundle.dart';
 
+enum EntryMergeDirection { previous, next }
+
+class EntryMergeCandidate {
+  const EntryMergeCandidate({
+    required this.current,
+    required this.neighbor,
+    required this.direction,
+    required this.neighborDuration,
+    required this.threshold,
+  });
+
+  final TimeEntry current;
+  final TimeEntry neighbor;
+  final EntryMergeDirection direction;
+  final Duration neighborDuration;
+  final Duration threshold;
+
+  bool get requiresConfirmation => neighborDuration > threshold;
+}
+
 class TimeRepository {
   TimeRepository({
     required LocalDatabase database,
@@ -27,6 +47,9 @@ class TimeRepository {
     final db = await _database.db;
     final unassigned = await _ensureUnassignedActivity();
     await _mergeAdjacentUnassignedEntries(unassigned.id);
+    await normalizeStoredCrossDayEntries();
+    await rolloverRunningEntriesIfNeeded();
+    await backfillMissingEntrySnapshots();
     final count = Sqflite.firstIntValue(
       await db
           .rawQuery('select count(*) from activities where is_unassigned = 0'),
@@ -183,6 +206,8 @@ class TimeRepository {
     });
 
     await normalizeRunningEntriesAfterMerge();
+    await normalizeStoredCrossDayEntries();
+    await backfillMissingEntrySnapshots();
     final unassigned = await _ensureUnassignedActivity();
     await _mergeAdjacentUnassignedEntries(unassigned.id);
   }
@@ -200,15 +225,17 @@ class TimeRepository {
     required String name,
     required int color,
     String? userId,
+    bool isOneOff = false,
   }) async {
     final activity = Activity(
       id: _uuid.v4(),
       userId: userId,
       name: name.trim(),
       color: color,
-      isFavorite: true,
+      isFavorite: !isOneOff,
       updatedAt: DateTime.now(),
       isDeleted: false,
+      isOneOff: isOneOff,
     );
     await upsertActivity(activity);
     return activity;
@@ -271,6 +298,7 @@ class TimeRepository {
 
   Future<TimeEntry> switchToActivity(String activityId, {DateTime? at}) async {
     final now = at ?? DateTime.now();
+    await rolloverRunningEntriesIfNeeded(at: now);
     final deviceId = await currentDeviceId();
     final targetIsUnassigned = await _activityIdIsUnassigned(activityId);
     final db = await _database.db;
@@ -295,10 +323,17 @@ class TimeRepository {
         final running = TimeEntry.fromMap(row);
         previousActivityId ??= running.activityId;
         if (running.startAt.isBefore(now)) {
-          await txn.insert(
-            'time_entries',
-            running.copyWith(endAt: now, updatedAt: now).toLocalMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
+          await _saveEntryRows(
+            txn,
+            await _entryWithActivitySnapshot(
+              running.copyWith(endAt: now, updatedAt: now),
+              txn,
+            ),
+          );
+          await _softDeleteOneOffActivityIfNeeded(
+            running.activityId,
+            now,
+            txn,
           );
         } else {
           await txn.insert(
@@ -306,19 +341,27 @@ class TimeRepository {
             running.copyWith(isDeleted: true, updatedAt: now).toLocalMap(),
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
+          await _softDeleteOneOffActivityIfNeeded(
+            running.activityId,
+            now,
+            txn,
+          );
         }
       }
 
-      next = TimeEntry(
-        id: _uuid.v4(),
-        userId: null,
-        activityId: activityId,
-        startAt: now,
-        endAt: null,
-        note: '',
-        deviceId: deviceId,
-        updatedAt: now,
-        isDeleted: false,
+      next = await _entryWithActivitySnapshot(
+        TimeEntry(
+          id: _uuid.v4(),
+          userId: null,
+          activityId: activityId,
+          startAt: now,
+          endAt: null,
+          note: '',
+          deviceId: deviceId,
+          updatedAt: now,
+          isDeleted: false,
+        ),
+        txn,
       );
       await txn.insert('time_entries', next.toLocalMap());
       await txn.insert(
@@ -341,6 +384,7 @@ class TimeRepository {
 
   Future<void> stopRunning({DateTime? at}) async {
     final now = at ?? DateTime.now();
+    await rolloverRunningEntriesIfNeeded(at: now);
     final unassigned = await _ensureUnassignedActivity();
     final running = await runningEntry();
     if (running == null) {
@@ -353,10 +397,12 @@ class TimeRepository {
     }
     if (running.startAt.isAfter(now)) {
       await saveEntry(running.copyWith(isDeleted: true, updatedAt: now));
+      await _softDeleteOneOffActivityIfNeeded(running.activityId, now);
       await _startUnassigned(at: now);
       return;
     }
     await saveEntry(running.copyWith(endAt: now, updatedAt: now));
+    await _softDeleteOneOffActivityIfNeeded(running.activityId, now);
     await addActionLog(
       actionType: 'stop',
       activityId: running.activityId,
@@ -367,13 +413,16 @@ class TimeRepository {
     await _startUnassigned(at: now);
   }
 
-  Future<void> saveEntry(TimeEntry entry, {bool logEdit = false}) async {
+  Future<List<TimeEntry>> saveEntry(
+    TimeEntry entry, {
+    bool logEdit = false,
+  }) async {
     final db = await _database.db;
-    await db.insert(
-      'time_entries',
-      entry.toLocalMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    final saved = <TimeEntry>[];
+    await db.transaction((txn) async {
+      final normalized = await _entryWithActivitySnapshot(entry, txn);
+      saved.addAll(await _saveEntryRows(txn, normalized));
+    });
     if (logEdit) {
       await addActionLog(
         actionType: 'edit',
@@ -383,6 +432,7 @@ class TimeRepository {
         message: '编辑时间段',
       );
     }
+    return saved;
   }
 
   Future<TimeEntry> createManualEntry({
@@ -405,7 +455,7 @@ class TimeRepository {
       updatedAt: now,
       isDeleted: false,
     );
-    await saveEntry(entry);
+    final saved = await saveEntry(entry);
     await addActionLog(
       actionType: 'manual',
       activityId: activityId,
@@ -413,7 +463,7 @@ class TimeRepository {
       occurredAt: now,
       message: '补记时间段',
     );
-    return entry;
+    return saved.first;
   }
 
   Future<void> deleteEntry(TimeEntry entry) async {
@@ -430,10 +480,11 @@ class TimeRepository {
   Future<List<TimeEntry>> entriesForDay(DateTime day) async {
     final db = await _database.db;
     final start = day.startOfDay.toUtc().toIso8601String();
-    final end = day.endOfDay.toUtc().toIso8601String();
+    final end =
+        day.startOfDay.add(const Duration(days: 1)).toUtc().toIso8601String();
     final rows = await db.query(
       'time_entries',
-      where: 'is_deleted = 0 and start_at <= ? and coalesce(end_at, ?) >= ?',
+      where: 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) > ?',
       whereArgs: [end, end, start],
       orderBy: 'start_at asc',
     );
@@ -454,7 +505,7 @@ class TimeRepository {
     final startStr = start.toUtc().toIso8601String();
     final rows = await db.query(
       'time_entries',
-      where: 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) >= ?',
+      where: 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) > ?',
       whereArgs: [endStr, endStr, startStr],
       orderBy: 'start_at asc',
     );
@@ -586,6 +637,93 @@ class TimeRepository {
     return rows.map(Activity.fromMap).toList();
   }
 
+  Future<EntryMergeCandidate?> mergeCandidateForEntry(
+    String entryId,
+    EntryMergeDirection direction,
+  ) async {
+    final current = await _entryById(entryId);
+    if (current == null || current.isDeleted || current.isRunning) {
+      return null;
+    }
+    final settings = await this.settings();
+    final threshold = Duration(
+      minutes: settings.mergeNeighborThresholdMinutes,
+    );
+    final entries = (await entriesForDay(current.startAt))
+        .where((entry) => !entry.isDeleted && !entry.isRunning)
+        .toList()
+      ..sort((first, second) => first.startAt.compareTo(second.startAt));
+    final index = entries.indexWhere((entry) => entry.id == current.id);
+    if (index == -1) {
+      return null;
+    }
+    final neighborIndex =
+        direction == EntryMergeDirection.previous ? index - 1 : index + 1;
+    if (neighborIndex < 0 || neighborIndex >= entries.length) {
+      return null;
+    }
+    final neighbor = entries[neighborIndex];
+    final neighborEnd = neighbor.endAt;
+    if (neighborEnd == null || !neighborEnd.isAfter(neighbor.startAt)) {
+      return null;
+    }
+    return EntryMergeCandidate(
+      current: current,
+      neighbor: neighbor,
+      direction: direction,
+      neighborDuration: neighborEnd.difference(neighbor.startAt),
+      threshold: threshold,
+    );
+  }
+
+  Future<TimeEntry?> mergeEntryWithNeighbor({
+    required String entryId,
+    required EntryMergeDirection direction,
+    required bool confirmed,
+  }) async {
+    final candidate = await mergeCandidateForEntry(entryId, direction);
+    if (candidate == null) {
+      return null;
+    }
+    if (candidate.requiresConfirmation && !confirmed) {
+      throw StateError('merge_confirmation_required');
+    }
+
+    final now = DateTime.now();
+    final current = candidate.current;
+    final neighbor = candidate.neighbor;
+    final startAt = current.startAt.isBefore(neighbor.startAt)
+        ? current.startAt
+        : neighbor.startAt;
+    final currentEnd = current.endAt!;
+    final neighborEnd = neighbor.endAt!;
+    final endAt = currentEnd.isAfter(neighborEnd) ? currentEnd : neighborEnd;
+    final merged = current.copyWith(
+      startAt: startAt,
+      endAt: endAt,
+      note: _mergedNotes(current.note, neighbor.note),
+      updatedAt: now,
+    );
+
+    final db = await _database.db;
+    await db.transaction((txn) async {
+      await _saveEntryRows(txn, await _entryWithActivitySnapshot(merged, txn));
+      await txn.insert(
+        'time_entries',
+        neighbor.copyWith(isDeleted: true, updatedAt: now).toLocalMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+    await addActionLog(
+      actionType: 'merge',
+      activityId: merged.activityId,
+      entryId: merged.id,
+      occurredAt: now,
+      message: direction == EntryMergeDirection.previous ? '合并左侧' : '合并右侧',
+    );
+    return merged;
+  }
+
   Future<List<TimeEntry>> overlappingEntries(TimeEntry entry) async {
     final dayEntries = await entriesForDay(entry.startAt);
     return dayEntries
@@ -714,6 +852,206 @@ class TimeRepository {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
+  }
+
+  Future<void> normalizeStoredCrossDayEntries() async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'time_entries',
+      where: 'is_deleted = 0 and end_at is not null',
+      orderBy: 'start_at asc',
+    );
+    for (final row in rows) {
+      final entry = TimeEntry.fromMap(row);
+      if (_splitClosedEntryByLocalDay(entry, entry.updatedAt).length <= 1) {
+        continue;
+      }
+      await saveEntry(entry);
+    }
+  }
+
+  Future<void> backfillMissingEntrySnapshots() async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'time_entries',
+      where: "(activity_name = '' or activity_color is null)",
+      orderBy: 'updated_at asc',
+    );
+    for (final row in rows) {
+      final entry = TimeEntry.fromMap(row);
+      final withSnapshot = await _entryWithActivitySnapshot(entry, db);
+      if (withSnapshot.activityNameSnapshot == entry.activityNameSnapshot &&
+          withSnapshot.activityColorSnapshot == entry.activityColorSnapshot) {
+        continue;
+      }
+      await db.insert(
+        'time_entries',
+        withSnapshot.toLocalMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  Future<void> rolloverRunningEntriesIfNeeded({DateTime? at}) async {
+    final now = at ?? DateTime.now();
+    final todayStart = now.startOfDay;
+    final db = await _database.db;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'time_entries',
+        where: 'end_at is null and is_deleted = 0',
+        orderBy: 'start_at asc',
+      );
+      for (final row in rows) {
+        final running = await _entryWithActivitySnapshot(
+          TimeEntry.fromMap(row),
+          txn,
+        );
+        if (!running.startAt.isBefore(todayStart)) {
+          continue;
+        }
+        var cursor = running.startAt;
+        var firstSegment = true;
+        while (cursor.startOfDay.isBefore(todayStart)) {
+          final segmentEnd = cursor.startOfDay.add(const Duration(days: 1));
+          if (cursor.isBefore(segmentEnd)) {
+            final segment = running.copyWith(
+              id: firstSegment ? running.id : _uuid.v4(),
+              startAt: cursor,
+              endAt: segmentEnd,
+              updatedAt: now,
+            );
+            await txn.insert(
+              'time_entries',
+              segment.toLocalMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+          cursor = segmentEnd;
+          firstSegment = false;
+        }
+        final nextRunning = running.copyWith(
+          id: firstSegment ? running.id : _uuid.v4(),
+          startAt: cursor,
+          clearEndAt: true,
+          updatedAt: now,
+        );
+        await txn.insert(
+          'time_entries',
+          nextRunning.toLocalMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  Future<TimeEntry?> _entryById(String entryId) async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'time_entries',
+      where: 'id = ?',
+      whereArgs: [entryId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return TimeEntry.fromMap(rows.first);
+  }
+
+  Future<Activity?> _activityById(
+    String activityId,
+    DatabaseExecutor executor,
+  ) async {
+    final rows = await executor.query(
+      'activities',
+      where: 'id = ?',
+      whereArgs: [activityId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return Activity.fromMap(rows.first);
+  }
+
+  Future<TimeEntry> _entryWithActivitySnapshot(
+    TimeEntry entry,
+    DatabaseExecutor executor,
+  ) async {
+    final activity = await _activityById(entry.activityId, executor);
+    if (activity == null) {
+      return entry;
+    }
+    return entry.copyWith(
+      activityNameSnapshot: activity.name,
+      activityColorSnapshot: activity.color,
+    );
+  }
+
+  Future<List<TimeEntry>> _saveEntryRows(
+    DatabaseExecutor executor,
+    TimeEntry entry,
+  ) async {
+    final updatedAt = entry.updatedAt;
+    final entries = entry.isDeleted || entry.isRunning
+        ? [entry]
+        : _splitClosedEntryByLocalDay(entry, updatedAt);
+    for (final item in entries) {
+      await executor.insert(
+        'time_entries',
+        item.toLocalMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    return entries;
+  }
+
+  List<TimeEntry> _splitClosedEntryByLocalDay(
+    TimeEntry entry,
+    DateTime updatedAt,
+  ) {
+    final endAt = entry.endAt;
+    if (endAt == null || !entry.startAt.isBefore(endAt)) {
+      return [entry];
+    }
+    final entries = <TimeEntry>[];
+    var cursor = entry.startAt;
+    var first = true;
+    while (cursor.isBefore(endAt)) {
+      final dayEnd = cursor.startOfDay.add(const Duration(days: 1));
+      final segmentEnd = endAt.isBefore(dayEnd) ? endAt : dayEnd;
+      if (cursor.isBefore(segmentEnd)) {
+        entries.add(
+          entry.copyWith(
+            id: first ? entry.id : _uuid.v4(),
+            startAt: cursor,
+            endAt: segmentEnd,
+            updatedAt: updatedAt,
+          ),
+        );
+      }
+      cursor = segmentEnd;
+      first = false;
+    }
+    return entries.isEmpty ? [entry] : entries;
+  }
+
+  Future<void> _softDeleteOneOffActivityIfNeeded(
+    String activityId,
+    DateTime updatedAt, [
+    DatabaseExecutor? executor,
+  ]) async {
+    final target = executor ?? await _database.db;
+    final activity = await _activityById(activityId, target);
+    if (activity == null || !activity.isOneOff || activity.isDeleted) {
+      return;
+    }
+    await target.insert(
+      'activities',
+      activity.copyWith(isDeleted: true, updatedAt: updatedAt).toLocalMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<Activity> _ensureUnassignedActivity() async {

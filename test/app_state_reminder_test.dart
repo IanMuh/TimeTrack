@@ -75,6 +75,28 @@ void main() {
     expect(state.shouldShowReminder, isTrue);
   });
 
+  test('unassigned running entry is hidden from active status prompts',
+      () async {
+    final fixture = await _buildState();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final unassigned = state.activities.singleWhere(
+      (activity) => activity.isUnassigned,
+    );
+
+    await state.switchTo(unassigned);
+    state.runningEntry = state.runningEntry?.copyWith(
+      startAt: DateTime(2026, 1, 1, 8),
+    );
+    state.now = DateTime(2026, 1, 1, 21);
+    state.settings = state.settings.copyWith(reminderMinutes: 30);
+
+    expect(state.runningActivity, isNull);
+    expect(state.runningDuration, Duration.zero);
+    expect(state.shouldShowReminder, isFalse);
+    expect(state.hasSuspiciousRunningEntry, isFalse);
+  });
+
   test('todayTotals clips cross-day entries to the selected day', () async {
     final fixture = await _buildState();
     final state = fixture.state;
@@ -349,7 +371,7 @@ void main() {
     expect(longest.inMinutes, 30 * 24 * 60 + 22 * 60);
   });
 
-  test('longestBlockForPeriod all uses full duration', () async {
+  test('longestBlockForPeriod all uses day-local split duration', () async {
     final fixture = await _buildState();
     final state = fixture.state;
     addTearDown(state.dispose);
@@ -372,6 +394,6 @@ void main() {
     );
 
     final longest = await state.longestBlockForPeriod(StatsPeriod.all);
-    expect(longest.inHours, 24);
+    expect(longest.inHours, 15);
   });
 }

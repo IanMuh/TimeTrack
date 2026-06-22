@@ -42,7 +42,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context, _) {
         final runningActivity = state.runningActivity;
         final switchableActivities = state.activities.where(
-          (activity) => !activity.isUnassigned,
+          (activity) => !activity.isUnassigned && !activity.isOneOff,
         );
         final pendingActivity = _pendingActivityId == null
             ? null
@@ -94,7 +94,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SectionGap(height: 18),
             PageHeader(
-              title: '切换事项',
+              title: '快捷切换',
               subtitle: pendingActivity == null ||
                       pendingActivity.id == runningActivity?.id
                   ? '轻点选择，再点一次确认切换。'
@@ -134,6 +134,9 @@ class _HomePageState extends State<HomePage> {
                                   activity: activity,
                                 ),
                       ),
+                    _OneOffActivityTile(
+                      onPressed: () => showOneOffActivityDialog(context, state),
+                    ),
                     _AddActivityTile(
                       onPressed: () => showActivityEditorDialog(context, state),
                     ),
@@ -337,6 +340,26 @@ class ActivitySwitchButton extends StatelessWidget {
   }
 }
 
+class _OneOffActivityTile extends StatelessWidget {
+  const _OneOffActivityTile({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.flash_on_outlined),
+      label: const Text('临时事项'),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+    );
+  }
+}
+
 class _AddActivityTile extends StatelessWidget {
   const _AddActivityTile({required this.onPressed});
 
@@ -462,6 +485,74 @@ Future<Activity?> showActivityEditorDialog(
                 },
                 icon: Icon(activity == null ? Icons.add : Icons.save_outlined),
                 label: Text(activity == null ? '创建' : '保存'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+  return saved;
+}
+
+Future<Activity?> showOneOffActivityDialog(
+  BuildContext context,
+  AppState state,
+) async {
+  final controller = TextEditingController();
+  var selectedColor =
+      nextActivityColor(state.activities.map((activity) => activity.color));
+  Activity? saved;
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('临时事项'),
+            content: SizedBox(
+              width: _dialogContentWidth(context, maxWidth: 420),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        labelText: '名称',
+                        prefixIcon: Icon(Icons.bolt_outlined),
+                      ),
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 16),
+                    ActivityColorPicker(
+                      selectedColor: selectedColor,
+                      onColorChanged: (color) =>
+                          setState(() => selectedColor = color),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  final name = controller.text.trim();
+                  if (name.isEmpty) {
+                    return;
+                  }
+                  saved = await state.createOneOffActivity(name, selectedColor);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: const Text('开始'),
               ),
             ],
           );

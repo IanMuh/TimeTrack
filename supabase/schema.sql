@@ -8,16 +8,21 @@ create table if not exists public.activities (
   is_favorite boolean not null default true,
   updated_at timestamptz not null default now(),
   is_deleted boolean not null default false,
-  is_unassigned boolean not null default false
+  is_unassigned boolean not null default false,
+  is_one_off boolean not null default false
 );
 
 alter table public.activities
   add column if not exists is_unassigned boolean not null default false;
+alter table public.activities
+  add column if not exists is_one_off boolean not null default false;
 
 create table if not exists public.time_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   activity_id uuid not null references public.activities(id) on delete cascade,
+  activity_name text not null default '',
+  activity_color integer,
   start_at timestamptz not null,
   end_at timestamptz,
   note text not null default '',
@@ -27,15 +32,24 @@ create table if not exists public.time_entries (
   constraint time_entries_end_after_start check (end_at is null or end_at > start_at)
 );
 
+alter table public.time_entries
+  add column if not exists activity_name text not null default '';
+alter table public.time_entries
+  add column if not exists activity_color integer;
+
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   reminder_minutes integer not null default 45,
   reminder_interval_minutes integer not null default 10,
   reminder_method text not null default 'dialog',
   reminder_time_of_day_minutes integer not null default 540,
+  merge_neighbor_threshold_minutes integer not null default 1,
   timezone text not null default 'UTC',
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists merge_neighbor_threshold_minutes integer not null default 1;
 
 create table if not exists public.action_logs (
   id uuid primary key default gen_random_uuid(),

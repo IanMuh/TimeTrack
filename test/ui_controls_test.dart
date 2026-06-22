@@ -395,7 +395,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('HomePage hides unassigned activity from the switcher',
+  testWidgets('HomePage hides unassigned and one-off activities from switcher',
       (tester) async {
     final state = _FakeAppState();
 
@@ -408,11 +408,42 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('快捷切换'), findsOneWidget);
+    expect(find.text('切换事项'), findsNothing);
     expect(find.text('未安排'), findsNothing);
+    expect(find.text('一次性会议'), findsNothing);
     expect(find.byType(ActivitySwitchButton), findsOneWidget);
     expect(find.byIcon(Icons.lock_outline), findsNothing);
     expect(find.byTooltip('系统事项，不能编辑'), findsNothing);
     expect(find.byTooltip('编辑事项'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('HomePage starts a one-off activity from a temporary tile',
+      (tester) async {
+    final state = _FakeAppState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomePage(state: state),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '临时事项'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AlertDialog, '临时事项'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, '名称'), '特别电话');
+    await tester.tap(find.widgetWithText(FilledButton, '开始'));
+    await tester.pumpAndSettle();
+
+    expect(state.runningActivity?.name, '特别电话');
+    expect(state.runningActivity?.isOneOff, isTrue);
+    expect(find.text('特别电话'), findsOneWidget);
+    expect(find.byType(ActivitySwitchButton), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -437,6 +468,8 @@ void main() {
 
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('提醒'), findsOneWidget);
+    expect(find.text('时间线'), findsOneWidget);
+    expect(find.text('合并阈值'), findsOneWidget);
     expect(find.text('云同步'), findsOneWidget);
     expect(find.text('设备互通'), findsOneWidget);
     expect(find.text('配对并同步'), findsOneWidget);
@@ -519,6 +552,16 @@ class _FakeAppState extends AppState {
         isDeleted: false,
         isUnassigned: true,
       ),
+      Activity(
+        id: 'one-off-existing',
+        userId: null,
+        name: '一次性会议',
+        color: 0xffdb2777,
+        isFavorite: false,
+        updatedAt: now,
+        isDeleted: false,
+        isOneOff: true,
+      ),
     ];
   }
 
@@ -540,6 +583,36 @@ class _FakeAppState extends AppState {
       isDeleted: false,
     );
     activities = [...activities, activity];
+    notifyListeners();
+    return activity;
+  }
+
+  @override
+  Future<Activity> createOneOffActivity(String name, int color) async {
+    final activity = Activity(
+      id: 'one-off-${_nextActivityId++}',
+      userId: null,
+      name: name,
+      color: color,
+      isFavorite: false,
+      updatedAt: now,
+      isDeleted: false,
+      isOneOff: true,
+    );
+    activities = [...activities, activity];
+    runningEntry = TimeEntry(
+      id: 'entry-${activity.id}',
+      userId: null,
+      activityId: activity.id,
+      activityNameSnapshot: activity.name,
+      activityColorSnapshot: activity.color,
+      startAt: now,
+      endAt: null,
+      note: '',
+      deviceId: 'test-device',
+      updatedAt: now,
+      isDeleted: false,
+    );
     notifyListeners();
     return activity;
   }

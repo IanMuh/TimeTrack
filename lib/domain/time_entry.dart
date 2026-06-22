@@ -9,11 +9,15 @@ class TimeEntry {
     required this.deviceId,
     required this.updatedAt,
     required this.isDeleted,
+    this.activityNameSnapshot = '',
+    this.activityColorSnapshot,
   });
 
   final String id;
   final String? userId;
   final String activityId;
+  final String activityNameSnapshot;
+  final int? activityColorSnapshot;
   final DateTime startAt;
   final DateTime? endAt;
   final String note;
@@ -64,6 +68,9 @@ class TimeEntry {
     String? id,
     String? userId,
     String? activityId,
+    String? activityNameSnapshot,
+    int? activityColorSnapshot,
+    bool clearActivityColorSnapshot = false,
     DateTime? startAt,
     DateTime? endAt,
     bool clearEndAt = false,
@@ -76,6 +83,10 @@ class TimeEntry {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       activityId: activityId ?? this.activityId,
+      activityNameSnapshot: activityNameSnapshot ?? this.activityNameSnapshot,
+      activityColorSnapshot: clearActivityColorSnapshot
+          ? null
+          : activityColorSnapshot ?? this.activityColorSnapshot,
       startAt: startAt ?? this.startAt,
       endAt: clearEndAt ? null : endAt ?? this.endAt,
       note: note ?? this.note,
@@ -90,6 +101,8 @@ class TimeEntry {
       'id': id,
       'user_id': userId,
       'activity_id': activityId,
+      'activity_name': activityNameSnapshot,
+      'activity_color': activityColorSnapshot,
       'start_at': startAt.toUtc().toIso8601String(),
       'end_at': endAt?.toUtc().toIso8601String(),
       'note': note,
@@ -104,6 +117,8 @@ class TimeEntry {
       'id': id,
       'user_id': remoteUserId,
       'activity_id': activityId,
+      'activity_name': activityNameSnapshot,
+      'activity_color': activityColorSnapshot,
       'start_at': startAt.toUtc().toIso8601String(),
       'end_at': endAt?.toUtc().toIso8601String(),
       'note': note,
@@ -118,6 +133,8 @@ class TimeEntry {
       id: map['id'] as String,
       userId: map['user_id'] as String?,
       activityId: map['activity_id'] as String,
+      activityNameSnapshot: (map['activity_name'] as String?) ?? '',
+      activityColorSnapshot: (map['activity_color'] as num?)?.toInt(),
       startAt: DateTime.parse(map['start_at'] as String).toLocal(),
       endAt: map['end_at'] == null
           ? null

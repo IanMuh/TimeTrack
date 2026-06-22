@@ -258,22 +258,31 @@ void main() {
     expect(logs.map((log) => log.actionType), contains('manual'));
   });
 
-  test('entries crossing midnight appear on both days', () async {
+  test('entries crossing midnight are split into day-local rows', () async {
     final repository = await buildRepository();
     final activity = (await repository.activities()).first;
 
-    await repository.createManualEntry(
+    final firstSegment = await repository.createManualEntry(
       activityId: activity.id,
       startAt: DateTime(2026, 1, 1, 23, 30),
       endAt: DateTime(2026, 1, 2, 0, 30),
       note: 'cross day',
     );
 
-    expect(await repository.entriesForDay(DateTime(2026, 1, 1)), hasLength(1));
-    expect(await repository.entriesForDay(DateTime(2026, 1, 2)), hasLength(1));
+    final firstDay = await repository.entriesForDay(DateTime(2026, 1, 1));
+    final secondDay = await repository.entriesForDay(DateTime(2026, 1, 2));
+
+    expect(firstDay, hasLength(1));
+    expect(secondDay, hasLength(1));
+    expect(firstDay.single.id, firstSegment.id);
+    expect(firstDay.single.startAt, DateTime(2026, 1, 1, 23, 30));
+    expect(firstDay.single.endAt, DateTime(2026, 1, 2));
+    expect(secondDay.single.id, isNot(firstSegment.id));
+    expect(secondDay.single.startAt, DateTime(2026, 1, 2));
+    expect(secondDay.single.endAt, DateTime(2026, 1, 2, 0, 30));
   });
 
-  test('entriesForRange returns entries overlapping the selected range',
+  test('entriesForRange returns split segments overlapping the selected range',
       () async {
     final repository = await buildRepository();
     final activity = (await repository.activities()).first;
@@ -289,7 +298,10 @@ void main() {
       DateTime(2026, 1, 3),
     );
 
-    expect(entries.map((item) => item.id), contains(entry.id));
+    expect(entries, hasLength(1));
+    expect(entries.single.id, isNot(entry.id));
+    expect(entries.single.startAt, DateTime(2026, 1, 2));
+    expect(entries.single.endAt, DateTime(2026, 1, 2, 0, 30));
   });
 
   test('TimeRangeStats clips cross-day entries to the requested range', () {
@@ -345,18 +357,172 @@ void main() {
     expect(stats.totalDuration, const Duration(hours: 1, minutes: 30));
   });
 
+  test('entries keep activity snapshot after activity is deleted', () async {
+    final repository = await buildRepository();
+    final activity = await repository.createActivity(
+      name: '临时项目',
+      color: 0xff0f766e,
+    );
+
+    await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: '',
+    );
+    await repository.deleteActivity(activity);
+
+    final entry = (await repository.entriesForDay(DateTime(2026, 1, 1))).single;
+    final visibleActivities = await repository.activities();
+
+    expect(visibleActivities.where((item) => item.id == activity.id), isEmpty);
+    expect(entry.activityNameSnapshot, '临时项目');
+    expect(entry.activityColorSnapshot, 0xff0f766e);
+  });
+
+  test('one-off activity is soft-deleted after stopping it', () async {
+    final repository = await buildRepository();
+    final activity = await repository.createActivity(
+      name: '临时电话',
+      color: 0xffdb2777,
+      isOneOff: true,
+    );
+
+    await repository.switchToActivity(activity.id, at: DateTime(2026, 1, 1, 9));
+    await repository.stopRunning(at: DateTime(2026, 1, 1, 9, 20));
+
+    final hidden = await repository.activities();
+    final allActivities = await repository.activities(includeDeleted: true);
+    final oneOff = allActivities.singleWhere((item) => item.id == activity.id);
+    final entry =
+        (await repository.entriesForDay(DateTime(2026, 1, 1))).firstWhere(
+      (item) => item.activityId == activity.id,
+    );
+
+    expect(hidden.where((item) => item.id == activity.id), isEmpty);
+    expect(oneOff.isOneOff, isTrue);
+    expect(oneOff.isDeleted, isTrue);
+    expect(entry.activityNameSnapshot, '临时电话');
+  });
+
+  test('running entry is rolled over at local midnight', () async {
+    final repository = await buildRepository();
+    final activity = (await repository.activities())
+        .firstWhere((activity) => !activity.isUnassigned);
+
+    final first = await repository.switchToActivity(
+      activity.id,
+      at: DateTime(2026, 1, 1, 23),
+    );
+    await repository.rolloverRunningEntriesIfNeeded(
+      at: DateTime(2026, 1, 2, 1),
+    );
+
+    final firstDay = await repository.entriesForDay(DateTime(2026, 1, 1));
+    final secondDay = await repository.entriesForDay(DateTime(2026, 1, 2));
+    final running = await repository.runningEntry();
+
+    expect(firstDay.single.id, first.id);
+    expect(firstDay.single.endAt, DateTime(2026, 1, 2));
+    expect(secondDay.single.id, running?.id);
+    expect(running?.startAt, DateTime(2026, 1, 2));
+    expect(running?.endAt, isNull);
+  });
+
+  test('merge candidate uses neighbor duration threshold', () async {
+    final repository = await buildRepository();
+    final activity = (await repository.activities())
+        .firstWhere((activity) => !activity.isUnassigned);
+    final previous = await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 9, 59),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: 'prev',
+    );
+    final current = await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 10),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: 'current',
+    );
+
+    final candidate = await repository.mergeCandidateForEntry(
+      current.id,
+      EntryMergeDirection.previous,
+    );
+    final merged = await repository.mergeEntryWithNeighbor(
+      entryId: current.id,
+      direction: EntryMergeDirection.previous,
+      confirmed: false,
+    );
+    final allEntries = await repository.allEntries();
+    final deletedPrevious =
+        allEntries.singleWhere((entry) => entry.id == previous.id);
+
+    expect(candidate?.neighborDuration, const Duration(minutes: 1));
+    expect(candidate?.requiresConfirmation, isFalse);
+    expect(merged?.startAt, DateTime(2026, 1, 1, 9, 59));
+    expect(merged?.endAt, DateTime(2026, 1, 1, 11));
+    expect(merged?.note, 'current\nprev');
+    expect(deletedPrevious.isDeleted, isTrue);
+  });
+
+  test('merge requires confirmation when neighbor exceeds threshold', () async {
+    final repository = await buildRepository();
+    final activity = (await repository.activities())
+        .firstWhere((activity) => !activity.isUnassigned);
+    final current = await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 10),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: '',
+    );
+    await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 11),
+      endAt: DateTime(2026, 1, 1, 11, 2),
+      note: '',
+    );
+
+    final candidate = await repository.mergeCandidateForEntry(
+      current.id,
+      EntryMergeDirection.next,
+    );
+
+    expect(candidate?.neighborDuration, const Duration(minutes: 2));
+    expect(candidate?.requiresConfirmation, isTrue);
+    await expectLater(
+      repository.mergeEntryWithNeighbor(
+        entryId: current.id,
+        direction: EntryMergeDirection.next,
+        confirmed: false,
+      ),
+      throwsStateError,
+    );
+
+    final merged = await repository.mergeEntryWithNeighbor(
+      entryId: current.id,
+      direction: EntryMergeDirection.next,
+      confirmed: true,
+    );
+    expect(merged?.startAt, DateTime(2026, 1, 1, 10));
+    expect(merged?.endAt, DateTime(2026, 1, 1, 11, 2));
+  });
+
   test('profile settings store reminder cadence and delivery method', () async {
     final settings = ProfileSettings.defaults().copyWith(
       reminderMinutes: 30,
       reminderIntervalMinutes: 12,
       reminderMethod: ReminderMethod.dialog,
       reminderTimeOfDayMinutes: 9 * 60,
+      mergeNeighborThresholdMinutes: 7,
       updatedAt: DateTime(2026, 1, 1, 8),
     );
 
     expect(settings.toLocalMap()['reminder_interval_minutes'], 12);
     expect(settings.toLocalMap()['reminder_method'], 'dialog');
     expect(settings.toLocalMap()['reminder_time_of_day_minutes'], 540);
+    expect(settings.toLocalMap()['merge_neighbor_threshold_minutes'], 7);
   });
 
   test('profile settings migration fills reminder defaults', () async {
@@ -391,5 +557,65 @@ void main() {
     expect(settings.reminderIntervalMinutes, 10);
     expect(settings.reminderMethod, ReminderMethod.dialog);
     expect(settings.reminderTimeOfDayMinutes, 9 * 60);
+    expect(settings.mergeNeighborThresholdMinutes, 1);
+  });
+
+  test('entry snapshot and one-off migration fills new columns', () async {
+    sqfliteFfiInit();
+    final db = await databaseFactoryFfi.openDatabase(
+      inMemoryDatabasePath,
+      options: OpenDatabaseOptions(singleInstance: false),
+    );
+    await db.execute('''
+      create table activities (
+        id text primary key,
+        user_id text,
+        name text not null,
+        color integer not null,
+        is_favorite integer not null default 1,
+        updated_at text not null,
+        is_deleted integer not null default 0,
+        is_unassigned integer not null default 0
+      )
+    ''');
+    await db.execute('''
+      create table time_entries (
+        id text primary key,
+        user_id text,
+        activity_id text not null,
+        start_at text not null,
+        end_at text,
+        note text not null default '',
+        device_id text not null,
+        updated_at text not null,
+        is_deleted integer not null default 0
+      )
+    ''');
+    await db.execute('''
+      create table profile_settings (
+        id integer primary key check (id = 1),
+        user_id text,
+        reminder_minutes integer not null default 45,
+        reminder_interval_minutes integer not null default 10,
+        reminder_method text not null default 'dialog',
+        reminder_time_of_day_minutes integer not null default 540,
+        timezone text not null,
+        updated_at text not null
+      )
+    ''');
+
+    await LocalDatabase.migrateEntrySnapshotsAndOneOffSchema(db);
+    final activityColumns = await db.rawQuery('pragma table_info(activities)');
+    final entryColumns = await db.rawQuery('pragma table_info(time_entries)');
+    final settingsColumns =
+        await db.rawQuery('pragma table_info(profile_settings)');
+
+    expect(activityColumns.map((row) => row['name']), contains('is_one_off'));
+    expect(entryColumns.map((row) => row['name']), contains('activity_name'));
+    expect(entryColumns.map((row) => row['name']), contains('activity_color'));
+    expect(
+      settingsColumns.map((row) => row['name']),
+      contains('merge_neighbor_threshold_minutes'),
+    );
   });
 }
