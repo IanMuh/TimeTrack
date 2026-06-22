@@ -134,12 +134,17 @@ Future<_TimelineFixture> _buildOverlappingPersistedFixture() async {
   final fixture = await _buildPersistedFixture();
   final activity = (await fixture.repository.activities())
       .firstWhere((activity) => !activity.isUnassigned);
-  await fixture.repository.createManualEntry(
-    activityId: activity.id,
-    startAt: DateTime(2026, 1, 2, 9, 30),
-    endAt: DateTime(2026, 1, 2, 10, 30),
-    note: '',
-  );
+  await fixture.database!.insert('time_entries', {
+    'id': 'legacy-overlap',
+    'user_id': null,
+    'activity_id': activity.id,
+    'start_at': DateTime(2026, 1, 2, 9, 30).toIso8601String(),
+    'end_at': DateTime(2026, 1, 2, 10, 30).toIso8601String(),
+    'note': '',
+    'device_id': 'test-device',
+    'updated_at': DateTime(2026, 1, 2, 9, 30).toIso8601String(),
+    'is_deleted': 0,
+  });
   await fixture.state.refresh();
   return fixture;
 }
@@ -212,6 +217,8 @@ Future<void> _tapAndPumpUntil(
   Finder finder,
   Finder doneFinder,
 ) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
   await tester.runAsync(() async {
     await tester.tap(finder);
   });
@@ -234,6 +241,8 @@ Future<void> _tapAndPumpUntilGone(
   Finder finder,
   Finder goneFinder,
 ) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
   await tester.runAsync(() async {
     await tester.tap(finder);
   });
@@ -277,6 +286,23 @@ Future<void> _tapEntryEditButtonInCard(
   await tester.tap(
     editButton,
   );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseEntryActivity(
+  WidgetTester tester,
+  String activityName,
+) async {
+  await tester.enterText(
+    find.byKey(const ValueKey('entry-activity-search-field')),
+    activityName,
+  );
+  await tester.pumpAndSettle();
+  final chip = find.ancestor(
+    of: find.text(activityName).last,
+    matching: find.byType(ChoiceChip),
+  );
+  await tester.tap(chip.last);
   await tester.pumpAndSettle();
 }
 
@@ -456,11 +482,12 @@ void main() {
     await _tapEntryEditButtonInCard(tester, gapCard);
     expect(
       tester
-          .widget<DropdownButtonFormField<String>>(
-            find.byType(DropdownButtonFormField<String>),
+          .widget<TextField>(
+            find.byKey(const ValueKey('entry-activity-search-field')),
           )
-          .initialValue,
-      isNull,
+          .controller
+          ?.text,
+      '',
     );
     expect(
       tester
@@ -472,24 +499,8 @@ void main() {
           .onPressed,
       isNull,
     );
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    expect(
-      find.ancestor(
-        of: find.text('工作'),
-        matching: find.byType(DropdownMenuItem<String>),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.ancestor(
-        of: find.text('未安排'),
-        matching: find.byType(DropdownMenuItem<String>),
-      ),
-      findsNothing,
-    );
-    await tester.tapAt(Offset.zero);
-    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChoiceChip, '工作'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, '未安排'), findsNothing);
     await _tapAndPumpUntil(
       tester,
       find.widgetWithText(FilledButton, '保存').last,
@@ -513,10 +524,7 @@ void main() {
     );
     expect(logsBeforeSelection!.where((log) => log.entryId == gap.id), isEmpty);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('工作').last);
-    await tester.pumpAndSettle();
+    await _chooseEntryActivity(tester, '工作');
     await _tapAndPumpUntilGone(
       tester,
       find.widgetWithText(FilledButton, '保存').last,
@@ -614,10 +622,7 @@ void main() {
       matching: find.byType(TimelineEntryCard),
     );
     await _tapEntryEditButtonInCard(tester, entryCard);
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(targetActivity.name).last);
-    await tester.pumpAndSettle();
+    await _chooseEntryActivity(tester, targetActivity.name);
     await _tapAndPumpUntilGone(
       tester,
       find.widgetWithText(FilledButton, '保存').last,
@@ -634,6 +639,148 @@ void main() {
     expect(realDayEntries, hasLength(1));
     expect(realDayEntries.single.activityId, targetActivity.id);
     expect(storedEntries!.single.activityId, targetActivity.id);
+  });
+
+  testWidgets('timeline editor splits an entry at the midpoint', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final originalEntry = state.dayEntries.single;
+
+    await _pumpTimeline(tester, state, width: 920);
+    final activity = state.activityById(originalEntry.activityId)!;
+    await _tapEntryEditButton(tester, title: activity.name);
+    await _tapAndPumpUntil(
+      tester,
+      find.widgetWithText(OutlinedButton, '切割'),
+      find.widgetWithText(AlertDialog, '切割时间段'),
+    );
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '切割'),
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final entries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(tester.takeException(), isNull);
+    expect(entries, hasLength(2));
+    expect(entries![0].id, originalEntry.id);
+    expect(entries[0].startAt, DateTime(2026, 1, 2, 9));
+    expect(entries[0].endAt, DateTime(2026, 1, 2, 9, 30));
+    expect(entries[1].startAt, DateTime(2026, 1, 2, 9, 30));
+    expect(entries[1].endAt, DateTime(2026, 1, 2, 10));
+  });
+
+  testWidgets(
+      'timeline editor extends an entry to now and removes covered rows', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final originalEntry = state.dayEntries.single;
+    late TimeEntry coveredEntry;
+    await tester.runAsync(() async {
+      final activity = (await fixture.repository.activities())
+          .firstWhere((activity) => !activity.isUnassigned);
+      coveredEntry = await fixture.repository.createManualEntry(
+        activityId: activity.id,
+        startAt: DateTime(2026, 1, 2, 10),
+        endAt: DateTime(2026, 1, 2, 11),
+        note: '',
+      );
+      await state.refresh();
+    });
+
+    await _pumpTimeline(tester, state, width: 920);
+    final entryCard = find.ancestor(
+      of: find.text('09:00:00 - 10:00:00'),
+      matching: find.byType(TimelineEntryCard),
+    );
+    await _tapEntryEditButtonInCard(tester, entryCard);
+    await tester.ensureVisible(find.widgetWithText(OutlinedButton, '延续到现在'));
+    await tester.pumpAndSettle();
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(OutlinedButton, '延续到现在'),
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final entries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    final runningEntry = await tester.runAsync(fixture.repository.runningEntry);
+    final allEntries = await tester.runAsync(fixture.repository.allEntries);
+    final covered =
+        allEntries!.singleWhere((entry) => entry.id == coveredEntry.id);
+    expect(tester.takeException(), isNull);
+    expect(entries, hasLength(1));
+    expect(entries!.single.id, originalEntry.id);
+    expect(entries.single.startAt, DateTime(2026, 1, 2, 9));
+    expect(entries.single.endAt, isNull);
+    expect(runningEntry?.id, originalEntry.id);
+    expect(runningEntry?.endAt, isNull);
+    expect(covered.isDeleted, isTrue);
+  });
+
+  testWidgets('timeline editor can choose a previous one-off activity', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildPersistedFixture))!;
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    addTearDown(() async => fixture.database?.close());
+    final originalEntry = state.dayEntries.single;
+    late Activity oneOff;
+    await tester.runAsync(() async {
+      oneOff = await fixture.repository.createActivity(
+        name: '临时电话',
+        color: 0xffdb2777,
+        isOneOff: true,
+      );
+      await fixture.repository.replaceActivityIfRemoteNewer(
+        oneOff.copyWith(
+          isDeleted: true,
+          updatedAt: DateTime.now().add(const Duration(seconds: 1)),
+        ),
+      );
+      await state.refresh();
+    });
+
+    await _pumpTimeline(tester, state, width: 920);
+    final activity = state.activityById(originalEntry.activityId)!;
+    await _tapEntryEditButton(tester, title: activity.name);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 500)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('临时电话'), findsNothing);
+    await tester.enterText(
+      find.byKey(const ValueKey('entry-activity-search-field')),
+      '临时',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('临时电话'), findsOneWidget);
+    expect(find.text('单次'), findsOneWidget);
+    await _chooseEntryActivity(tester, '临时电话');
+    await _tapAndPumpUntilGone(
+      tester,
+      find.widgetWithText(FilledButton, '保存').last,
+      find.widgetWithText(AlertDialog, '编辑时间段'),
+    );
+
+    final entries = await tester.runAsync(
+      () => fixture.repository.entriesForDay(state.selectedDay),
+    );
+    expect(tester.takeException(), isNull);
+    expect(entries!.single.activityId, oneOff.id);
+    expect(entries.single.activityNameSnapshot, '临时电话');
   });
 
   testWidgets(
@@ -679,10 +826,7 @@ void main() {
     expect(find.text('请选择一个有效事项。'), findsOneWidget);
     expect(storedEntries!.single.activityId, originalEntry.activityId);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(targetActivity.name).last);
-    await tester.pumpAndSettle();
+    await _chooseEntryActivity(tester, targetActivity.name);
     await _tapAndPumpUntilGone(
       tester,
       find.widgetWithText(FilledButton, '保存').last,
@@ -716,10 +860,7 @@ void main() {
       matching: find.byType(TimelineEntryCard),
     );
     await _tapEntryEditButtonInCard(tester, entryCard);
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(targetActivity.name).last);
-    await tester.pumpAndSettle();
+    await _chooseEntryActivity(tester, targetActivity.name);
     await _tapAndPumpUntil(
       tester,
       find.widgetWithText(FilledButton, '保存').last,
@@ -850,10 +991,7 @@ void main() {
       matching: find.byType(TimelineEntryCard),
     );
     await _tapEntryEditButtonInCard(tester, entryCard);
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(firstTargetActivity.name).last);
-    await tester.pumpAndSettle();
+    await _chooseEntryActivity(tester, firstTargetActivity.name);
     await _tapAndPumpUntil(
       tester,
       find.widgetWithText(FilledButton, '保存').last,
@@ -862,10 +1000,7 @@ void main() {
 
     expect(find.textContaining('重叠'), findsOneWidget);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(secondTargetActivity.name).last);
-    await tester.pumpAndSettle();
+    await _chooseEntryActivity(tester, secondTargetActivity.name);
     expect(find.textContaining('重叠'), findsNothing);
 
     await _tapAndPumpUntil(
@@ -932,10 +1067,7 @@ void main() {
     expect(find.text('请选择一个有效事项。'), findsOneWidget);
     expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsOneWidget);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(targetActivity.name).last);
-    await tester.pumpAndSettle();
+    await _chooseEntryActivity(tester, targetActivity.name);
     await _tapAndPumpUntilGone(
       tester,
       find.widgetWithText(FilledButton, '保存').last,
@@ -961,8 +1093,18 @@ void main() {
     await _pumpTimeline(tester, state, width: 920);
     final activity = state.activityById(state.dayEntries.single.activityId)!;
     await _tapEntryEditButton(tester, title: activity.name);
-    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
-    await tester.pump();
+    await tester.runAsync(
+      () async => tester.tap(find.widgetWithText(FilledButton, '保存').last),
+    );
+    for (var attempt = 0; attempt < 20; attempt += 1) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+      if (state.overlapRequested) {
+        break;
+      }
+    }
 
     expect(state.overlapRequested, isTrue);
 
@@ -992,8 +1134,18 @@ void main() {
       await _tapEntryEditButton(tester, title: activity.name);
       await tester.enterText(find.widgetWithText(TextField, '备注'), '关闭时仍在保存');
       await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, '保存').last);
-      await tester.pump();
+      await tester.runAsync(
+        () async => tester.tap(find.widgetWithText(FilledButton, '保存').last),
+      );
+      for (var attempt = 0; attempt < 20; attempt += 1) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        if (state.overlapRequested) {
+          break;
+        }
+      }
 
       expect(state.overlapRequested, isTrue);
 

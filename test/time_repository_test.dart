@@ -258,6 +258,249 @@ void main() {
     expect(logs.map((log) => log.actionType), contains('manual'));
   });
 
+  test('manual entry cuts an overlapping existing entry into edge segments',
+      () async {
+    final repository = await buildRepository();
+    final activities = (await repository.activities())
+        .where((activity) => !activity.isUnassigned)
+        .toList();
+    final day = DateTime(2026, 1, 1);
+
+    final existing = await repository.createManualEntry(
+      activityId: activities[0].id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 12),
+      note: 'existing',
+    );
+    final inserted = await repository.createManualEntry(
+      activityId: activities[1].id,
+      startAt: DateTime(2026, 1, 1, 10),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: 'inserted',
+    );
+
+    final entries = await repository.entriesForDay(day);
+
+    expect(entries, hasLength(3));
+    expect(entries[0].id, existing.id);
+    expect(entries[0].activityId, activities[0].id);
+    expect(entries[0].startAt, DateTime(2026, 1, 1, 9));
+    expect(entries[0].endAt, DateTime(2026, 1, 1, 10));
+    expect(entries[0].note, 'existing');
+    expect(entries[1].id, inserted.id);
+    expect(entries[1].activityId, activities[1].id);
+    expect(entries[1].startAt, DateTime(2026, 1, 1, 10));
+    expect(entries[1].endAt, DateTime(2026, 1, 1, 11));
+    expect(entries[1].note, 'inserted');
+    expect(entries[2].id, isNot(existing.id));
+    expect(entries[2].activityId, activities[0].id);
+    expect(entries[2].startAt, DateTime(2026, 1, 1, 11));
+    expect(entries[2].endAt, DateTime(2026, 1, 1, 12));
+    expect(entries[2].note, 'existing');
+  });
+
+  test('manual entry soft-deletes existing entries it fully covers', () async {
+    final repository = await buildRepository();
+    final activities = (await repository.activities())
+        .where((activity) => !activity.isUnassigned)
+        .toList();
+    final day = DateTime(2026, 1, 1);
+
+    final first = await repository.createManualEntry(
+      activityId: activities[0].id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: 'first',
+    );
+    final second = await repository.createManualEntry(
+      activityId: activities[0].id,
+      startAt: DateTime(2026, 1, 1, 10),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: 'second',
+    );
+    final inserted = await repository.createManualEntry(
+      activityId: activities[1].id,
+      startAt: DateTime(2026, 1, 1, 8),
+      endAt: DateTime(2026, 1, 1, 12),
+      note: 'inserted',
+    );
+
+    final dayEntries = await repository.entriesForDay(day);
+    final allEntries = await repository.allEntries();
+    final deletedIds = allEntries
+        .where((entry) => entry.isDeleted)
+        .map((entry) => entry.id)
+        .toSet();
+
+    expect(dayEntries, hasLength(1));
+    expect(dayEntries.single.id, inserted.id);
+    expect(dayEntries.single.startAt, DateTime(2026, 1, 1, 8));
+    expect(dayEntries.single.endAt, DateTime(2026, 1, 1, 12));
+    expect(deletedIds, containsAll([first.id, second.id]));
+  });
+
+  test('cross-day manual entry cuts overlaps on both local days', () async {
+    final repository = await buildRepository();
+    final activities = (await repository.activities())
+        .where((activity) => !activity.isUnassigned)
+        .toList();
+
+    final existing = await repository.createManualEntry(
+      activityId: activities[0].id,
+      startAt: DateTime(2026, 1, 1, 23),
+      endAt: DateTime(2026, 1, 2, 2),
+      note: 'existing',
+    );
+    final inserted = await repository.createManualEntry(
+      activityId: activities[1].id,
+      startAt: DateTime(2026, 1, 1, 23, 30),
+      endAt: DateTime(2026, 1, 2, 0, 30),
+      note: 'inserted',
+    );
+
+    final firstDay = await repository.entriesForDay(DateTime(2026, 1, 1));
+    final secondDay = await repository.entriesForDay(DateTime(2026, 1, 2));
+
+    expect(firstDay, hasLength(2));
+    expect(firstDay[0].id, existing.id);
+    expect(firstDay[0].activityId, activities[0].id);
+    expect(firstDay[0].startAt, DateTime(2026, 1, 1, 23));
+    expect(firstDay[0].endAt, DateTime(2026, 1, 1, 23, 30));
+    expect(firstDay[1].id, inserted.id);
+    expect(firstDay[1].activityId, activities[1].id);
+    expect(firstDay[1].startAt, DateTime(2026, 1, 1, 23, 30));
+    expect(firstDay[1].endAt, DateTime(2026, 1, 2));
+
+    expect(secondDay, hasLength(2));
+    expect(secondDay[0].activityId, activities[1].id);
+    expect(secondDay[0].startAt, DateTime(2026, 1, 2));
+    expect(secondDay[0].endAt, DateTime(2026, 1, 2, 0, 30));
+    expect(secondDay[1].activityId, activities[0].id);
+    expect(secondDay[1].startAt, DateTime(2026, 1, 2, 0, 30));
+    expect(secondDay[1].endAt, DateTime(2026, 1, 2, 2));
+    expect(secondDay[1].note, 'existing');
+  });
+
+  test('manual entry cuts an overlapping running entry and resumes it',
+      () async {
+    final repository = await buildRepository();
+    final activities = (await repository.activities())
+        .where((activity) => !activity.isUnassigned)
+        .toList();
+    final day = DateTime(2026, 1, 1);
+
+    final running = await repository.switchToActivity(
+      activities[0].id,
+      at: DateTime(2026, 1, 1, 9),
+    );
+    final inserted = await repository.createManualEntry(
+      activityId: activities[1].id,
+      startAt: DateTime(2026, 1, 1, 10),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: 'inserted',
+    );
+
+    final entries = await repository.entriesForDay(day);
+    final runningAfter = await repository.runningEntry();
+
+    expect(entries, hasLength(3));
+    expect(entries[0].id, running.id);
+    expect(entries[0].activityId, activities[0].id);
+    expect(entries[0].startAt, DateTime(2026, 1, 1, 9));
+    expect(entries[0].endAt, DateTime(2026, 1, 1, 10));
+    expect(entries[1].id, inserted.id);
+    expect(entries[1].activityId, activities[1].id);
+    expect(entries[1].startAt, DateTime(2026, 1, 1, 10));
+    expect(entries[1].endAt, DateTime(2026, 1, 1, 11));
+    expect(runningAfter, isNotNull);
+    expect(runningAfter?.id, isNot(running.id));
+    expect(runningAfter?.activityId, activities[0].id);
+    expect(runningAfter?.startAt, DateTime(2026, 1, 1, 11));
+    expect(runningAfter?.endAt, isNull);
+    expect(entries[2].id, runningAfter?.id);
+  });
+
+  test('running replacement deletes later covered entries', () async {
+    final repository = await buildRepository();
+    final activities = (await repository.activities())
+        .where((activity) => !activity.isUnassigned)
+        .toList();
+    final day = DateTime(2026, 1, 1);
+
+    final extended = await repository.createManualEntry(
+      activityId: activities[0].id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: '',
+    );
+    final covered = await repository.createManualEntry(
+      activityId: activities[1].id,
+      startAt: DateTime(2026, 1, 1, 10),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: '',
+    );
+    final laterCovered = await repository.createManualEntry(
+      activityId: activities[0].id,
+      startAt: DateTime(2026, 1, 1, 11),
+      endAt: DateTime(2026, 1, 1, 12),
+      note: '',
+    );
+
+    await repository.saveEntry(
+      extended.copyWith(clearEndAt: true, updatedAt: DateTime.now()),
+      cutOverlaps: true,
+    );
+
+    final entries = await repository.entriesForDay(day);
+    final running = await repository.runningEntry();
+    final allEntries = await repository.allEntries();
+    final coveredAfter =
+        allEntries.singleWhere((entry) => entry.id == covered.id);
+    final laterCoveredAfter =
+        allEntries.singleWhere((entry) => entry.id == laterCovered.id);
+
+    expect(entries, hasLength(1));
+    expect(entries.single.id, extended.id);
+    expect(entries.single.startAt, DateTime(2026, 1, 1, 9));
+    expect(entries.single.endAt, isNull);
+    expect(running?.id, extended.id);
+    expect(coveredAfter.isDeleted, isTrue);
+    expect(laterCoveredAfter.isDeleted, isTrue);
+  });
+
+  test('splitEntry divides a closed entry at the selected time', () async {
+    final repository = await buildRepository();
+    final activity = (await repository.activities())
+        .firstWhere((activity) => !activity.isUnassigned);
+    final day = DateTime(2026, 1, 1);
+
+    final entry = await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: 'deep work',
+    );
+
+    await repository.splitEntry(
+      entryId: entry.id,
+      splitAt: DateTime(2026, 1, 1, 10),
+    );
+
+    final entries = await repository.entriesForDay(day);
+    final logs = await repository.allActionLogs();
+
+    expect(entries, hasLength(2));
+    expect(entries[0].id, entry.id);
+    expect(entries[0].startAt, DateTime(2026, 1, 1, 9));
+    expect(entries[0].endAt, DateTime(2026, 1, 1, 10));
+    expect(entries[0].note, 'deep work');
+    expect(entries[1].id, isNot(entry.id));
+    expect(entries[1].startAt, DateTime(2026, 1, 1, 10));
+    expect(entries[1].endAt, DateTime(2026, 1, 1, 11));
+    expect(entries[1].note, 'deep work');
+    expect(logs.map((log) => log.actionType), contains('split'));
+  });
+
   test('entries crossing midnight are split into day-local rows', () async {
     final repository = await buildRepository();
     final activity = (await repository.activities()).first;
@@ -403,6 +646,30 @@ void main() {
     expect(oneOff.isOneOff, isTrue);
     expect(oneOff.isDeleted, isTrue);
     expect(entry.activityNameSnapshot, '临时电话');
+  });
+
+  test('soft-deleted one-off activities can be suggested and restored',
+      () async {
+    final repository = await buildRepository();
+    final activity = await repository.createActivity(
+      name: '临时电话',
+      color: 0xffdb2777,
+      isOneOff: true,
+    );
+
+    await repository.switchToActivity(activity.id, at: DateTime(2026, 1, 1, 9));
+    await repository.stopRunning(at: DateTime(2026, 1, 1, 9, 20));
+
+    final suggestions = await repository.oneOffActivities();
+    final restored = await repository.restoreOneOffActivity(
+      suggestions.singleWhere((item) => item.id == activity.id),
+    );
+    final visibleActivities = await repository.activities();
+
+    expect(suggestions.map((item) => item.id), contains(activity.id));
+    expect(restored.isOneOff, isTrue);
+    expect(restored.isDeleted, isFalse);
+    expect(visibleActivities.map((item) => item.id), contains(activity.id));
   });
 
   test('running entry is rolled over at local midnight', () async {

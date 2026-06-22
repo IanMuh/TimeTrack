@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -11,6 +12,7 @@ import '../domain/action_log.dart';
 import '../domain/activity.dart';
 import '../domain/time_entry.dart';
 import 'adaptive_layout.dart';
+import 'activity_colors.dart';
 import 'home_page.dart';
 import 'ui_components.dart';
 
@@ -1520,6 +1522,7 @@ class ActionLogCard extends StatelessWidget {
       'edit' => Icons.edit_outlined,
       'delete' => Icons.delete_outline,
       'merge' => Icons.merge_type_outlined,
+      'split' => Icons.call_split_outlined,
       'activity_delete' => Icons.label_off_outlined,
       _ => Icons.bolt_outlined,
     };
@@ -1531,22 +1534,49 @@ Future<void> showEntryEditor(
   AppState state, {
   TimeEntry? entry,
 }) async {
-  if (state.activities.isEmpty) {
-    return;
-  }
-  final selectedDay = state.selectedDay;
-  final editingGeneratedGap = entry?.deviceId == 'unassigned-gap';
   var activities = [
     for (final activity in state.activities)
-      if (!activity.isUnassigned) activity,
+      if (!activity.isUnassigned && !activity.isOneOff) activity,
   ];
+  var oneOffActivities = <Activity>[];
+  final selectedDay = state.selectedDay;
+  final editingGeneratedGap = entry?.deviceId == 'unassigned-gap';
+  var loadedActivityChoices = false;
+  Activity? selectedActivity;
+  String activityQuery = '';
+  var activityQueryAllowsCreate = false;
+
+  Activity? findActivityIn(Iterable<Activity> source, String? id) {
+    if (id == null) {
+      return null;
+    }
+    for (final item in source) {
+      if (item.id == id) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  Activity? findActivity(String? id) {
+    return findActivityIn(activities, id) ??
+        findActivityIn(oneOffActivities, id) ??
+        (selectedActivity?.id == id ? selectedActivity : null);
+  }
+
   String? selectedActivityId;
   if (entry == null) {
-    selectedActivityId = activities.isEmpty ? null : activities.first.id;
+    selectedActivity = activities.isEmpty ? null : activities.first;
+    selectedActivityId = selectedActivity?.id;
   } else {
     final selected = state.activityById(entry.activityId);
-    selectedActivityId =
-        selected == null || selected.isUnassigned ? null : selected.id;
+    if (selected != null && !selected.isUnassigned) {
+      selectedActivity = selected;
+      selectedActivityId = selected.id;
+      activityQuery = selected.name;
+    } else if (selected == null && entry.activityNameSnapshot.isNotEmpty) {
+      activityQuery = entry.activityNameSnapshot;
+    }
   }
   var start = entry?.startAt ?? _defaultEntryStart(selectedDay, state.now);
   var end = entry?.endAt ?? _defaultEntryEnd(start, selectedDay, state.now);
@@ -1596,33 +1626,34 @@ Future<void> showEntryEditor(
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
-          Activity? findActivity(String? id) {
-            for (final item in activities) {
-              if (item.id == id) {
-                return item;
-              }
+          Future<void> refreshActivities([
+            String? preferredActivityId,
+          ]) async {
+            final refreshed = await state.entryActivityChoices();
+            final refreshedOneOffs = await state.oneOffActivitySuggestions();
+            if (!context.mounted) {
+              return;
             }
-            return null;
-          }
-
-          Activity activityForSelector() {
-            return findActivity(selectedActivityId) ??
-                (activities.isNotEmpty
-                    ? activities.first
-                    : state.unassignedActivity ?? state.activities.first);
-          }
-
-          void refreshActivities([String? preferredActivityId]) {
-            activities = [
-              for (final activity in state.activities)
-                if (!activity.isUnassigned) activity,
-            ];
             final preferred = preferredActivityId ?? selectedActivityId;
-            if (findActivity(preferred) != null) {
-              selectedActivityId = preferred!;
-            } else {
-              selectedActivityId = null;
-            }
+            final preferredActivity = findActivityIn(refreshed, preferred) ??
+                findActivityIn(refreshedOneOffs, preferred);
+            setState(() {
+              activities = refreshed;
+              oneOffActivities = refreshedOneOffs;
+              selectedActivity = preferredActivity;
+              selectedActivityId = preferredActivity?.id;
+              activityQuery = preferredActivity?.name ?? activityQuery;
+              activityQueryAllowsCreate = false;
+            });
+          }
+
+          if (!loadedActivityChoices) {
+            loadedActivityChoices = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                unawaited(refreshActivities());
+              }
+            });
           }
 
           return AlertDialog(
@@ -1634,39 +1665,35 @@ Future<void> showEntryEditor(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _EntryActivitySelector(
-                      activity: activityForSelector(),
                       activities: activities,
-                      selectedActivityId: findActivity(selectedActivityId)?.id,
-                      onActivityChanged: (value) {
-                        final selected =
-                            value == null ? null : findActivity(value);
-                        if (selected != null) {
-                          setState(() {
-                            selectedActivityId = selected.id;
-                            formError = null;
-                          });
-                        }
+                      oneOffActivities: oneOffActivities,
+                      selectedActivityId: selectedActivityId,
+                      initialQuery: activityQuery,
+                      onQueryChanged: (value) {
+                        setState(() {
+                          activityQuery = value;
+                          activityQueryAllowsCreate = true;
+                          selectedActivity = null;
+                          selectedActivityId = null;
+                          formError = null;
+                        });
                       },
-                      onCreateActivity: () async {
-                        final created = await showActivityEditorDialog(
-                          context,
-                          state,
-                        );
-                        if (context.mounted) {
-                          setState(() {
-                            refreshActivities(created?.id);
-                            if (created != null) {
-                              selectedActivityId = created.id;
-                            }
-                            formError = null;
-                          });
-                        }
+                      onActivitySelected: (activity) {
+                        setState(() {
+                          selectedActivity = activity;
+                          selectedActivityId = activity.id;
+                          activityQuery = activity.name;
+                          activityQueryAllowsCreate = false;
+                          formError = null;
+                        });
                       },
-                      onEditActivity: selectedActivityId == null
+                      onEditActivity: selectedActivityId == null ||
+                              selectedActivity == null ||
+                              selectedActivity!.isOneOff
                           ? null
                           : () async {
                               final selected = findActivity(selectedActivityId);
-                              if (selected == null) {
+                              if (selected == null || selected.isOneOff) {
                                 setState(
                                   () => formError = '请选择一个有效事项。',
                                 );
@@ -1678,13 +1705,8 @@ Future<void> showEntryEditor(
                                 activity: selected,
                               );
                               if (context.mounted) {
-                                setState(() {
-                                  refreshActivities(updated?.id);
-                                  if (updated != null) {
-                                    selectedActivityId = updated.id;
-                                  }
-                                  formError = null;
-                                });
+                                await refreshActivities(updated?.id);
+                                setState(() => formError = null);
                               }
                             },
                     ),
@@ -1746,10 +1768,10 @@ Future<void> showEntryEditor(
                         !editingGeneratedGap &&
                         !entry.isRunning) ...[
                       const SizedBox(height: 12),
-                      _EntryMergeActions(
+                      _EntryEditActions(
                         state: state,
                         entry: entry,
-                        onMerged: () {
+                        onChanged: () {
                           if (context.mounted) {
                             Navigator.pop(context);
                           }
@@ -1790,11 +1812,88 @@ Future<void> showEntryEditor(
               ),
               FilledButton.icon(
                 onPressed: () async {
-                  refreshActivities();
-                  final selectedActivity = findActivity(selectedActivityId);
-                  if (selectedActivity == null) {
+                  final refreshed = await state.entryActivityChoices();
+                  final refreshedOneOffs =
+                      await state.oneOffActivitySuggestions();
+                  if (!context.mounted) {
+                    return;
+                  }
+                  activities = refreshed;
+                  oneOffActivities = refreshedOneOffs;
+                  Activity? selectedForSave =
+                      findActivityIn(refreshed, selectedActivityId) ??
+                          findActivityIn(refreshedOneOffs, selectedActivityId);
+                  final trimmedActivityQuery = activityQuery.trim();
+                  if (selectedForSave == null &&
+                      trimmedActivityQuery.isNotEmpty) {
+                    selectedForSave = _exactActivityMatch(
+                      refreshed,
+                      refreshedOneOffs,
+                      trimmedActivityQuery,
+                    );
+                  }
+                  if (selectedForSave == null && !activityQueryAllowsCreate) {
                     setState(() => formError = '请选择一个有效事项。');
                     return;
+                  }
+                  if (selectedForSave == null &&
+                      trimmedActivityQuery.isNotEmpty) {
+                    final matches = _entryActivityMatches(
+                      refreshed,
+                      refreshedOneOffs,
+                      trimmedActivityQuery,
+                    );
+                    if (matches.isNotEmpty) {
+                      setState(() => formError = '请选择一个已有事项，或输入新的名称。');
+                      return;
+                    }
+                    final created = await _showCreateEntryActivityDialog(
+                      context,
+                      state,
+                      initialName: trimmedActivityQuery,
+                    );
+                    if (!context.mounted || created == null) {
+                      return;
+                    }
+                    selectedForSave = created;
+                    setState(() {
+                      if (created.isOneOff) {
+                        oneOffActivities = [created, ...oneOffActivities];
+                      } else {
+                        activities = [created, ...activities];
+                      }
+                      selectedActivity = created;
+                      selectedActivityId = created.id;
+                      activityQuery = created.name;
+                      activityQueryAllowsCreate = false;
+                      formError = null;
+                    });
+                  }
+                  if (selectedForSave == null) {
+                    setState(() => formError = '请选择一个有效事项。');
+                    return;
+                  }
+                  if (selectedForSave.isOneOff && selectedForSave.isDeleted) {
+                    final restoredActivity = await state.createEntryActivity(
+                      selectedForSave.name,
+                      selectedForSave.color,
+                      isOneOff: true,
+                      reuseActivity: selectedForSave,
+                    );
+                    if (!context.mounted) {
+                      return;
+                    }
+                    selectedForSave = restoredActivity;
+                    setState(() {
+                      selectedActivity = restoredActivity;
+                      selectedActivityId = restoredActivity.id;
+                      activityQuery = restoredActivity.name;
+                      oneOffActivities = [
+                        restoredActivity,
+                        for (final activity in oneOffActivities)
+                          if (activity.id != restoredActivity.id) activity,
+                      ];
+                    });
                   }
                   if (keepRunning && start.isAfter(state.now)) {
                     setState(() => formError = '进行中的记录不能从未来开始。');
@@ -1808,7 +1907,7 @@ Future<void> showEntryEditor(
                   final next = TimeEntry(
                     id: entry?.id ?? 'preview',
                     userId: entry?.userId,
-                    activityId: selectedActivity.id,
+                    activityId: selectedForSave.id,
                     startAt: start,
                     endAt: keepRunning ? null : end,
                     note: trimmedNote,
@@ -1822,13 +1921,13 @@ Future<void> showEntryEditor(
                   }
                   if (overlaps.isNotEmpty && formError == null) {
                     setState(() {
-                      formError = '这个时间段和已有记录重叠。再次点击保存将保留重叠并稍后手动修正。';
+                      formError = '这个时间段和已有记录重叠。再次点击保存将自动切割已有记录。';
                     });
                     return;
                   }
                   if (entry == null || editingGeneratedGap) {
                     await state.createManualEntry(
-                      activityId: selectedActivity.id,
+                      activityId: selectedForSave.id,
                       startAt: start,
                       endAt: end,
                       note: trimmedNote,
@@ -1851,19 +1950,20 @@ Future<void> showEntryEditor(
   );
 }
 
-class _EntryMergeActions extends StatelessWidget {
-  const _EntryMergeActions({
+class _EntryEditActions extends StatelessWidget {
+  const _EntryEditActions({
     required this.state,
     required this.entry,
-    required this.onMerged,
+    required this.onChanged,
   });
 
   final AppState state;
   final TimeEntry entry;
-  final VoidCallback onMerged;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final endAt = entry.endAt;
     return Wrap(
       spacing: 10,
       runSpacing: 8,
@@ -1872,15 +1972,69 @@ class _EntryMergeActions extends StatelessWidget {
           state: state,
           entry: entry,
           direction: EntryMergeDirection.previous,
-          onMerged: onMerged,
+          onMerged: onChanged,
         ),
         _EntryMergeButton(
           state: state,
           entry: entry,
           direction: EntryMergeDirection.next,
-          onMerged: onMerged,
+          onMerged: onChanged,
         ),
+        if (endAt != null && entry.startAt.isBefore(endAt))
+          _EntrySplitButton(
+            state: state,
+            entry: entry,
+            onSplit: onChanged,
+          ),
+        if (endAt != null && endAt.isBefore(state.now))
+          _EntryExtendToNowButton(
+            state: state,
+            entry: entry,
+            onExtended: onChanged,
+          ),
       ],
+    );
+  }
+}
+
+class _EntrySplitButton extends StatelessWidget {
+  const _EntrySplitButton({
+    required this.state,
+    required this.entry,
+    required this.onSplit,
+  });
+
+  final AppState state;
+  final TimeEntry entry;
+  final VoidCallback onSplit;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => _splitEntry(context, state, entry, onSplit),
+      icon: const Icon(Icons.call_split_outlined),
+      label: const Text('切割'),
+    );
+  }
+}
+
+class _EntryExtendToNowButton extends StatelessWidget {
+  const _EntryExtendToNowButton({
+    required this.state,
+    required this.entry,
+    required this.onExtended,
+  });
+
+  final AppState state;
+  final TimeEntry entry;
+  final VoidCallback onExtended;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => _extendEntryToNow(context, state, entry, onExtended),
+      icon: const Icon(Icons.update),
+      label: const Text('延续到现在'),
     );
   }
 }
@@ -1978,80 +2132,461 @@ Future<void> _mergeEntryWithNeighbor(
   }
 }
 
-class _EntryActivitySelector extends StatelessWidget {
+Future<void> _splitEntry(
+  BuildContext context,
+  AppState state,
+  TimeEntry entry,
+  VoidCallback onSplit,
+) async {
+  final splitAt = await _showSplitEntryDialog(context, entry);
+  if (splitAt == null || !context.mounted) {
+    return;
+  }
+  await state.splitEntry(entryId: entry.id, splitAt: splitAt);
+  if (context.mounted) {
+    onSplit();
+  }
+}
+
+Future<DateTime?> _showSplitEntryDialog(
+  BuildContext context,
+  TimeEntry entry,
+) async {
+  final endAt = entry.endAt;
+  if (endAt == null || !entry.startAt.isBefore(endAt)) {
+    return null;
+  }
+  final midpoint = entry.startAt.add(
+    Duration(milliseconds: endAt.difference(entry.startAt).inMilliseconds ~/ 2),
+  );
+  var splitAt = midpoint;
+  String? error;
+
+  Future<void> pickSplitAt(StateSetter setState) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: splitAt,
+      firstDate: entry.startAt,
+      lastDate: endAt,
+    );
+    if (date == null || !context.mounted) {
+      return;
+    }
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(splitAt),
+    );
+    if (time == null) {
+      return;
+    }
+    final next = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    setState(() {
+      splitAt = next;
+      error = null;
+    });
+  }
+
+  return showDialog<DateTime>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('切割时间段'),
+            content: SizedBox(
+              width: _dialogContentWidth(context, maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.call_split_outlined),
+                    title: const Text('切割点'),
+                    subtitle: Text(_formatDateTime(splitAt)),
+                    onTap: () => pickSplitAt(setState),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              FilledButton.icon(
+                onPressed: () {
+                  if (!entry.startAt.isBefore(splitAt) ||
+                      !splitAt.isBefore(endAt)) {
+                    setState(() => error = '切割点必须在开始和结束之间。');
+                    return;
+                  }
+                  Navigator.pop(context, splitAt);
+                },
+                icon: const Icon(Icons.call_split_outlined),
+                label: const Text('切割'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+Future<void> _extendEntryToNow(
+  BuildContext context,
+  AppState state,
+  TimeEntry entry,
+  VoidCallback onExtended,
+) async {
+  if (!entry.startAt.isBefore(state.now)) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(content: Text('开始时间晚于当前时间，无法延续')),
+    );
+    return;
+  }
+  await state.extendEntryToNow(entry);
+  if (context.mounted) {
+    onExtended();
+  }
+}
+
+List<Activity> _entryActivityMatches(
+  List<Activity> activities,
+  List<Activity> oneOffActivities,
+  String query,
+) {
+  final normalized = query.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return activities;
+  }
+  final matches = <Activity>[];
+  final seenIds = <String>{};
+  for (final activity in [...activities, ...oneOffActivities]) {
+    if (activity.name.toLowerCase().contains(normalized) &&
+        seenIds.add(activity.id)) {
+      matches.add(activity);
+    }
+  }
+  return matches;
+}
+
+Activity? _exactActivityMatch(
+  List<Activity> activities,
+  List<Activity> oneOffActivities,
+  String query,
+) {
+  final normalized = query.trim().toLowerCase();
+  for (final activity in [...activities, ...oneOffActivities]) {
+    if (activity.name.trim().toLowerCase() == normalized) {
+      return activity;
+    }
+  }
+  return null;
+}
+
+Future<Activity?> _showCreateEntryActivityDialog(
+  BuildContext context,
+  AppState state, {
+  required String initialName,
+}) async {
+  final controller = TextEditingController(text: initialName);
+  var selectedColor =
+      nextActivityColor(state.activities.map((activity) => activity.color));
+  var isOneOff = false;
+  Activity? saved;
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('创建事项'),
+            content: SizedBox(
+              width: _dialogContentWidth(context, maxWidth: 420),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        labelText: '名称',
+                        prefixIcon: Icon(Icons.label_outline),
+                      ),
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 16),
+                    SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(
+                          value: false,
+                          icon: Icon(Icons.bookmark_border),
+                          label: Text('持久'),
+                        ),
+                        ButtonSegment(
+                          value: true,
+                          icon: Icon(Icons.bolt_outlined),
+                          label: Text('单次'),
+                        ),
+                      ],
+                      selected: {isOneOff},
+                      onSelectionChanged: (values) {
+                        setState(() => isOneOff = values.single);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    ActivityColorPicker(
+                      selectedColor: selectedColor,
+                      onColorChanged: (color) =>
+                          setState(() => selectedColor = color),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  final name = controller.text.trim();
+                  if (name.isEmpty) {
+                    return;
+                  }
+                  saved = await state.createEntryActivity(
+                    name,
+                    selectedColor,
+                    isOneOff: isOneOff,
+                  );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('创建'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+  return saved;
+}
+
+class _EntryActivitySelector extends StatefulWidget {
   const _EntryActivitySelector({
-    required this.activity,
     required this.activities,
+    required this.oneOffActivities,
     required this.selectedActivityId,
-    required this.onActivityChanged,
-    required this.onCreateActivity,
+    required this.initialQuery,
+    required this.onQueryChanged,
+    required this.onActivitySelected,
     required this.onEditActivity,
   });
 
-  final Activity activity;
   final List<Activity> activities;
+  final List<Activity> oneOffActivities;
   final String? selectedActivityId;
-  final ValueChanged<String?> onActivityChanged;
-  final VoidCallback onCreateActivity;
+  final String initialQuery;
+  final ValueChanged<String> onQueryChanged;
+  final ValueChanged<Activity> onActivitySelected;
   final VoidCallback? onEditActivity;
+
+  @override
+  State<_EntryActivitySelector> createState() => _EntryActivitySelectorState();
+}
+
+class _EntryActivitySelectorState extends State<_EntryActivitySelector> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+  }
+
+  @override
+  void didUpdateWidget(_EntryActivitySelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialQuery != widget.initialQuery &&
+        _controller.text != widget.initialQuery) {
+      _controller.text = widget.initialQuery;
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final compact = _dialogContentWidth(context, maxWidth: 460) < 340;
-    final dropdown = DropdownButtonFormField<String>(
-      key: ValueKey(activity.id),
-      initialValue: selectedActivityId,
+    final query = _controller.text.trim();
+    final visibleActivities = _entryActivityMatches(
+      widget.activities,
+      widget.oneOffActivities,
+      query,
+    );
+    final field = TextField(
+      key: const ValueKey('entry-activity-search-field'),
+      controller: _controller,
       decoration: const InputDecoration(
         labelText: '事项',
-        prefixIcon: Icon(Icons.label_outline),
+        prefixIcon: Icon(Icons.search),
       ),
-      items: [
-        for (final item in activities)
-          DropdownMenuItem(
-            value: item.id,
-            child: Text(
-              item.name,
-              overflow: TextOverflow.ellipsis,
+      onChanged: widget.onQueryChanged,
+    );
+    final actions = IconButton(
+      tooltip: '编辑当前事项',
+      onPressed: widget.onEditActivity,
+      icon: const Icon(Icons.edit_outlined),
+    );
+    final inputRow = compact
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              field,
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: actions,
+              ),
+            ],
+          )
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: field),
+              const SizedBox(width: 8),
+              actions,
+            ],
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        inputRow,
+        const SizedBox(height: 10),
+        if (visibleActivities.isEmpty)
+          Text(
+            '没有匹配事项',
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        else
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final activity in visibleActivities)
+                  _EntryActivityChoiceChip(
+                    activity: activity,
+                    selected: widget.selectedActivityId == activity.id,
+                    onSelected: () {
+                      _controller.text = activity.name;
+                      _controller.selection = TextSelection.collapsed(
+                        offset: activity.name.length,
+                      );
+                      widget.onQueryChanged(activity.name);
+                      widget.onActivitySelected(activity);
+                    },
+                  ),
+              ],
             ),
           ),
       ],
-      onChanged: onActivityChanged,
     );
-    final actions = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton.filledTonal(
-          tooltip: '新增事项',
-          onPressed: onCreateActivity,
-          icon: const Icon(Icons.add),
-        ),
-        IconButton(
-          tooltip: '编辑当前事项',
-          onPressed: onEditActivity,
-          icon: const Icon(Icons.edit_outlined),
-        ),
-      ],
-    );
-    if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  }
+}
+
+class _EntryActivityChoiceChip extends StatelessWidget {
+  const _EntryActivityChoiceChip({
+    required this.activity,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Activity activity;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      avatar: Icon(
+        activity.isOneOff ? Icons.bolt_outlined : Icons.label_outline,
+        size: 18,
+        color: Color(activity.color),
+      ),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          dropdown,
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: actions,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: Text(
+              activity.name,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          if (activity.isOneOff) ...[
+            const SizedBox(width: 6),
+            const _OneOffTag(),
+          ],
         ],
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: dropdown),
-        const SizedBox(width: 8),
-        actions,
-      ],
+      ),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+    );
+  }
+}
+
+class _OneOffTag extends StatelessWidget {
+  const _OneOffTag();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '单次',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSecondaryContainer,
+            ),
+      ),
     );
   }
 }
