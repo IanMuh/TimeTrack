@@ -254,6 +254,29 @@ class AppState extends ChangeNotifier {
     await _repository.saveEntry(
       entry.copyWith(updatedAt: DateTime.now()),
       logEdit: true,
+      cutOverlaps: true,
+    );
+    await refresh();
+    await sync();
+  }
+
+  Future<void> splitEntry({
+    required String entryId,
+    required DateTime splitAt,
+  }) async {
+    await _repository.splitEntry(entryId: entryId, splitAt: splitAt);
+    await refresh();
+    await sync();
+  }
+
+  Future<void> extendEntryToNow(TimeEntry entry) async {
+    if (entry.isRunning || !entry.startAt.isBefore(now)) {
+      return;
+    }
+    await _repository.saveEntry(
+      entry.copyWith(clearEndAt: true, updatedAt: DateTime.now()),
+      logEdit: true,
+      cutOverlaps: true,
     );
     await refresh();
     await sync();
@@ -281,6 +304,16 @@ class AppState extends ChangeNotifier {
     await sync();
   }
 
+  Future<List<Activity>> entryActivityChoices() async {
+    final choices = <String, Activity>{};
+    for (final activity in activities) {
+      if (!activity.isUnassigned && !activity.isOneOff) {
+        choices[activity.id] = activity;
+      }
+    }
+    return choices.values.toList();
+  }
+
   Future<Activity> createActivity(String name, int color) async {
     final activity = await _repository.createActivity(name: name, color: color);
     await refresh();
@@ -288,13 +321,49 @@ class AppState extends ChangeNotifier {
     return activity;
   }
 
-  Future<Activity> createOneOffActivity(String name, int color) async {
-    final activity = await _repository.createActivity(
-      name: name,
-      color: color,
-      isOneOff: true,
-    );
+  Future<List<Activity>> oneOffActivitySuggestions() {
+    return _safeOneOffActivities();
+  }
+
+  Future<List<Activity>> _safeOneOffActivities() async {
+    try {
+      return await _repository.oneOffActivities();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<Activity> createOneOffActivity(
+    String name,
+    int color, {
+    Activity? reuseActivity,
+  }) async {
+    final activity = reuseActivity == null
+        ? await _repository.createActivity(
+            name: name,
+            color: color,
+            isOneOff: true,
+          )
+        : await _repository.restoreOneOffActivity(reuseActivity);
     await _repository.switchToActivity(activity.id);
+    await refresh();
+    await sync();
+    return activity;
+  }
+
+  Future<Activity> createEntryActivity(
+    String name,
+    int color, {
+    required bool isOneOff,
+    Activity? reuseActivity,
+  }) async {
+    final activity = reuseActivity == null
+        ? await _repository.createActivity(
+            name: name,
+            color: color,
+            isOneOff: isOneOff,
+          )
+        : await _repository.restoreOneOffActivity(reuseActivity);
     await refresh();
     await sync();
     return activity;

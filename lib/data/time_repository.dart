@@ -29,6 +29,13 @@ class EntryMergeCandidate {
   bool get requiresConfirmation => neighborDuration > threshold;
 }
 
+class _EntryInterval {
+  const _EntryInterval(this.startAt, this.endAt);
+
+  final DateTime startAt;
+  final DateTime? endAt;
+}
+
 class TimeRepository {
   TimeRepository({
     required LocalDatabase database,
@@ -113,6 +120,20 @@ class TimeRepository {
       'activities',
       where: includeDeleted ? null : 'is_deleted = 0',
       orderBy: 'is_favorite desc, name asc',
+    );
+    return rows.map(Activity.fromMap).toList();
+  }
+
+  Future<List<Activity>> oneOffActivities({
+    bool includeDeleted = true,
+  }) async {
+    final db = await _database.db;
+    final rows = await db.query(
+      'activities',
+      where: includeDeleted
+          ? 'is_one_off = 1'
+          : 'is_one_off = 1 and is_deleted = 0',
+      orderBy: 'updated_at desc, name asc',
     );
     return rows.map(Activity.fromMap).toList();
   }
@@ -256,6 +277,17 @@ class TimeRepository {
     );
     await upsertActivity(updated);
     return updated;
+  }
+
+  Future<Activity> restoreOneOffActivity(Activity activity) async {
+    final restored = activity.copyWith(
+      isDeleted: false,
+      isFavorite: false,
+      isOneOff: true,
+      updatedAt: DateTime.now(),
+    );
+    await upsertActivity(restored);
+    return restored;
   }
 
   Future<void> deleteActivity(Activity activity) async {
@@ -416,12 +448,18 @@ class TimeRepository {
   Future<List<TimeEntry>> saveEntry(
     TimeEntry entry, {
     bool logEdit = false,
+    bool cutOverlaps = false,
   }) async {
     final db = await _database.db;
     final saved = <TimeEntry>[];
     await db.transaction((txn) async {
       final normalized = await _entryWithActivitySnapshot(entry, txn);
-      saved.addAll(await _saveEntryRows(txn, normalized));
+      final entries = _entryRowsForStorage(normalized);
+      if (cutOverlaps) {
+        await _cutOverlappingEntries(txn, entries, normalized.updatedAt);
+      }
+      await _insertEntryRows(txn, entries);
+      saved.addAll(entries);
     });
     if (logEdit) {
       await addActionLog(
@@ -432,6 +470,52 @@ class TimeRepository {
         message: '编辑时间段',
       );
     }
+    return saved;
+  }
+
+  Future<List<TimeEntry>> splitEntry({
+    required String entryId,
+    required DateTime splitAt,
+  }) async {
+    final current = await _entryById(entryId);
+    if (current == null || current.isDeleted || current.isRunning) {
+      throw StateError('entry_not_splitable');
+    }
+    final endAt = current.endAt;
+    if (endAt == null ||
+        !current.startAt.isBefore(splitAt) ||
+        !splitAt.isBefore(endAt)) {
+      throw StateError('split_out_of_range');
+    }
+
+    final now = DateTime.now();
+    final saved = <TimeEntry>[];
+    final db = await _database.db;
+    await db.transaction((txn) async {
+      final first = await _entryWithActivitySnapshot(
+        current.copyWith(endAt: splitAt, updatedAt: now),
+        txn,
+      );
+      final second = await _entryWithActivitySnapshot(
+        current.copyWith(
+          id: _uuid.v4(),
+          startAt: splitAt,
+          endAt: endAt,
+          updatedAt: now,
+        ),
+        txn,
+      );
+      saved
+        ..addAll(await _saveEntryRows(txn, first))
+        ..addAll(await _saveEntryRows(txn, second));
+    });
+    await addActionLog(
+      actionType: 'split',
+      activityId: current.activityId,
+      entryId: current.id,
+      occurredAt: now,
+      message: '切割时间段',
+    );
     return saved;
   }
 
@@ -455,7 +539,7 @@ class TimeRepository {
       updatedAt: now,
       isDeleted: false,
     );
-    final saved = await saveEntry(entry);
+    final saved = await saveEntry(entry, cutOverlaps: true);
     await addActionLog(
       actionType: 'manual',
       activityId: activityId,
@@ -993,10 +1077,21 @@ class TimeRepository {
     DatabaseExecutor executor,
     TimeEntry entry,
   ) async {
-    final updatedAt = entry.updatedAt;
-    final entries = entry.isDeleted || entry.isRunning
+    final entries = _entryRowsForStorage(entry);
+    await _insertEntryRows(executor, entries);
+    return entries;
+  }
+
+  List<TimeEntry> _entryRowsForStorage(TimeEntry entry) {
+    return entry.isDeleted || entry.isRunning
         ? [entry]
-        : _splitClosedEntryByLocalDay(entry, updatedAt);
+        : _splitClosedEntryByLocalDay(entry, entry.updatedAt);
+  }
+
+  Future<void> _insertEntryRows(
+    DatabaseExecutor executor,
+    List<TimeEntry> entries,
+  ) async {
     for (final item in entries) {
       await executor.insert(
         'time_entries',
@@ -1004,7 +1099,136 @@ class TimeRepository {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
-    return entries;
+  }
+
+  Future<void> _cutOverlappingEntries(
+    DatabaseExecutor executor,
+    List<TimeEntry> replacements,
+    DateTime updatedAt,
+  ) async {
+    final replacementEntries = replacements
+        .where(
+          (entry) =>
+              !entry.isDeleted &&
+              (entry.endAt == null || entry.startAt.isBefore(entry.endAt!)),
+        )
+        .toList()
+      ..sort((first, second) => first.startAt.compareTo(second.startAt));
+    if (replacementEntries.isEmpty) {
+      return;
+    }
+
+    final protectedIds = replacementEntries.map((entry) => entry.id).toSet();
+    final firstStart = replacementEntries.first.startAt;
+    final hasRunningReplacement = replacementEntries.any(
+      (entry) => entry.endAt == null,
+    );
+    final finiteReplacementEnds = [
+      for (final entry in replacementEntries)
+        if (entry.endAt != null) entry.endAt!,
+    ];
+    final lastEnd = finiteReplacementEnds.isEmpty
+        ? null
+        : finiteReplacementEnds.reduce(
+            (first, second) => first.isAfter(second) ? first : second,
+          );
+    final openEndedSentinel = DateTime(9999).toUtc().toIso8601String();
+    final rows = await executor.query(
+      'time_entries',
+      where: hasRunningReplacement
+          ? 'is_deleted = 0 and coalesce(end_at, ?) > ?'
+          : 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) > ?',
+      whereArgs: hasRunningReplacement
+          ? [
+              openEndedSentinel,
+              firstStart.toUtc().toIso8601String(),
+            ]
+          : [
+              lastEnd!.toUtc().toIso8601String(),
+              lastEnd.toUtc().toIso8601String(),
+              firstStart.toUtc().toIso8601String(),
+            ],
+      orderBy: 'start_at asc, end_at asc',
+    );
+
+    for (final row in rows) {
+      final candidate = TimeEntry.fromMap(row);
+      if (protectedIds.contains(candidate.id)) {
+        continue;
+      }
+      final pieces = _cutEntryByReplacements(
+        candidate,
+        replacementEntries,
+        updatedAt,
+      );
+      if (pieces.length == 1 &&
+          pieces.single.startAt == candidate.startAt &&
+          pieces.single.endAt == candidate.endAt) {
+        continue;
+      }
+      if (pieces.isEmpty) {
+        await _insertEntryRows(
+          executor,
+          [candidate.copyWith(isDeleted: true, updatedAt: updatedAt)],
+        );
+        continue;
+      }
+      await _saveEntryRows(executor, pieces.first);
+      for (final piece in pieces.skip(1)) {
+        await _saveEntryRows(executor, piece);
+      }
+    }
+  }
+
+  List<TimeEntry> _cutEntryByReplacements(
+    TimeEntry entry,
+    List<TimeEntry> replacements,
+    DateTime updatedAt,
+  ) {
+    var remaining = [_EntryInterval(entry.startAt, entry.endAt)];
+    for (final replacement in replacements) {
+      final replacementEnd = replacement.endAt;
+      final next = <_EntryInterval>[];
+      for (final interval in remaining) {
+        final intervalEnd = interval.endAt;
+        final overlaps = replacementEnd == null
+            ? intervalEnd == null || replacement.startAt.isBefore(intervalEnd)
+            : interval.startAt.isBefore(replacementEnd) &&
+                (intervalEnd == null ||
+                    replacement.startAt.isBefore(intervalEnd));
+        if (!overlaps) {
+          next.add(interval);
+          continue;
+        }
+        if (interval.startAt.isBefore(replacement.startAt)) {
+          next.add(_EntryInterval(interval.startAt, replacement.startAt));
+        }
+        if (replacementEnd != null &&
+            (intervalEnd == null || replacementEnd.isBefore(intervalEnd))) {
+          next.add(_EntryInterval(replacementEnd, intervalEnd));
+        }
+      }
+      remaining = next;
+      if (remaining.isEmpty) {
+        break;
+      }
+    }
+
+    final pieces = <TimeEntry>[];
+    var first = true;
+    for (final interval in remaining) {
+      pieces.add(
+        entry.copyWith(
+          id: first ? entry.id : _uuid.v4(),
+          startAt: interval.startAt,
+          endAt: interval.endAt,
+          clearEndAt: interval.endAt == null,
+          updatedAt: updatedAt,
+        ),
+      );
+      first = false;
+    }
+    return pieces;
   }
 
   List<TimeEntry> _splitClosedEntryByLocalDay(

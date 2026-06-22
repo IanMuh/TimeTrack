@@ -499,15 +499,27 @@ Future<Activity?> showOneOffActivityDialog(
   BuildContext context,
   AppState state,
 ) async {
+  final suggestions = await state.oneOffActivitySuggestions();
+  if (!context.mounted) {
+    return null;
+  }
   final controller = TextEditingController();
   var selectedColor =
       nextActivityColor(state.activities.map((activity) => activity.color));
+  Activity? selectedSuggestion;
   Activity? saved;
   await showDialog<void>(
     context: context,
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
+          final query = controller.text.trim().toLowerCase();
+          final filteredSuggestions = query.isEmpty
+              ? <Activity>[]
+              : [
+                  for (final activity in suggestions)
+                    if (activity.name.toLowerCase().contains(query)) activity,
+                ];
           return AlertDialog(
             title: const Text('临时事项'),
             content: SizedBox(
@@ -523,13 +535,53 @@ Future<Activity?> showOneOffActivityDialog(
                         labelText: '名称',
                         prefixIcon: Icon(Icons.bolt_outlined),
                       ),
+                      onChanged: (_) {
+                        setState(() => selectedSuggestion = null);
+                      },
                       autofocus: true,
                     ),
+                    if (filteredSuggestions.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final activity in filteredSuggestions)
+                              ChoiceChip(
+                                avatar: Icon(
+                                  Icons.bolt_outlined,
+                                  size: 18,
+                                  color: Color(activity.color),
+                                ),
+                                label: _OneOffSuggestionLabel(
+                                  name: activity.name,
+                                ),
+                                selected: selectedSuggestion?.id == activity.id,
+                                onSelected: (_) {
+                                  setState(() {
+                                    selectedSuggestion = activity;
+                                    selectedColor = activity.color;
+                                    controller.text = activity.name;
+                                    controller.selection =
+                                        TextSelection.collapsed(
+                                      offset: controller.text.length,
+                                    );
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     ActivityColorPicker(
                       selectedColor: selectedColor,
-                      onColorChanged: (color) =>
-                          setState(() => selectedColor = color),
+                      onColorChanged: (color) => setState(() {
+                        selectedSuggestion = null;
+                        selectedColor = color;
+                      }),
                     ),
                   ],
                 ),
@@ -546,7 +598,11 @@ Future<Activity?> showOneOffActivityDialog(
                   if (name.isEmpty) {
                     return;
                   }
-                  saved = await state.createOneOffActivity(name, selectedColor);
+                  saved = await state.createOneOffActivity(
+                    name,
+                    selectedColor,
+                    reuseActivity: selectedSuggestion,
+                  );
                   if (context.mounted) {
                     Navigator.pop(context);
                   }
@@ -561,6 +617,43 @@ Future<Activity?> showOneOffActivityDialog(
     },
   );
   return saved;
+}
+
+class _OneOffSuggestionLabel extends StatelessWidget {
+  const _OneOffSuggestionLabel({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220),
+          child: Text(
+            name,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            '单次',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSecondaryContainer,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 double _dialogContentWidth(

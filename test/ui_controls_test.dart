@@ -325,7 +325,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('showEntryEditor refreshes dropdown after creating an activity',
+  testWidgets('showEntryEditor creates an unmatched typed activity',
       (tester) async {
     final state = _FakeAppState();
 
@@ -347,23 +347,22 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChoiceChip, '工作'), findsOneWidget);
     expect(find.text('未安排'), findsNothing);
-    await tester.tap(find.text('工作').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新增事项'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.enterText(find.widgetWithText(TextField, '名称'), '新事项');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-    await tester.tap(find.text('创建'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.pump();
 
-    expect(find.text('新事项'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('entry-activity-search-field')),
+      '新事项',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AlertDialog, '创建事项'), findsOneWidget);
+    await tester.tap(find.text('创建'));
+    await tester.pumpAndSettle();
+
+    expect(state.activities.any((activity) => activity.name == '新事项'), isTrue);
+    expect(find.widgetWithText(AlertDialog, '补记时间段'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -447,6 +446,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('one-off dialog can reuse a previous temporary activity',
+      (tester) async {
+    final state = _FakeAppState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomePage(state: state),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '临时事项'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AlertDialog, '临时事项'), findsOneWidget);
+    expect(find.text('一次性会议'), findsNothing);
+
+    await tester.enterText(find.widgetWithText(TextField, '名称'), '会议');
+    await tester.pumpAndSettle();
+    expect(find.text('一次性会议'), findsOneWidget);
+    expect(find.text('单次'), findsOneWidget);
+
+    await tester.tap(find.text('一次性会议'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '开始'));
+    await tester.pumpAndSettle();
+
+    expect(state.runningActivity?.id, 'one-off-existing');
+    expect(state.runningActivity?.name, '一次性会议');
+    expect(state.runningActivity?.isOneOff, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'SettingsPage keeps sync and LAN controls usable on compact width',
       (tester) async {
@@ -476,7 +509,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('showEntryEditor keeps dropdown stable after editing activity',
+  testWidgets('showEntryEditor keeps search selection after editing activity',
       (tester) async {
     final state = _FakeAppState();
 
@@ -508,7 +541,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pump();
 
-    expect(find.text('深度工作'), findsOneWidget);
+    expect(find.text('深度工作'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }
@@ -572,6 +605,14 @@ class _FakeAppState extends AppState {
   int _nextActivityId = 2;
 
   @override
+  Future<List<Activity>> entryActivityChoices() async {
+    return [
+      for (final activity in activities)
+        if (!activity.isUnassigned && !activity.isOneOff) activity,
+    ];
+  }
+
+  @override
   Future<Activity> createActivity(String name, int color) async {
     final activity = Activity(
       id: 'activity-${_nextActivityId++}',
@@ -588,18 +629,62 @@ class _FakeAppState extends AppState {
   }
 
   @override
-  Future<Activity> createOneOffActivity(String name, int color) async {
-    final activity = Activity(
-      id: 'one-off-${_nextActivityId++}',
-      userId: null,
-      name: name,
-      color: color,
-      isFavorite: false,
-      updatedAt: now,
-      isDeleted: false,
-      isOneOff: true,
-    );
-    activities = [...activities, activity];
+  Future<List<Activity>> oneOffActivitySuggestions() async {
+    return [
+      for (final activity in activities)
+        if (activity.isOneOff) activity,
+    ];
+  }
+
+  @override
+  Future<Activity> createEntryActivity(
+    String name,
+    int color, {
+    required bool isOneOff,
+    Activity? reuseActivity,
+  }) async {
+    final activity = reuseActivity ??
+        Activity(
+          id: isOneOff
+              ? 'one-off-${_nextActivityId++}'
+              : 'activity-${_nextActivityId++}',
+          userId: null,
+          name: name,
+          color: color,
+          isFavorite: !isOneOff,
+          updatedAt: now,
+          isDeleted: false,
+          isOneOff: isOneOff,
+        );
+    activities = [
+      for (final item in activities)
+        if (item.id != activity.id) item,
+      activity,
+    ];
+    notifyListeners();
+    return activity;
+  }
+
+  @override
+  Future<Activity> createOneOffActivity(
+    String name,
+    int color, {
+    Activity? reuseActivity,
+  }) async {
+    final activity = reuseActivity ??
+        Activity(
+          id: 'one-off-${_nextActivityId++}',
+          userId: null,
+          name: name,
+          color: color,
+          isFavorite: false,
+          updatedAt: now,
+          isDeleted: false,
+          isOneOff: true,
+        );
+    if (reuseActivity == null) {
+      activities = [...activities, activity];
+    }
     runningEntry = TimeEntry(
       id: 'entry-${activity.id}',
       userId: null,
@@ -635,5 +720,31 @@ class _FakeAppState extends AppState {
   @override
   Future<List<TimeEntry>> overlaps(TimeEntry entry) async {
     return const [];
+  }
+
+  @override
+  Future<void> createManualEntry({
+    required String activityId,
+    required DateTime startAt,
+    required DateTime endAt,
+    required String note,
+  }) async {
+    final activity = activityById(activityId);
+    dayEntries = [
+      TimeEntry(
+        id: 'manual-${_nextActivityId++}',
+        userId: null,
+        activityId: activityId,
+        activityNameSnapshot: activity?.name ?? '',
+        activityColorSnapshot: activity?.color,
+        startAt: startAt,
+        endAt: endAt,
+        note: note,
+        deviceId: 'test-device',
+        updatedAt: now,
+        isDeleted: false,
+      ),
+    ];
+    notifyListeners();
   }
 }
