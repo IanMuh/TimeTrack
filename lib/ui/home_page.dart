@@ -41,6 +41,9 @@ class _HomePageState extends State<HomePage> {
       animation: state,
       builder: (context, _) {
         final runningActivity = state.runningActivity;
+        final switchableActivities = state.activities.where(
+          (activity) => !activity.isUnassigned,
+        );
         final pendingActivity = _pendingActivityId == null
             ? null
             : state.activityById(_pendingActivityId!);
@@ -115,7 +118,7 @@ class _HomePageState extends State<HomePage> {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                   children: [
-                    for (final activity in state.activities)
+                    for (final activity in switchableActivities)
                       ActivitySwitchButton(
                         activity: activity,
                         selected: runningActivity?.id == activity.id,
