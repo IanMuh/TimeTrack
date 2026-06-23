@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../core/date_time_ext.dart';
-import 'app_theme.dart';
+import '../l10n/app_localizations.dart';
 
 class PageHeader extends StatelessWidget {
   const PageHeader({
@@ -217,8 +217,8 @@ class DayRangeSelector extends StatelessWidget {
     required this.onPreviousDay,
     required this.onNextDay,
     required this.onDateTap,
-    this.previousTooltip = '前一天',
-    this.nextTooltip = '后一天',
+    this.previousTooltip,
+    this.nextTooltip,
     super.key,
   });
 
@@ -227,8 +227,8 @@ class DayRangeSelector extends StatelessWidget {
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
   final VoidCallback onDateTap;
-  final String previousTooltip;
-  final String nextTooltip;
+  final String? previousTooltip;
+  final String? nextTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +242,7 @@ class DayRangeSelector extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: previousTooltip,
+            tooltip: previousTooltip ?? AppLocalizations.of(context)!.previousDay,
             onPressed: onPreviousDay,
             icon: const Icon(Icons.chevron_left),
           ),
@@ -266,7 +266,7 @@ class DayRangeSelector extends StatelessWidget {
                 onTap: onDateTap,
                 child: Semantics(
                   button: true,
-                  label: '选择日期',
+                  label: AppLocalizations.of(context)!.selectDate,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
@@ -293,7 +293,7 @@ class DayRangeSelector extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: nextTooltip,
+            tooltip: nextTooltip ?? AppLocalizations.of(context)!.nextDay,
             onPressed: onNextDay,
             icon: const Icon(Icons.chevron_right),
           ),
@@ -327,7 +327,7 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return QuietPanel(
-      color: TimeTrackTheme.surfaceMuted.withValues(alpha: 0.72),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
       child: Row(
         children: [
           IconBadge(icon: icon, color: colorScheme.primary),
@@ -362,4 +362,12 @@ class SoftDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Divider(color: Theme.of(context).colorScheme.outlineVariant);
   }
+}
+
+double dialogContentWidth(
+  BuildContext context, {
+  required double maxWidth,
+}) {
+  final availableWidth = MediaQuery.sizeOf(context).width - 128;
+  return availableWidth.clamp(0, maxWidth).toDouble();
 }

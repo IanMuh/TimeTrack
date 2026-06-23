@@ -21,13 +21,16 @@ class LocalDatabase {
 
     final appDir = await getApplicationSupportDirectory();
     final dbPath = p.join(appDir.path, 'timetrack.sqlite');
-    _database = await openDatabase(
+    final db = await openDatabase(
       dbPath,
       version: 7,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
-    return _database!;
+    _database = db;
+    await db.execute('PRAGMA foreign_keys = ON');
+    await db.execute('PRAGMA journal_mode=WAL');
+    return db;
   }
 
   Future<void> _create(Database db, int version) async {
@@ -106,6 +109,12 @@ class LocalDatabase {
     );
     await db.execute(
       'create index idx_time_entries_updated_at on time_entries(updated_at)',
+    );
+    await db.execute(
+      'create index idx_activities_updated_at on activities(updated_at)',
+    );
+    await db.execute(
+      'create index idx_time_entries_activity_id on time_entries(activity_id)',
     );
 
     await createActionLogsSchema(db);

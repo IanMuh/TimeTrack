@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
 import '../domain/profile_settings.dart';
+import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
-import 'app_theme.dart';
 import 'interop_message_panel.dart';
 import 'ui_components.dart';
 
@@ -21,9 +21,9 @@ class SettingsPage extends StatelessWidget {
           pageKey: const PageStorageKey('settings-page'),
           maxWidth: 920,
           children: [
-            const PageHeader(
-              title: '设置',
-              subtitle: '提醒、同步和设备互通都保持本地优先。',
+            PageHeader(
+              title: AppLocalizations.of(context)!.settings,
+              subtitle: AppLocalizations.of(context)!.settingsSubtitle,
             ),
             const SectionGap(),
             LayoutBuilder(
@@ -102,22 +102,22 @@ class _TimelineSettingsCardState extends State<TimelineSettingsCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            title: '时间线',
-            subtitle: '控制相邻记录合并时是否需要确认。',
+          SectionTitle(
+            title: AppLocalizations.of(context)!.timelineSettings,
+            subtitle: AppLocalizations.of(context)!.timelineSettingsHint,
             icon: Icons.timeline,
           ),
           const SizedBox(height: 14),
           _ReminderField(
             icon: Icons.merge_type_outlined,
-            label: '合并阈值',
-            value: '$thresholdMinutes 分钟',
+            label: AppLocalizations.of(context)!.mergeThreshold,
+            value: AppLocalizations.of(context)!.minutesFormat(thresholdMinutes),
             child: Slider(
               min: 1,
               max: 60,
               divisions: 59,
               value: thresholdMinutes.toDouble(),
-              label: '$thresholdMinutes 分钟',
+              label: AppLocalizations.of(context)!.minutesFormat(thresholdMinutes),
               onChanged: (value) =>
                   setState(() => _draftMergeThresholdMinutes = value),
               onChangeEnd: (value) {
@@ -161,15 +161,15 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            title: '提醒',
-            subtitle: '用轻提示确认长时间运行的事项。',
+          SectionTitle(
+            title: AppLocalizations.of(context)!.reminderSettings,
+            subtitle: AppLocalizations.of(context)!.reminderSettingsHint,
             icon: Icons.notifications_outlined,
           ),
           const SizedBox(height: 14),
           _ReminderField(
             icon: Icons.schedule_outlined,
-            label: '触发时间',
+            label: AppLocalizations.of(context)!.triggerTime,
             value: _formatReminderTime(
               context,
               settings.reminderTimeOfDayMinutes,
@@ -184,14 +184,14 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
           const SizedBox(height: 12),
           _ReminderField(
             icon: Icons.notifications_outlined,
-            label: '持续时间',
-            value: '$reminderMinutes 分钟',
+            label: AppLocalizations.of(context)!.durationLabel,
+            value: AppLocalizations.of(context)!.minutesFormat(reminderMinutes),
             child: Slider(
               min: 15,
               max: 180,
               divisions: 11,
               value: reminderMinutes.toDouble(),
-              label: '$reminderMinutes 分钟',
+              label: AppLocalizations.of(context)!.minutesFormat(reminderMinutes),
               onChanged: (value) =>
                   setState(() => _draftReminderMinutes = value),
               onChangeEnd: (value) {
@@ -203,17 +203,17 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
           const SizedBox(height: 12),
           _ReminderField(
             icon: Icons.timelapse_outlined,
-            label: '间隔',
-            value: _formatInterval(intervalMinutes),
+            label: AppLocalizations.of(context)!.interval,
+            value: _formatInterval(context, intervalMinutes),
             child: Slider(
               min: 5,
               max: 60,
               divisions: 11,
               value: intervalMinutes.toDouble(),
-              label: _formatInterval(intervalMinutes),
-              onChanged: (value) =>
-                  setState(() => _draftIntervalMinutes = value),
-              onChangeEnd: (value) {
+            label: _formatInterval(context, intervalMinutes),
+            onChanged: (value) =>
+                setState(() => _draftIntervalMinutes = value),
+            onChangeEnd: (value) {
                 _draftIntervalMinutes = null;
                 state.updateReminderSettings(
                   reminderIntervalMinutes: value.round(),
@@ -224,24 +224,24 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
           const SizedBox(height: 12),
           _ReminderField(
             icon: Icons.notification_add_outlined,
-            label: '方式',
-            value: _formatMethod(settings.reminderMethod),
+            label: AppLocalizations.of(context)!.method,
+            value: _formatMethod(context, settings.reminderMethod),
             child: SegmentedButton<ReminderMethod>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: ReminderMethod.dialog,
-                  icon: Icon(Icons.chat_bubble_outline),
-                  label: Text('对话框'),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: Text(AppLocalizations.of(context)!.methodDialog),
                 ),
                 ButtonSegment(
                   value: ReminderMethod.banner,
-                  icon: Icon(Icons.drafts_outlined),
-                  label: Text('横幅'),
+                  icon: const Icon(Icons.drafts_outlined),
+                  label: Text(AppLocalizations.of(context)!.methodBanner),
                 ),
                 ButtonSegment(
                   value: ReminderMethod.silent,
-                  icon: Icon(Icons.notifications_off_outlined),
-                  label: Text('静默'),
+                  icon: const Icon(Icons.notifications_off_outlined),
+                  label: Text(AppLocalizations.of(context)!.methodSilent),
                 ),
               ],
               selected: {settings.reminderMethod},
@@ -327,13 +327,14 @@ String _formatReminderTime(BuildContext context, int minutes) {
   return time.format(context);
 }
 
-String _formatInterval(int minutes) => '$minutes 分钟';
+String _formatInterval(BuildContext context, int minutes) =>
+    AppLocalizations.of(context)!.minutesFormat(minutes);
 
-String _formatMethod(ReminderMethod method) {
+String _formatMethod(BuildContext context, ReminderMethod method) {
   return switch (method) {
-    ReminderMethod.dialog => '对话框',
-    ReminderMethod.banner => '横幅',
-    ReminderMethod.silent => '静默',
+    ReminderMethod.dialog => AppLocalizations.of(context)!.methodDialog,
+    ReminderMethod.banner => AppLocalizations.of(context)!.methodBanner,
+    ReminderMethod.silent => AppLocalizations.of(context)!.methodSilent,
   };
 }
 
@@ -344,16 +345,20 @@ class CloudSyncSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusTitle = state.canCloudSync ? 'Supabase 已配置' : 'Supabase 未配置';
-    final statusSubtitle = state.isSignedIn ? '已登录' : '未登录或本地模式';
+    final statusTitle = state.canCloudSync
+        ? AppLocalizations.of(context)!.supabaseConfigured
+        : AppLocalizations.of(context)!.supabaseNotConfigured;
+    final statusSubtitle = state.isSignedIn
+        ? AppLocalizations.of(context)!.loggedIn
+        : AppLocalizations.of(context)!.notLoggedIn;
     return QuietPanel(
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            title: '云同步',
-            subtitle: '未配置 Supabase 时应用继续以本地模式运行。',
+          SectionTitle(
+            title: AppLocalizations.of(context)!.cloudSync,
+            subtitle: AppLocalizations.of(context)!.cloudSyncHint,
             icon: Icons.cloud_sync_outlined,
           ),
           const SizedBox(height: 14),
@@ -366,7 +371,7 @@ class CloudSyncSettingsCard extends StatelessWidget {
                     : Icons.cloud_off_outlined,
                 color: state.canCloudSync
                     ? Theme.of(context).colorScheme.primary
-                    : TimeTrackTheme.secondary,
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -386,7 +391,7 @@ class CloudSyncSettingsCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: state.signOut,
                   icon: const Icon(Icons.logout),
-                  label: const Text('退出'),
+                  label: Text(AppLocalizations.of(context)!.signOut),
                 ),
             ],
           ),
@@ -395,7 +400,7 @@ class CloudSyncSettingsCard extends StatelessWidget {
             onPressed:
                 state.canCloudSync && state.isSignedIn ? state.sync : null,
             icon: const Icon(Icons.sync),
-            label: const Text('立即同步'),
+            label: Text(AppLocalizations.of(context)!.syncNow),
           ),
         ],
       ),
@@ -435,9 +440,9 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            title: '设备互通',
-            subtitle: '同一 Wi-Fi 下可通过局域网或文件互通数据。',
+          SectionTitle(
+            title: AppLocalizations.of(context)!.deviceInterop,
+            subtitle: AppLocalizations.of(context)!.deviceInteropHint,
             icon: Icons.devices_other_outlined,
           ),
           const SizedBox(height: 14),
@@ -478,18 +483,18 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
               FilledButton.icon(
                 onPressed: state.importInteropFile,
                 icon: const Icon(Icons.upload_file_outlined),
-                label: const Text('导入文件'),
+                label: Text(AppLocalizations.of(context)!.importFile),
               ),
               OutlinedButton.icon(
                 onPressed: state.exportInteropFile,
                 icon: const Icon(Icons.download_outlined),
-                label: const Text('导出文件'),
+                label: Text(AppLocalizations.of(context)!.exportFile),
               ),
               FilledButton.icon(
                 onPressed:
                     state.hasSyncTarget && !state.isSyncing ? state.sync : null,
                 icon: const Icon(Icons.sync),
-                label: Text(state.isSyncing ? '同步中' : '立即同步'),
+                label: Text(state.isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.syncNow),
               ),
             ],
           ),
@@ -514,17 +519,17 @@ class _LanHostPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionTitle(
-          title: '局域网主机',
-          subtitle: state.isLanServerRunning ? '正在等待同网段设备连接。' : null,
+          title: AppLocalizations.of(context)!.lanHost,
+          subtitle: state.isLanServerRunning ? AppLocalizations.of(context)!.lanHostWaiting : null,
           icon: Icons.router_outlined,
         ),
         const SizedBox(height: 8),
         Text(
           !state.canHostLan
-              ? 'v1 默认 Windows 作为局域网主机；Android 作为客户端连接电脑。'
+              ? AppLocalizations.of(context)!.lanHostWindowsNote
               : state.isLanServerRunning
-                  ? '在 Android 上输入下方地址和配对码。'
-                  : '开启后，其他设备可在同一 Wi-Fi 内配对。',
+                  ? AppLocalizations.of(context)!.lanHostAndroidNote
+                  : AppLocalizations.of(context)!.lanHostStartNote,
         ),
         if (state.isLanServerRunning) ...[
           const SizedBox(height: 10),
@@ -538,7 +543,7 @@ class _LanHostPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           StatusPill(
-            label: '配对码：${state.lanPairingCode ?? ''}',
+            label: AppLocalizations.of(context)!.pairingCodeLabel(state.lanPairingCode ?? ''),
             icon: Icons.pin_outlined,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -557,10 +562,10 @@ class _LanHostPanel extends StatelessWidget {
           ),
           label: Text(
             !state.canHostLan
-                ? '仅 Windows 可开启'
+                ? AppLocalizations.of(context)!.windowsOnly
                 : state.isLanServerRunning
-                    ? '关闭主机'
-                    : '开启主机',
+                    ? AppLocalizations.of(context)!.stopHost
+                    : AppLocalizations.of(context)!.startHost,
           ),
         ),
       ],
@@ -585,15 +590,15 @@ class _LanClientPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle(
-          title: '连接局域网主机',
-          subtitle: '输入地址和配对码后会立即尝试同步。',
+        SectionTitle(
+          title: AppLocalizations.of(context)!.connectLanHost,
+          subtitle: AppLocalizations.of(context)!.connectLanHostHint,
           icon: Icons.phone_android_outlined,
         ),
         const SizedBox(height: 8),
         if (peer != null) ...[
           StatusPill(
-            label: '已配对：${peer.displayName}',
+            label: AppLocalizations.of(context)!.pairedWith(peer.displayName),
             icon: Icons.link_outlined,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -602,25 +607,25 @@ class _LanClientPanel extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: state.clearLanPeer,
             icon: const Icon(Icons.link_off_outlined),
-            label: const Text('移除配对'),
+            label: Text(AppLocalizations.of(context)!.removePairing),
           ),
         ] else ...[
           TextField(
             controller: addressController,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: '主机地址',
-              hintText: '192.168.1.10:8787',
-              prefixIcon: Icon(Icons.link_outlined),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.hostAddress,
+              hintText: AppLocalizations.of(context)!.hostHint,
+              prefixIcon: const Icon(Icons.link_outlined),
             ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: codeController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '配对码',
-              prefixIcon: Icon(Icons.pin_outlined),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.pairingCodeInput,
+              prefixIcon: const Icon(Icons.pin_outlined),
             ),
           ),
           const SizedBox(height: 12),
@@ -630,7 +635,7 @@ class _LanClientPanel extends StatelessWidget {
               code: codeController.text,
             ),
             icon: const Icon(Icons.link_outlined),
-            label: const Text('配对并同步'),
+            label: Text(AppLocalizations.of(context)!.pairAndSync),
           ),
         ],
       ],

@@ -4,10 +4,10 @@ import 'package:flutter/services.dart';
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
 import '../domain/activity.dart';
+import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'activity_colors.dart';
 import 'app_shell.dart';
-import 'app_theme.dart';
 import 'ui_components.dart';
 
 class HomePage extends StatefulWidget {
@@ -51,16 +51,18 @@ class _HomePageState extends State<HomePage> {
           pageKey: const PageStorageKey('home-page'),
           children: [
             PageHeader(
-              title: 'TimeTrack',
-              subtitle: '离线优先记录，按下一个事项就开始。',
+              title: AppLocalizations.of(context)!.appTitle,
+              subtitle: AppLocalizations.of(context)!.appSubtitle,
               trailing: StatusPill(
-                label: state.hasSyncTarget ? '可同步' : '本地模式',
+                label: state.hasSyncTarget
+                    ? AppLocalizations.of(context)!.syncStatusCloud
+                    : AppLocalizations.of(context)!.syncStatusLocal,
                 icon: state.hasSyncTarget
                     ? Icons.cloud_done_outlined
                     : Icons.offline_bolt_outlined,
                 color: state.hasSyncTarget
                     ? Theme.of(context).colorScheme.primary
-                    : TimeTrackTheme.secondary,
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SectionGap(),
@@ -69,7 +71,8 @@ class _HomePageState extends State<HomePage> {
                 final sizeClass = adaptiveSizeClassFor(constraints.maxWidth);
                 final statusCard = CurrentStatusCard(
                   runningActivity: runningActivity,
-                  runningDuration: state.runningDuration,
+                  clockNotifier: state.clockNotifier,
+                  runningDurationAt: (now) => state.runningDuration(at: now),
                   onStop: runningActivity == null ? null : state.stopCurrent,
                 );
                 if (sizeClass == AdaptiveSizeClass.compact) {
@@ -94,13 +97,13 @@ class _HomePageState extends State<HomePage> {
             ),
             const SectionGap(height: 18),
             PageHeader(
-              title: '快捷切换',
+              title: AppLocalizations.of(context)!.quickSwitch,
               subtitle: pendingActivity == null ||
                       pendingActivity.id == runningActivity?.id
-                  ? '轻点选择，再点一次确认切换。'
-                  : '已选择 ${pendingActivity.name}，再次点击后切换。',
+                  ? AppLocalizations.of(context)!.quickSwitchHint
+                  : AppLocalizations.of(context)!.quickSwitchSelected(pendingActivity.name),
               trailing: IconButton.filledTonal(
-                tooltip: '同步',
+                tooltip: AppLocalizations.of(context)!.sync,
                 onPressed: state.hasSyncTarget ? state.sync : null,
                 icon: const Icon(Icons.sync),
               ),
@@ -161,13 +164,15 @@ class _HomePageState extends State<HomePage> {
 class CurrentStatusCard extends StatelessWidget {
   const CurrentStatusCard({
     required this.runningActivity,
-    required this.runningDuration,
+    required this.clockNotifier,
+    required this.runningDurationAt,
     required this.onStop,
     super.key,
   });
 
   final Activity? runningActivity;
-  final Duration runningDuration;
+  final ValueNotifier<DateTime> clockNotifier;
+  final Duration Function(DateTime at) runningDurationAt;
   final VoidCallback? onStop;
 
   @override
@@ -194,14 +199,14 @@ class CurrentStatusCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '当前正在做',
+                    AppLocalizations.of(context)!.currentDoing,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
                   ),
                 ),
                 StatusPill(
-                  label: runningActivity == null ? '未开始' : '记录中',
+                  label: runningActivity == null ? AppLocalizations.of(context)!.notStarted : AppLocalizations.of(context)!.recording,
                   icon: runningActivity == null
                       ? Icons.pause_circle_outline
                       : Icons.radio_button_checked,
@@ -211,7 +216,7 @@ class CurrentStatusCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              runningActivity?.name ?? '未开始记录',
+              runningActivity?.name ?? AppLocalizations.of(context)!.notStartedRecord,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -219,19 +224,31 @@ class CurrentStatusCard extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 8),
-            Text(
-              runningActivity == null
-                  ? '选择一个事项开始记录今天的时间。'
-                  : '已持续 ${formatDurationCompact(runningDuration)}',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-            ),
+            if (runningActivity == null)
+              Text(
+                AppLocalizations.of(context)!.selectActivityToStart,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              )
+            else
+              ValueListenableBuilder<DateTime>(
+                valueListenable: clockNotifier,
+                builder: (context, now, _) {
+                  final duration = runningDurationAt(now);
+                  return Text(
+                    AppLocalizations.of(context)!.elapsedDuration(formatDurationCompact(duration)),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  );
+                },
+              ),
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: onStop,
               icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('停止当前事项'),
+              label: Text(AppLocalizations.of(context)!.stopCurrentActivity),
             ),
           ],
         ),
@@ -296,10 +313,10 @@ class ActivitySwitchButton extends StatelessWidget {
             button: true,
             selected: selected,
             label: pending
-                ? '确认切换到${activity.name}'
+                ? AppLocalizations.of(context)!.confirmSwitchSemantics(activity.name)
                 : selected
-                    ? '当前事项${activity.name}'
-                    : '切换到${activity.name}',
+                    ? AppLocalizations.of(context)!.currentActivitySemantics(activity.name)
+                    : AppLocalizations.of(context)!.switchToSemantics(activity.name),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
@@ -334,7 +351,7 @@ class ActivitySwitchButton extends StatelessWidget {
                     SizedBox.square(
                       dimension: 40,
                       child: Tooltip(
-                        message: '系统事项，不能编辑',
+                        message: AppLocalizations.of(context)!.systemActivityCannotEdit,
                         child: Icon(
                           Icons.lock_outline,
                           color: foreground.withValues(alpha: 0.72),
@@ -344,7 +361,7 @@ class ActivitySwitchButton extends StatelessWidget {
                     )
                   else
                     IconButton(
-                      tooltip: '编辑事项',
+                      tooltip: AppLocalizations.of(context)!.editActivity,
                       visualDensity: VisualDensity.compact,
                       onPressed: onEdit,
                       icon: Icon(
@@ -373,7 +390,7 @@ class _OneOffActivityTile extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.flash_on_outlined),
-      label: const Text('临时事项'),
+      label: Text(AppLocalizations.of(context)!.oneOffActivity),
       style: OutlinedButton.styleFrom(
         side: BorderSide(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -393,7 +410,7 @@ class _AddActivityTile extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.add),
-      label: const Text('新增事项'),
+      label: Text(AppLocalizations.of(context)!.newActivity),
       style: OutlinedButton.styleFrom(
         side: BorderSide(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -421,9 +438,9 @@ Future<Activity?> showActivityEditorDialog(
       return StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: Text(activity == null ? '新增事项' : '编辑事项'),
+            title: Text(activity == null ? AppLocalizations.of(context)!.newActivity : AppLocalizations.of(context)!.editActivityTitle),
             content: SizedBox(
-              width: _dialogContentWidth(context, maxWidth: 420),
+              width: dialogContentWidth(context, maxWidth: 420),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -431,9 +448,9 @@ Future<Activity?> showActivityEditorDialog(
                   children: [
                     TextField(
                       controller: controller,
-                      decoration: const InputDecoration(
-                        labelText: '名称',
-                        prefixIcon: Icon(Icons.label_outline),
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(context)!.name,
+                        prefixIcon: const Icon(Icons.label_outline),
                       ),
                       autofocus: true,
                     ),
@@ -454,19 +471,19 @@ Future<Activity?> showActivityEditorDialog(
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('删除事项'),
+                        title: Text(AppLocalizations.of(context)!.deleteActivityTitle),
                         content: Text(
-                          '确定删除“${activity.name}”吗？已有时间记录会保留，但之后不能再选择这个事项。',
+                          AppLocalizations.of(context)!.confirmDeleteActivity(activity.name),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context, false),
-                            child: const Text('取消'),
+                            child: Text(AppLocalizations.of(context)!.cancel),
                           ),
                           FilledButton.icon(
                             onPressed: () => Navigator.pop(context, true),
                             icon: const Icon(Icons.delete_outline),
-                            label: const Text('删除'),
+                            label: Text(AppLocalizations.of(context)!.delete),
                           ),
                         ],
                       ),
@@ -480,11 +497,11 @@ Future<Activity?> showActivityEditorDialog(
                     }
                   },
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
+                  label: Text(AppLocalizations.of(context)!.delete),
                 ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton.icon(
                 onPressed: () async {
@@ -507,7 +524,7 @@ Future<Activity?> showActivityEditorDialog(
                   }
                 },
                 icon: Icon(activity == null ? Icons.add : Icons.save_outlined),
-                label: Text(activity == null ? '创建' : '保存'),
+                label: Text(activity == null ? AppLocalizations.of(context)!.create : AppLocalizations.of(context)!.save),
               ),
             ],
           );
@@ -544,9 +561,9 @@ Future<Activity?> showOneOffActivityDialog(
                     if (activity.name.toLowerCase().contains(query)) activity,
                 ];
           return AlertDialog(
-            title: const Text('临时事项'),
+            title: Text(AppLocalizations.of(context)!.oneOffActivity),
             content: SizedBox(
-              width: _dialogContentWidth(context, maxWidth: 420),
+              width: dialogContentWidth(context, maxWidth: 420),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -554,9 +571,9 @@ Future<Activity?> showOneOffActivityDialog(
                   children: [
                     TextField(
                       controller: controller,
-                      decoration: const InputDecoration(
-                        labelText: '名称',
-                        prefixIcon: Icon(Icons.bolt_outlined),
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(context)!.name,
+                        prefixIcon: const Icon(Icons.bolt_outlined),
                       ),
                       onChanged: (_) {
                         setState(() => selectedSuggestion = null);
@@ -613,7 +630,7 @@ Future<Activity?> showOneOffActivityDialog(
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton.icon(
                 onPressed: () async {
@@ -631,7 +648,7 @@ Future<Activity?> showOneOffActivityDialog(
                   }
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('开始'),
+                label: Text(AppLocalizations.of(context)!.start),
               ),
             ],
           );
@@ -668,7 +685,7 @@ class _OneOffSuggestionLabel extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            '单次',
+            AppLocalizations.of(context)!.oneOff,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSecondaryContainer,
                 ),
@@ -677,14 +694,6 @@ class _OneOffSuggestionLabel extends StatelessWidget {
       ],
     );
   }
-}
-
-double _dialogContentWidth(
-  BuildContext context, {
-  required double maxWidth,
-}) {
-  final availableWidth = MediaQuery.sizeOf(context).width - 128;
-  return availableWidth.clamp(0, maxWidth).toDouble();
 }
 
 class ActivityColorPicker extends StatelessWidget {
@@ -709,7 +718,7 @@ class ActivityColorPicker extends StatelessWidget {
           children: [
             for (final colorValue in activityPalette)
               IconButton(
-                tooltip: '选择颜色 ${_formatHexColor(colorValue)}',
+                tooltip: AppLocalizations.of(context)!.selectColorTooltip(_formatHexColor(colorValue)),
                 onPressed: () => onColorChanged(colorValue),
                 icon: Icon(
                   selectedColor == colorValue
@@ -725,7 +734,7 @@ class ActivityColorPicker extends StatelessWidget {
           tilePadding: EdgeInsets.zero,
           childrenPadding: EdgeInsets.zero,
           leading: const Icon(Icons.tune),
-          title: const Text('RGB 调色'),
+          title: Text(AppLocalizations.of(context)!.rgbTuner),
           subtitle: Text(_formatHexColor(selectedColor)),
           children: [
             const SizedBox(height: 8),

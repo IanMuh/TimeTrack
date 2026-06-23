@@ -1,9 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/time_repository.dart';
@@ -28,22 +31,56 @@ Future<_StateFixture> _buildState() async {
   );
   await LocalDatabase.createSchema(db);
   final database = LocalDatabase(database: db);
-  final repository = TimeRepository(database: database);
+  final activityRepository = ActivityRepository(database: database);
+  final settingsRepository = SettingsRepository(database: database);
+  final deviceIdStore = DeviceIdStore(database: database);
+  final timeEntryRepository = TimeEntryRepository(
+    database: database,
+    activityRepository: activityRepository,
+  );
+  final actionLogRepository = ActionLogRepository(database: database);
+  final repository = TimeRepository(
+    database: database,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: actionLogRepository,
+  );
   final peerStore = SyncPeerStore(database: database);
   await repository.ensureSeedData();
   final state = AppState(
     repository: repository,
-    syncService: SyncService(repository: repository, client: null),
+    activityRepository: activityRepository,
+    entryRepository: timeEntryRepository,
+    syncService: SyncService(
+      repository: repository,
+      activityRepository: activityRepository,
+      settingsRepository: settingsRepository,
+      timeEntryRepository: timeEntryRepository,
+      actionLogRepository: actionLogRepository,
+      client: null,
+    ),
     lanSyncServer: LanSyncServer(
       repository: repository,
+      activityRepository: activityRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
       portCandidates: const [0],
     ),
     lanSyncClient: LanSyncClient(
       repository: repository,
+      activityRepository: activityRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
-    fileInteropService: FileInteropService(repository: repository),
+    fileInteropService: FileInteropService(
+      repository: repository,
+      activityRepository: activityRepository,
+      timeEntryRepository: timeEntryRepository,
+    ),
   );
   await state.refresh();
   return _StateFixture(state: state, repository: repository);
@@ -92,7 +129,7 @@ void main() {
     state.settings = state.settings.copyWith(reminderMinutes: 30);
 
     expect(state.runningActivity, isNull);
-    expect(state.runningDuration, Duration.zero);
+    expect(state.runningDuration(), Duration.zero);
     expect(state.shouldShowReminder, isFalse);
     expect(state.hasSuspiciousRunningEntry, isFalse);
   });

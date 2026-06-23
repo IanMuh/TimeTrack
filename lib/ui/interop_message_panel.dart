@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 class InteropMessagePanel extends StatelessWidget {
   const InteropMessagePanel({required this.message, super.key});
 
@@ -7,7 +9,7 @@ class InteropMessagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final details = _InteropMessageDetails.from(message);
+    final details = _InteropMessageDetails.from(context, message);
     final colorScheme = Theme.of(context).colorScheme;
     final color = details.isError ? colorScheme.error : colorScheme.primary;
     return DecoratedBox(
@@ -64,28 +66,29 @@ class _InteropMessageDetails {
   final IconData icon;
   final bool isError;
 
-  static _InteropMessageDetails from(String message) {
+  static _InteropMessageDetails from(BuildContext context, String message) {
+    final l10n = AppLocalizations.of(context)!;
     const exportedPrefix = '已导出：';
     const importedPrefix = '已导入：';
     if (message.startsWith(exportedPrefix)) {
       return _InteropMessageDetails(
-        title: '已导出',
+        title: l10n.exported,
         body: message.substring(exportedPrefix.length),
         icon: Icons.download_done_outlined,
       );
     }
     if (message.startsWith(importedPrefix)) {
       return _InteropMessageDetails(
-        title: '已导入',
+        title: l10n.imported,
         body: message.substring(importedPrefix.length),
         icon: Icons.upload_file_outlined,
       );
     }
     return _InteropMessageDetails(
-      title: message.contains('失败') ? '操作失败' : '互通状态',
+      title: message.contains(l10n.failed) ? l10n.operationFailed : l10n.interopStatus,
       body: message,
-      icon: message.contains('失败') ? Icons.error_outline : Icons.info_outline,
-      isError: message.contains('失败'),
+      icon: message.contains(l10n.failed) ? Icons.error_outline : Icons.info_outline,
+      isError: message.contains(l10n.failed),
     );
   }
 }

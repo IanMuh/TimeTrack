@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/app_state.dart';
 import 'core/app_config.dart';
+import 'data/activity_repository.dart';
+import 'data/device_id_store.dart';
 import 'data/file_interop_service.dart';
 import 'data/lan_sync.dart';
 import 'data/local_database.dart';
+import 'data/settings_repository.dart';
 import 'data/sync_peer_store.dart';
 import 'data/sync_service.dart';
 import 'data/time_repository.dart';
+import 'l10n/app_localizations.dart';
 import 'ui/app_shell.dart';
 import 'ui/app_theme.dart';
 
@@ -26,20 +29,54 @@ Future<void> main() async {
   }
 
   final database = LocalDatabase();
-  final repository = TimeRepository(database: database);
+  final activityRepository = ActivityRepository(database: database);
+  final settingsRepository = SettingsRepository(database: database);
+  final deviceIdStore = DeviceIdStore(database: database);
+  final timeEntryRepository = TimeEntryRepository(
+    database: database,
+    activityRepository: activityRepository,
+  );
+  final actionLogRepository = ActionLogRepository(database: database);
+  final repository = TimeRepository(
+    database: database,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: actionLogRepository,
+  );
   final peerStore = SyncPeerStore(database: database);
   final state = AppState(
     repository: repository,
-    syncService: SyncService(repository: repository, client: client),
+    activityRepository: activityRepository,
+    entryRepository: timeEntryRepository,
+    syncService: SyncService(
+      repository: repository,
+      activityRepository: activityRepository,
+      settingsRepository: settingsRepository,
+      timeEntryRepository: timeEntryRepository,
+      actionLogRepository: actionLogRepository,
+      client: client,
+    ),
     lanSyncServer: LanSyncServer(
       repository: repository,
+      activityRepository: activityRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
     lanSyncClient: LanSyncClient(
       repository: repository,
+      activityRepository: activityRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
-    fileInteropService: FileInteropService(repository: repository),
+    fileInteropService: FileInteropService(
+      repository: repository,
+      activityRepository: activityRepository,
+      timeEntryRepository: timeEntryRepository,
+    ),
   );
   await state.initialize();
 
@@ -59,14 +96,11 @@ class TimeTrackApp extends StatelessWidget {
         return MaterialApp(
           title: 'TimeTrack',
           debugShowCheckedModeBanner: false,
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           theme: TimeTrackTheme.light(),
+          darkTheme: TimeTrackTheme.dark(),
+          themeMode: ThemeMode.system,
           home: AppShell(state: state),
         );
       },

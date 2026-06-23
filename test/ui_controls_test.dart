@@ -2,14 +2,18 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/time_entry.dart';
+import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/home_page.dart';
 import 'package:timetrack/ui/settings_page.dart';
 import 'package:timetrack/ui/stats_page.dart';
@@ -23,7 +27,7 @@ void main() {
     var selectedColor = 0xff112233;
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -57,7 +61,7 @@ void main() {
   ) async {
     Future<void> pumpAtWidth(double width) async {
       await tester.pumpWidget(
-        MaterialApp(
+        MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SizedBox(
               width: width,
@@ -105,7 +109,7 @@ void main() {
         'timetrack-export-20260620-123456.json';
 
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 320,
@@ -134,7 +138,7 @@ void main() {
     addTearDown(state.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 320,
@@ -174,7 +178,7 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
             child: SizedBox(
@@ -224,7 +228,7 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
             child: SizedBox(
@@ -285,7 +289,7 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 520,
@@ -330,7 +334,7 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) {
@@ -371,7 +375,7 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) {
@@ -399,7 +403,7 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: HomePage(state: state),
         ),
@@ -423,7 +427,7 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: HomePage(state: state),
         ),
@@ -451,7 +455,7 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: HomePage(state: state),
         ),
@@ -487,7 +491,7 @@ void main() {
     addTearDown(state.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 390,
@@ -514,7 +518,7 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) {
@@ -550,18 +554,37 @@ class _FakeAppState extends AppState {
   _FakeAppState()
       : super(
           repository: _repository,
-          syncService: SyncService(repository: _repository, client: null),
+          activityRepository: _activityRepository,
+          entryRepository: _timeEntryRepository,
+          syncService: SyncService(
+            repository: _repository,
+            activityRepository: _activityRepository,
+            settingsRepository: _settingsRepository,
+            timeEntryRepository: _timeEntryRepository,
+            actionLogRepository: _actionLogRepository,
+            client: null,
+          ),
           lanSyncServer: LanSyncServer(
             repository: _repository,
+            activityRepository: _activityRepository,
+            deviceIdStore: _deviceIdStore,
+            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
             portCandidates: const [0],
           ),
           lanSyncClient: LanSyncClient(
             repository: _repository,
+            activityRepository: _activityRepository,
+            deviceIdStore: _deviceIdStore,
+            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
             timeout: const Duration(milliseconds: 50),
           ),
-          fileInteropService: FileInteropService(repository: _repository),
+          fileInteropService: FileInteropService(
+            repository: _repository,
+            activityRepository: _activityRepository,
+            timeEntryRepository: _timeEntryRepository,
+          ),
         ) {
     now = DateTime(2026, 6, 16, 12);
     selectedDay = DateTime(2026, 6, 16);
@@ -599,7 +622,25 @@ class _FakeAppState extends AppState {
   }
 
   static final LocalDatabase _database = LocalDatabase();
-  static final TimeRepository _repository = TimeRepository(database: _database);
+  static final ActivityRepository _activityRepository =
+      ActivityRepository(database: _database);
+  static final SettingsRepository _settingsRepository =
+      SettingsRepository(database: _database);
+  static final DeviceIdStore _deviceIdStore = DeviceIdStore(database: _database);
+  static final TimeEntryRepository _timeEntryRepository = TimeEntryRepository(
+    database: _database,
+    activityRepository: _activityRepository,
+  );
+  static final ActionLogRepository _actionLogRepository =
+      ActionLogRepository(database: _database);
+  static final TimeRepository _repository = TimeRepository(
+    database: _database,
+    activityRepository: _activityRepository,
+    settingsRepository: _settingsRepository,
+    deviceIdStore: _deviceIdStore,
+    timeEntryRepository: _timeEntryRepository,
+    actionLogRepository: _actionLogRepository,
+  );
   static final SyncPeerStore _peerStore = SyncPeerStore(database: _database);
 
   int _nextActivityId = 2;

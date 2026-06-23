@@ -1,3 +1,6 @@
+import '../core/app_constants.dart';
+import '../core/model_utils.dart';
+
 class Activity {
   const Activity({
     required this.id,
@@ -20,6 +23,18 @@ class Activity {
   final bool isDeleted;
   final bool isUnassigned;
   final bool isOneOff;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Activity && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'Activity(id: $id, name: $name, color: $color, isFavorite: $isFavorite, isDeleted: $isDeleted)';
 
   Activity copyWith({
     String? id,
@@ -74,26 +89,22 @@ class Activity {
   }
 
   static Activity fromMap(Map<String, Object?> map) {
-    return Activity(
-      id: map['id'] as String,
-      userId: map['user_id'] as String?,
-      name: map['name'] as String,
-      color: (map['color'] as num).toInt(),
-      isFavorite: _readBool(map['is_favorite']),
-      updatedAt: DateTime.parse(map['updated_at'] as String).toLocal(),
-      isDeleted: _readBool(map['is_deleted']),
-      isUnassigned: _readBool(map['is_unassigned']),
-      isOneOff: _readBool(map['is_one_off']),
-    );
-  }
-
-  static bool _readBool(Object? value) {
-    if (value is bool) {
-      return value;
+    try {
+      return Activity(
+        id: (map['id'] as String?) ??
+            (throw const FormatException('Activity.fromMap: id is required')),
+        userId: map['user_id'] as String?,
+        name: (map['name'] as String?) ?? '',
+        color: (map['color'] as num?)?.toInt() ??
+            AppConstants.defaultActivityColor,
+        isFavorite: readBool(map['is_favorite']),
+        updatedAt: parseDateTime(map, 'updated_at'),
+        isDeleted: readBool(map['is_deleted']),
+        isUnassigned: readBool(map['is_unassigned']),
+        isOneOff: readBool(map['is_one_off']),
+      );
+    } on TypeError catch (e) {
+      throw FormatException('Activity.fromMap: invalid data type', e);
     }
-    if (value is num) {
-      return value != 0;
-    }
-    return false;
   }
 }

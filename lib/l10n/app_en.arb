@@ -1,0 +1,369 @@
+{
+  "@@locale": "en",
+  "@@last_modified": "2026-06-23",
+  "appTitle": "TimeTrack",
+  "appSubtitle": "Offline-first tracking. Pick an activity to get started.",
+  "navCurrent": "Now",
+  "navTimeline": "Timeline",
+  "navStats": "Stats",
+  "navSettings": "Settings",
+  "ok": "OK",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "save": "Save",
+  "syncStatusLocal": "Local mode",
+  "syncStatusCloud": "Sync ready",
+  "activityUnassigned": "Unassigned",
+  "reminderClose": "Close",
+  "emptyTimeline": "No entries yet",
+  "sync": "Sync",
+  "edit": "Edit",
+  "create": "Create",
+  "start": "Start",
+  "stop": "Stop",
+  "continueLabel": "Continue",
+  "confirm": "Confirm",
+  "undoHint": "Undo Ctrl+Z",
+  "undoWithLabel": "Undo: {label} Ctrl+Z",
+  "@undoWithLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "redoHint": "Redo Ctrl+Y",
+  "redoWithLabel": "Redo: {label} Ctrl+Y",
+  "@redoWithLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "quickSwitch": "Quick Switch",
+  "quickSwitchHint": "Tap to select, tap again to confirm switch.",
+  "quickSwitchSelected": "Selected {name}, tap again to switch.",
+  "@quickSwitchSelected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "currentDoing": "Currently doing",
+  "notStarted": "Not started",
+  "recording": "Recording",
+  "notStartedRecord": "Not started",
+  "selectActivityToStart": "Pick an activity to start tracking today.",
+  "elapsedDuration": "Elapsed {duration}",
+  "@elapsedDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "stopCurrentActivity": "Stop current activity",
+  "confirmSwitchSemantics": "Confirm switch to {name}",
+  "@confirmSwitchSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "currentActivitySemantics": "Current activity {name}",
+  "@currentActivitySemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "switchToSemantics": "Switch to {name}",
+  "@switchToSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "systemActivityCannotEdit": "System activity, cannot edit",
+  "editActivity": "Edit activity",
+  "oneOffActivity": "One-off activity",
+  "newActivity": "New activity",
+  "editActivityTitle": "Edit activity",
+  "name": "Name",
+  "deleteActivityTitle": "Delete activity",
+  "confirmDeleteActivity": "Delete \"{name}\"? Existing time records will be kept, but this activity can no longer be selected.",
+  "@confirmDeleteActivity": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "selectColorTooltip": "Select color {hex}",
+  "@selectColorTooltip": {
+    "placeholders": {
+      "hex": {
+        "type": "String"
+      }
+    }
+  },
+  "rgbTuner": "RGB Tuner",
+  "oneOff": "One-off",
+  "activityRunningMinutes": "Current activity has been running for {minutes} minutes.",
+  "@activityRunningMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "remindLater": "Remind later",
+  "stillDoingThis": "Still working on this?",
+  "confirmPreviousPeriod": "Confirm previous period",
+  "noRunningActivity": "No running activity.",
+  "suspiciousEntryContent": "Current activity started at {time} and has been running for a while. You can end it now and fill in gaps later.",
+  "@suspiciousEntryContent": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "keepCurrent": "Keep current",
+  "endToNow": "End now",
+  "syncing": "Syncing",
+  "cloudSyncActive": "Signed in with cloud sync",
+  "lanPeerPaired": "Paired with LAN host",
+  "localModeHint": "Local mode: enable LAN sharing or import/export in Settings",
+  "selectDate": "Select date",
+  "previousDay": "Previous day",
+  "nextDay": "Next day",
+  "emptyDayEntries": "No entries for this day.",
+  "emptyRangeEntries": "No entries for this range.",
+  "emptyDayActions": "No switches or edits for this day.",
+  "emptyRangeActions": "No switches or edits for this range.",
+  "timeline": "Timeline",
+  "compact": "Compact",
+  "detailed": "Detailed",
+  "singleDay": "1 day",
+  "threeDays": "3 days",
+  "sevenDays": "7 days",
+  "addEntry": "Add entry",
+  "viewMode": "View",
+  "entries": "Records",
+  "actions": "Actions",
+  "futureDayBanner": "{date} hasn't arrived yet. Records will appear here after the day actually occurs.",
+  "@futureDayBanner": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dayCoverageLine": "Day coverage",
+  "inProgress": "In progress",
+  "zoomableTimeline": "Zoomable timeline",
+  "timelineDragHint": "Drag horizontally to view the full day scale. Zoom keeps the same time scale.",
+  "entryList": "Entry list",
+  "entryListHint": "Sorted by start time. Tap any entry to edit.",
+  "switchToRecordHint": "Switch to adding entries or pick another date.",
+  "editEntrySemantics": "Edit {name} entry",
+  "@editEntrySemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editTooltip": "Edit",
+  "deviceLabel": "Device {id}",
+  "@deviceLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "addEntryTitle": "Add entry",
+  "editEntryTitle": "Edit entry",
+  "selectValidActivity": "Please select a valid activity.",
+  "endTime": "End",
+  "keepRunning": "Keep running",
+  "closeToSaveHint": "Disable to save this entry as ended.",
+  "note": "Note",
+  "selectExistingOrNew": "Pick an existing activity or type a new name.",
+  "runningCannotStartFuture": "A running entry cannot start in the future.",
+  "endMustBeAfterStart": "End time must be after start time.",
+  "overlapWarning": "This period overlaps with existing entries. Tap save again to auto-split existing entries.",
+  "split": "Split",
+  "extendToNow": "Extend to now",
+  "mergeLeft": "Merge left",
+  "mergeRight": "Merge right",
+  "noAdjacentRecord": "No adjacent entry to merge",
+  "left": "Left",
+  "right": "Right",
+  "mergeDirectionRecord": "Merge {direction}",
+  "@mergeDirectionRecord": {
+    "placeholders": {
+      "direction": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeConfirm": "{name} duration is {duration}, exceeding the {threshold} min threshold. Merge?",
+  "@mergeConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      },
+      "threshold": {
+        "type": "int"
+      }
+    }
+  },
+  "merge": "Merge",
+  "splitEntryTitle": "Split entry",
+  "splitPoint": "Split point",
+  "splitPointError": "Split point must be between start and end.",
+  "extendEntryError": "Start time is after current time, cannot extend.",
+  "createActivityTitle": "Create activity",
+  "persistent": "Persistent",
+  "entryActivityLabel": "Activity",
+  "editCurrentActivity": "Edit current activity",
+  "noMatchingActivity": "No matching activity",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "thisWeek": "This week",
+  "lastWeek": "Last week",
+  "stats": "Stats",
+  "statsSubtitle": "View time distribution and daily totals for {label}.",
+  "@statsSubtitle": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "range": "Range",
+  "customDay": "Custom day",
+  "totalRangeRecords": "Range total",
+  "longestStreak": "Longest streak",
+  "distributionChartTitle": "{label} distribution",
+  "@distributionChartTitle": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "noDataToVisualize": "No data to visualize yet",
+  "activityColorLegend": "Grouped by activity, colors match activity colors.",
+  "noData": "No data",
+  "startRecordingHint": "Start recording or select a different range to see the distribution.",
+  "unknownActivity": "Unknown activity",
+  "dailyTotal": "Daily total",
+  "dailyTotalHint": "Track your recording rhythm across the week or custom range.",
+  "recordHint": "Total duration will be listed by date once records exist.",
+  "settings": "Settings",
+  "settingsSubtitle": "Reminders, sync, and device sharing always stay local-first.",
+  "timelineSettings": "Timeline",
+  "timelineSettingsHint": "Control whether confirmation is needed when merging adjacent entries.",
+  "mergeThreshold": "Merge threshold",
+  "minutesFormat": "{count} min",
+  "@minutesFormat": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reminderSettings": "Reminders",
+  "reminderSettingsHint": "Use gentle prompts to confirm long-running activities.",
+  "triggerTime": "Trigger time",
+  "durationLabel": "Duration",
+  "interval": "Interval",
+  "method": "Method",
+  "methodDialog": "Dialog",
+  "methodBanner": "Banner",
+  "methodSilent": "Silent",
+  "supabaseConfigured": "Supabase configured",
+  "supabaseNotConfigured": "Supabase not configured",
+  "loggedIn": "Signed in",
+  "notLoggedIn": "Not signed in or local mode",
+  "cloudSync": "Cloud sync",
+  "cloudSyncHint": "App runs in local mode when Supabase is not configured.",
+  "signOut": "Sign out",
+  "syncNow": "Sync now",
+  "deviceInterop": "Device sharing",
+  "deviceInteropHint": "Share data via LAN on the same Wi-Fi or through file import/export.",
+  "importFile": "Import file",
+  "exportFile": "Export file",
+  "lanHost": "LAN host",
+  "lanHostWaiting": "Waiting for devices on the same network to connect.",
+  "lanHostWindowsNote": "v1 defaults: Windows as LAN host, Android as client connecting to PC.",
+  "lanHostAndroidNote": "Enter the address and pairing code below on Android.",
+  "lanHostStartNote": "Once started, other devices on the same Wi-Fi can pair.",
+  "pairingCodeLabel": "Pairing code: {code}",
+  "@pairingCodeLabel": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "windowsOnly": "Windows only",
+  "stopHost": "Stop host",
+  "startHost": "Start host",
+  "connectLanHost": "Connect to LAN host",
+  "connectLanHostHint": "Enter address and pairing code to sync immediately.",
+  "pairedWith": "Paired: {name}",
+  "@pairedWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removePairing": "Remove pairing",
+  "hostAddress": "Host address",
+  "hostHint": "192.168.1.10:8787",
+  "pairingCodeInput": "Pairing code",
+  "pairAndSync": "Pair & sync",
+  "multiDeviceSync": "Multi-device sync",
+  "multiDeviceSyncHint": "Local records always available. Sign in to sync to the cloud.",
+  "emailLabel": "Email",
+  "sending": "Sending",
+  "sendCode": "Send code",
+  "emailCode": "Verification code",
+  "verifying": "Verifying",
+  "verifyLogin": "Verify & sign in",
+  "sendFailed": "Send failed: {error}",
+  "@sendFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyFailed": "Verification failed: {error}",
+  "@verifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exported": "Exported",
+  "imported": "Imported",
+  "operationFailed": "Operation failed",
+  "interopStatus": "Interop status",
+  "failed": "Failed"
+}

@@ -1,0 +1,41 @@
+=== Task 19: i18n Infrastructure Verification ===
+Date: 2026-06-23
+
+## Files Created
+- l10n.yaml (project root) - ARB configuration
+- lib/l10n/app_zh.arb - 15 Chinese keys (template)
+- lib/l10n/app_en.arb - 15 English keys
+- lib/l10n/app_localizations.dart - generated abstract class
+- lib/l10n/app_localizations_zh.dart - generated zh locale
+- lib/l10n/app_localizations_en.dart - generated en locale
+
+## ARB Keys (15 initial)
+1. appTitle
+2. appSubtitle
+3. navCurrent
+4. navTimeline
+5. navStats
+6. navSettings
+7. ok
+8. cancel
+9. delete
+10. save
+11. syncStatusLocal
+12. syncStatusCloud
+13. activityUnassigned
+14. reminderClose
+15. emptyTimeline
+
+## Files Modified
+- pubspec.yaml: pinned intl to 0.20.2, added generate: true
+- lib/main.dart: replaced manual locale/delegates with AppLocalizations.localizationsDelegates and AppLocalizations.supportedLocales
+- lib/ui/home_page.dart: title, subtitle, syncStatus use AppLocalizations.of(context)!
+- lib/ui/app_shell.dart: navigation labels use AppLocalizations.of(context)!
+- test/app_shell_shortcuts_test.dart: added AppLocalizations delegates to MaterialApp
+- test/ui_controls_test.dart: added AppLocalizations delegates to MaterialApp (16 instances)
+
+## Verification Results
+- flutter gen-l10n: SUCCESS (no errors)
+- flutter analyze: 0 errors, 0 warnings on changed files (40 info-level issues pre-existing)
+- flutter test: 204 passed, 0 failed
+- i18n verified on home_page.dart (title/subtitle/syncStatus) and app_shell.dart (nav labels)

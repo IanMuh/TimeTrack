@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/home_page.dart';
 
 Activity _activity() {
@@ -22,7 +23,7 @@ void main() {
     var taps = 0;
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ActivitySwitchButton(
             activity: _activity(),
@@ -52,7 +53,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Column(
             children: [

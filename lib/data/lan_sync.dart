@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:uuid/uuid.dart';
 
+import 'repository_interfaces.dart';
 import 'sync_bundle.dart';
 import 'sync_peer_store.dart';
 import 'time_repository.dart';
@@ -21,16 +22,27 @@ class LanSyncException implements Exception {
 class LanSyncServer {
   LanSyncServer({
     required TimeRepository repository,
+    required IActivityRepository activityRepository,
+    required IDeviceIdStore deviceIdStore,
+    required ITimeEntryRepository timeEntryRepository,
     required SyncPeerStore peerStore,
     List<int>? portCandidates,
     InternetAddress? bindAddress,
   })  : _repository = repository,
+        _activityRepository = activityRepository,
+        _deviceIdStore = deviceIdStore,
+        _timeEntryRepository = timeEntryRepository,
         _peerStore = peerStore,
         _portCandidates =
             portCandidates ?? List<int>.generate(11, (index) => 8787 + index),
         _bindAddress = bindAddress ?? InternetAddress.anyIPv4;
 
   final TimeRepository _repository;
+  // ignore: unused_field
+  final IActivityRepository _activityRepository;
+  final IDeviceIdStore _deviceIdStore;
+  // ignore: unused_field
+  final ITimeEntryRepository _timeEntryRepository;
   final SyncPeerStore _peerStore;
   final List<int> _portCandidates;
   final InternetAddress _bindAddress;
@@ -40,7 +52,13 @@ class LanSyncServer {
 
   HttpServer? _server;
   String? _pairingCode;
+  DateTime? _pairingCodeGeneratedAt;
   List<String> _localUrls = const [];
+  final Map<String, List<DateTime>> _pairAttempts = {};
+
+  static const _maxPairAttempts = 5;
+  static const _pairAttemptWindow = Duration(minutes: 1);
+  static const _pairingCodeTtl = Duration(minutes: 5);
 
   bool get isRunning => _server != null;
 
@@ -61,6 +79,8 @@ class LanSyncServer {
         final server = await HttpServer.bind(_bindAddress, port);
         _server = server;
         _pairingCode = _generatePairingCode();
+        _pairingCodeGeneratedAt = DateTime.now();
+        _pairAttempts.clear();
         _localUrls = await _buildLocalUrls(server.port);
         server.listen((request) {
           unawaited(_handleRequest(request));
@@ -77,7 +97,9 @@ class LanSyncServer {
     final server = _server;
     _server = null;
     _pairingCode = null;
+    _pairingCodeGeneratedAt = null;
     _localUrls = const [];
+    _pairAttempts.clear();
     await server?.close(force: true);
   }
 
@@ -86,7 +108,7 @@ class LanSyncServer {
       if (request.method == 'GET' && request.uri.path == '/health') {
         await _writeJson(request, {
           'ok': true,
-          'device_id': await _repository.currentDeviceId(),
+          'device_id': await _deviceIdStore.currentDeviceId(),
         });
         return;
       }
@@ -116,6 +138,35 @@ class LanSyncServer {
   }
 
   Future<void> _handlePair(HttpRequest request) async {
+    final clientIp =
+        request.connectionInfo?.remoteAddress.address ?? 'unknown';
+
+    // Rate limiting: clean old entries and check threshold
+    _pairAttempts[clientIp]
+        ?.removeWhere((t) => DateTime.now().difference(t) > _pairAttemptWindow);
+    final attempts = _pairAttempts.putIfAbsent(clientIp, () => []);
+    if (attempts.length >= _maxPairAttempts) {
+      await _writeJson(
+        request,
+        {'error': '尝试次数过多，请稍后再试。'},
+        statusCode: 429,
+      );
+      return;
+    }
+    attempts.add(DateTime.now());
+
+    // Pairing code TTL check
+    final generatedAt = _pairingCodeGeneratedAt;
+    if (generatedAt != null &&
+        DateTime.now().difference(generatedAt) > _pairingCodeTtl) {
+      await _writeJson(
+        request,
+        {'error': '配对码已过期，请重启局域网同步服务。'},
+        statusCode: HttpStatus.unauthorized,
+      );
+      return;
+    }
+
     final body = await _readJson(request);
     final code = body['code'] as String?;
     if (code?.trim() != _pairingCode) {
@@ -146,7 +197,7 @@ class LanSyncServer {
 
     await _writeJson(request, {
       'token': token,
-      'server_device_id': await _repository.currentDeviceId(),
+      'server_device_id': await _deviceIdStore.currentDeviceId(),
       'server_name': Platform.localHostname,
     });
   }
@@ -206,13 +257,24 @@ class LanSyncServer {
 class LanSyncClient {
   LanSyncClient({
     required TimeRepository repository,
+    required IActivityRepository activityRepository,
+    required IDeviceIdStore deviceIdStore,
+    required ITimeEntryRepository timeEntryRepository,
     required SyncPeerStore peerStore,
     Duration timeout = const Duration(seconds: 8),
   })  : _repository = repository,
+        _activityRepository = activityRepository,
+        _deviceIdStore = deviceIdStore,
+        _timeEntryRepository = timeEntryRepository,
         _peerStore = peerStore,
         _timeout = timeout;
 
   final TimeRepository _repository;
+  // ignore: unused_field
+  final IActivityRepository _activityRepository;
+  final IDeviceIdStore _deviceIdStore;
+  // ignore: unused_field
+  final ITimeEntryRepository _timeEntryRepository;
   final SyncPeerStore _peerStore;
   final Duration _timeout;
   final SyncBundleCodec _codec = const SyncBundleCodec();
@@ -230,7 +292,7 @@ class LanSyncClient {
       Uri.parse('$normalizedBaseUrl/pair'),
       {
         'code': code.trim(),
-        'source_device_id': await _repository.currentDeviceId(),
+        'source_device_id': await _deviceIdStore.currentDeviceId(),
         'device_name': Platform.localHostname,
       },
     );

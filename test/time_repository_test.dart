@@ -1,8 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/time_repository.dart';
+import 'package:timetrack/domain/action_log.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
 
@@ -20,7 +24,23 @@ Future<RepositoryFixture> buildRepositoryFixture() async {
     options: OpenDatabaseOptions(singleInstance: false),
   );
   await LocalDatabase.createSchema(db);
-  final repository = TimeRepository(database: LocalDatabase(database: db));
+  final database = LocalDatabase(database: db);
+  final activityRepository = ActivityRepository(database: database);
+  final settingsRepository = SettingsRepository(database: database);
+  final deviceIdStore = DeviceIdStore(database: database);
+  final timeEntryRepository = TimeEntryRepository(
+    database: database,
+    activityRepository: activityRepository,
+  );
+  final actionLogRepository = ActionLogRepository(database: database);
+  final repository = TimeRepository(
+    database: database,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: actionLogRepository,
+  );
   await repository.ensureSeedData();
   return RepositoryFixture(repository: repository, database: db);
 }
@@ -72,7 +92,23 @@ void main() {
       'is_deleted': 0,
       'is_unassigned': 0,
     });
-    final repository = TimeRepository(database: LocalDatabase(database: db));
+    final database = LocalDatabase(database: db);
+    final activityRepository = ActivityRepository(database: database);
+    final settingsRepository = SettingsRepository(database: database);
+    final deviceIdStore = DeviceIdStore(database: database);
+    final timeEntryRepository = TimeEntryRepository(
+      database: database,
+      activityRepository: activityRepository,
+    );
+    final actionLogRepository = ActionLogRepository(database: database);
+    final repository = TimeRepository(
+      database: database,
+      activityRepository: activityRepository,
+      settingsRepository: settingsRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
+      actionLogRepository: actionLogRepository,
+    );
 
     await repository.ensureSeedData();
 
@@ -105,7 +141,7 @@ void main() {
     expect(second.activityId, activities[1].id);
     expect(closed.endAt, secondStart);
     expect(await repository.runningEntry(), isNotNull);
-    expect(logs.map((log) => log.actionType), ['switch', 'switch']);
+    expect(logs.map((log) => log.actionType), [ActionType.switch_, ActionType.switch_]);
   });
 
   test('stopping while already unassigned does not split it', () async {
@@ -137,7 +173,7 @@ void main() {
     expect(runningAfter?.id, runningBefore?.id);
     expect(activeUnassigned, hasLength(1));
     expect(activeUnassigned.single.startAt, DateTime(2026, 1, 1, 10));
-    expect(logs.map((log) => log.actionType), ['switch', 'stop', 'switch']);
+    expect(logs.map((log) => log.actionType), [ActionType.switch_, ActionType.stop, ActionType.switch_]);
   });
 
   test('switching to running unassigned does not split it', () async {
@@ -255,7 +291,7 @@ void main() {
 
     expect(overlaps.map((entry) => entry.id), contains(existing.id));
     expect(entries.map((entry) => entry.id), contains(existing.id));
-    expect(logs.map((log) => log.actionType), contains('manual'));
+    expect(logs.map((log) => log.actionType), contains(ActionType.manual));
   });
 
   test('manual entry cuts an overlapping existing entry into edge segments',
@@ -498,7 +534,7 @@ void main() {
     expect(entries[1].startAt, DateTime(2026, 1, 1, 10));
     expect(entries[1].endAt, DateTime(2026, 1, 1, 11));
     expect(entries[1].note, 'deep work');
-    expect(logs.map((log) => log.actionType), contains('split'));
+    expect(logs.map((log) => log.actionType), contains(ActionType.split));
   });
 
   test('entries crossing midnight are split into day-local rows', () async {
@@ -816,7 +852,22 @@ void main() {
     });
     await LocalDatabase.migrateProfileSettingsReminderSchema(db);
     final database = LocalDatabase(database: db);
-    final repository = TimeRepository(database: database);
+    final activityRepository = ActivityRepository(database: database);
+    final settingsRepository = SettingsRepository(database: database);
+    final deviceIdStore = DeviceIdStore(database: database);
+    final timeEntryRepository = TimeEntryRepository(
+      database: database,
+      activityRepository: activityRepository,
+    );
+    final actionLogRepository = ActionLogRepository(database: database);
+    final repository = TimeRepository(
+      database: database,
+      activityRepository: activityRepository,
+      settingsRepository: settingsRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
+      actionLogRepository: actionLogRepository,
+    );
 
     final settings = await repository.settings();
 

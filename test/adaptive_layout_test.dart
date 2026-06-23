@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/adaptive_layout.dart';
 import 'package:timetrack/ui/ui_components.dart';
 import 'package:timetrack/ui/timeline_page.dart';
@@ -17,7 +18,7 @@ void main() {
   ) async {
     Future<void> pumpAtWidth(double width) async {
       await tester.pumpWidget(
-        MaterialApp(
+        MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SizedBox(
               width: width,
@@ -58,7 +59,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 390,
@@ -86,7 +87,7 @@ void main() {
   ) async {
     Future<void> pumpAtWidth(double width) async {
       await tester.pumpWidget(
-        MaterialApp(
+        MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SizedBox(
               width: width,
@@ -129,7 +130,7 @@ void main() {
   ) async {
     Future<void> pumpMode(TimelineViewMode mode) async {
       await tester.pumpWidget(
-        MaterialApp(
+        MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SizedBox(
               width: 390,
