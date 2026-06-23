@@ -275,64 +275,87 @@ class ActivitySwitchButton extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        onDoubleTap: onDoubleTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : pending
-                        ? Icons.touch_app_outlined
-                        : Icons.circle,
-                color: foreground,
-                size: 18,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  activity.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: foreground,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (pending)
-                Icon(
-                  Icons.keyboard_double_arrow_right,
-                  color: foreground,
-                  size: 18,
-                ),
-              if (activity.isUnassigned)
-                SizedBox.square(
-                  dimension: 40,
-                  child: Tooltip(
-                    message: '系统事项，不能编辑',
-                    child: Icon(
-                      Icons.lock_outline,
-                      color: foreground.withValues(alpha: 0.72),
-                      size: 18,
-                    ),
-                  ),
-                )
-              else
-                IconButton(
-                  tooltip: '编辑事项',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onEdit,
-                  icon: Icon(
-                    Icons.edit_outlined,
+      child: FocusableActionDetector(
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              onTap();
+              return null;
+            },
+          ),
+        },
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          onDoubleTap: onDoubleTap,
+          child: Semantics(
+            button: true,
+            selected: selected,
+            label: pending
+                ? '确认切换到${activity.name}'
+                : selected
+                    ? '当前事项${activity.name}'
+                    : '切换到${activity.name}',
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : pending
+                            ? Icons.touch_app_outlined
+                            : Icons.circle,
                     color: foreground,
                     size: 18,
                   ),
-                ),
-            ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      activity.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: foreground,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (pending)
+                    Icon(
+                      Icons.keyboard_double_arrow_right,
+                      color: foreground,
+                      size: 18,
+                    ),
+                  if (activity.isUnassigned)
+                    SizedBox.square(
+                      dimension: 40,
+                      child: Tooltip(
+                        message: '系统事项，不能编辑',
+                        child: Icon(
+                          Icons.lock_outline,
+                          color: foreground.withValues(alpha: 0.72),
+                          size: 18,
+                        ),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      tooltip: '编辑事项',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: onEdit,
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        color: foreground,
+                        size: 18,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -686,7 +709,7 @@ class ActivityColorPicker extends StatelessWidget {
           children: [
             for (final colorValue in activityPalette)
               IconButton(
-                tooltip: '选择颜色',
+                tooltip: '选择颜色 ${_formatHexColor(colorValue)}',
                 onPressed: () => onColorChanged(colorValue),
                 icon: Icon(
                   selectedColor == colorValue
