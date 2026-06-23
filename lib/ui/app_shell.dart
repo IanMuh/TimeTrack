@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
@@ -26,6 +27,7 @@ class _AppShellState extends State<AppShell> {
   bool _reminderVisible = false;
   bool _reminderBannerVisible = false;
   bool _suspiciousVisible = false;
+  final _timelineController = TimelinePageController();
 
   static const _destinations = [
     _AppDestination(
@@ -137,7 +139,7 @@ class _AppShellState extends State<AppShell> {
 
     final pages = [
       HomePage(state: state),
-      TimelinePage(state: state),
+      TimelinePage(state: state, controller: _timelineController),
       StatsPage(state: state),
       SettingsPage(state: state),
     ];
@@ -145,50 +147,124 @@ class _AppShellState extends State<AppShell> {
     final sizeClass = adaptiveSizeClassFor(MediaQuery.sizeOf(context).width);
     final showRail = sizeClass == AdaptiveSizeClass.expanded;
 
-    return Scaffold(
-      body: SafeArea(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(color: TimeTrackTheme.background),
-          child: Row(
-            children: [
-              if (showRail) ...[
-                _DesktopNavigationRail(
-                  selectedIndex: _index,
-                  destinations: _destinations,
-                  onDestinationSelected: _selectDestination,
+    return Shortcuts(
+      shortcuts: _shortcuts,
+      child: Actions(
+        actions: {
+          _UndoIntent: CallbackAction<_UndoIntent>(
+            onInvoke: (_) {
+              if (!_focusedEditable(context)) {
+                unawaited(state.undo());
+              }
+              return null;
+            },
+          ),
+          _RedoIntent: CallbackAction<_RedoIntent>(
+            onInvoke: (_) {
+              if (!_focusedEditable(context)) {
+                unawaited(state.redo());
+              }
+              return null;
+            },
+          ),
+          _SelectDestinationIntent: CallbackAction<_SelectDestinationIntent>(
+            onInvoke: (intent) {
+              _selectDestination(intent.index);
+              return null;
+            },
+          ),
+          _TimelineAddEntryIntent: CallbackAction<_TimelineAddEntryIntent>(
+            onInvoke: (_) {
+              if (_index == 1 && !_focusedEditable(context)) {
+                _timelineController.openEntryEditor();
+              }
+              return null;
+            },
+          ),
+          _TimelinePreviousRangeIntent:
+              CallbackAction<_TimelinePreviousRangeIntent>(
+            onInvoke: (_) {
+              if (_index == 1 && !_focusedEditable(context)) {
+                _timelineController.selectPreviousRange();
+              }
+              return null;
+            },
+          ),
+          _TimelineNextRangeIntent: CallbackAction<_TimelineNextRangeIntent>(
+            onInvoke: (_) {
+              if (_index == 1 && !_focusedEditable(context)) {
+                _timelineController.selectNextRange();
+              }
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: FocusTraversalGroup(
+            child: Scaffold(
+              body: SafeArea(
+                child: DecoratedBox(
+                  decoration:
+                      const BoxDecoration(color: TimeTrackTheme.background),
+                  child: Row(
+                    children: [
+                      if (showRail) ...[
+                        _DesktopNavigationRail(
+                          selectedIndex: _index,
+                          destinations: _destinations,
+                          onDestinationSelected: _selectDestination,
+                          historyControls: UndoRedoControls(
+                            state: state,
+                            axis: Axis.vertical,
+                          ),
+                        ),
+                        const VerticalDivider(width: 1),
+                      ],
+                      Expanded(child: pages[_index]),
+                    ],
+                  ),
                 ),
-                const VerticalDivider(width: 1),
-              ],
-              Expanded(child: pages[_index]),
-            ],
+              ),
+              bottomNavigationBar: showRail
+                  ? null
+                  : SafeArea(
+                      top: false,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: TimeTrackTheme.surface,
+                          border: Border(
+                            top: BorderSide(color: TimeTrackTheme.outline),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                              child: UndoRedoControls(state: state),
+                            ),
+                            NavigationBar(
+                              selectedIndex: _index,
+                              onDestinationSelected: _selectDestination,
+                              destinations: [
+                                for (final destination in _destinations)
+                                  NavigationDestination(
+                                    icon: Icon(destination.icon),
+                                    selectedIcon:
+                                        Icon(destination.selectedIcon),
+                                    label: destination.label,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
           ),
         ),
       ),
-      bottomNavigationBar: showRail
-          ? null
-          : SafeArea(
-              top: false,
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  color: TimeTrackTheme.surface,
-                  border: Border(
-                    top: BorderSide(color: TimeTrackTheme.outline),
-                  ),
-                ),
-                child: NavigationBar(
-                  selectedIndex: _index,
-                  onDestinationSelected: _selectDestination,
-                  destinations: [
-                    for (final destination in _destinations)
-                      NavigationDestination(
-                        icon: Icon(destination.icon),
-                        selectedIcon: Icon(destination.selectedIcon),
-                        label: destination.label,
-                      ),
-                  ],
-                ),
-              ),
-            ),
     );
   }
 }
@@ -198,11 +274,13 @@ class _DesktopNavigationRail extends StatelessWidget {
     required this.selectedIndex,
     required this.destinations,
     required this.onDestinationSelected,
+    required this.historyControls,
   });
 
   final int selectedIndex;
   final List<_AppDestination> destinations;
   final ValueChanged<int> onDestinationSelected;
+  final Widget historyControls;
 
   @override
   Widget build(BuildContext context) {
@@ -244,10 +322,119 @@ class _DesktopNavigationRail extends StatelessWidget {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 14),
+            child: historyControls,
+          ),
         ],
       ),
     );
   }
+}
+
+class UndoRedoControls extends StatelessWidget {
+  const UndoRedoControls({
+    required this.state,
+    this.axis = Axis.horizontal,
+    super.key,
+  });
+
+  final AppState state;
+  final Axis axis;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: state,
+      builder: (context, _) {
+        final undoLabel = state.undoLabel;
+        final redoLabel = state.redoLabel;
+        return Flex(
+          direction: axis,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton.filledTonal(
+              tooltip: undoLabel == null ? '撤销 Ctrl+Z' : '撤销：$undoLabel Ctrl+Z',
+              onPressed: state.canUndo ? () => unawaited(state.undo()) : null,
+              icon: const Icon(Icons.undo),
+            ),
+            SizedBox(
+              width: axis == Axis.horizontal ? 8 : 0,
+              height: axis == Axis.vertical ? 8 : 0,
+            ),
+            IconButton.filledTonal(
+              tooltip: redoLabel == null ? '重做 Ctrl+Y' : '重做：$redoLabel Ctrl+Y',
+              onPressed: state.canRedo ? () => unawaited(state.redo()) : null,
+              icon: const Icon(Icons.redo),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+final Map<ShortcutActivator, Intent> _shortcuts = {
+  const SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+      const _UndoIntent(),
+  const SingleActivator(LogicalKeyboardKey.keyY, control: true):
+      const _RedoIntent(),
+  const SingleActivator(
+    LogicalKeyboardKey.keyZ,
+    control: true,
+    shift: true,
+  ): const _RedoIntent(),
+  const SingleActivator(LogicalKeyboardKey.digit1, control: true):
+      const _SelectDestinationIntent(0),
+  const SingleActivator(LogicalKeyboardKey.digit2, control: true):
+      const _SelectDestinationIntent(1),
+  const SingleActivator(LogicalKeyboardKey.digit3, control: true):
+      const _SelectDestinationIntent(2),
+  const SingleActivator(LogicalKeyboardKey.digit4, control: true):
+      const _SelectDestinationIntent(3),
+  const SingleActivator(LogicalKeyboardKey.keyN, control: true):
+      const _TimelineAddEntryIntent(),
+  const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true):
+      const _TimelinePreviousRangeIntent(),
+  const SingleActivator(LogicalKeyboardKey.arrowRight, alt: true):
+      const _TimelineNextRangeIntent(),
+};
+
+bool _focusedEditable(BuildContext context) {
+  final focus = FocusManager.instance.primaryFocus;
+  final focusedContext = focus?.context;
+  if (focusedContext == null) {
+    return false;
+  }
+  return focusedContext.widget is EditableText ||
+      focusedContext.findAncestorWidgetOfExactType<EditableText>() != null;
+}
+
+class _UndoIntent extends Intent {
+  const _UndoIntent();
+}
+
+class _RedoIntent extends Intent {
+  const _RedoIntent();
+}
+
+class _SelectDestinationIntent extends Intent {
+  const _SelectDestinationIntent(this.index);
+
+  final int index;
+}
+
+class _TimelineAddEntryIntent extends Intent {
+  const _TimelineAddEntryIntent();
+}
+
+class _TimelinePreviousRangeIntent extends Intent {
+  const _TimelinePreviousRangeIntent();
+}
+
+class _TimelineNextRangeIntent extends Intent {
+  const _TimelineNextRangeIntent();
 }
 
 class _AppDestination {

@@ -637,6 +637,14 @@ class _FakeAppState extends AppState {
   }
 
   @override
+  Future<T> runUndoBatch<T>(
+    Future<T> Function() action, {
+    String? label,
+  }) {
+    return action();
+  }
+
+  @override
   Future<Activity> createEntryActivity(
     String name,
     int color, {

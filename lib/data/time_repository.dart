@@ -7,6 +7,7 @@ import '../domain/activity.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 import 'local_database.dart';
+import 'repository_undo.dart';
 import 'sync_bundle.dart';
 
 enum EntryMergeDirection { previous, next }
@@ -668,6 +669,54 @@ class TimeRepository {
     return rows.map(ActionLog.fromMap).toList();
   }
 
+  Future<RepositoryUndoSnapshot> undoSnapshot() async {
+    final activityRows = await activities(includeDeleted: true);
+    final entryRows = await allEntries();
+    final logRows = await allActionLogs();
+    return RepositoryUndoSnapshot(
+      activities: {
+        for (final activity in activityRows) activity.id: activity,
+      },
+      timeEntries: {
+        for (final entry in entryRows) entry.id: entry,
+      },
+      actionLogs: {
+        for (final log in logRows) log.id: log,
+      },
+    );
+  }
+
+  Future<void> applyUndoChangeSet(
+    RepositoryUndoChangeSet changeSet, {
+    required RepositoryUndoDirection direction,
+  }) async {
+    if (changeSet.isEmpty) {
+      return;
+    }
+    final db = await _database.db;
+    final updatedAt = DateTime.now();
+    await db.transaction((txn) async {
+      await _validateUndoChangeSet(txn, changeSet, direction);
+      for (final change in changeSet.activities) {
+        await _applyActivityUndoChange(txn, change, direction, updatedAt);
+      }
+      for (final change in changeSet.timeEntries) {
+        await _applyEntryUndoChange(txn, change, direction, updatedAt);
+      }
+      for (final change in changeSet.actionLogs) {
+        await _applyActionLogUndoChange(txn, change, direction, updatedAt);
+      }
+    });
+    final actionLabel = direction == RepositoryUndoDirection.undo ? '撤销' : '重做';
+    await addActionLog(
+      actionType: direction == RepositoryUndoDirection.undo ? 'undo' : 'redo',
+      activityId: null,
+      entryId: null,
+      occurredAt: updatedAt,
+      message: '$actionLabel：${changeSet.label}',
+    );
+  }
+
   Future<void> addActionLog({
     required String actionType,
     required String? activityId,
@@ -1041,6 +1090,183 @@ class TimeRepository {
       return null;
     }
     return TimeEntry.fromMap(rows.first);
+  }
+
+  Future<void> _validateUndoChangeSet(
+    DatabaseExecutor executor,
+    RepositoryUndoChangeSet changeSet,
+    RepositoryUndoDirection direction,
+  ) async {
+    for (final change in changeSet.activities) {
+      final current = await _activityById(change.id, executor);
+      if (!_rowMatchesExpected<Activity>(
+        current: current,
+        expected: change.expectedFor(direction),
+        toMap: (value) => value.toLocalMap(),
+        isDeleted: (value) => value.isDeleted,
+      )) {
+        throw _undoConflict(direction);
+      }
+    }
+    for (final change in changeSet.timeEntries) {
+      final current = await _entryByIdWithExecutor(change.id, executor);
+      if (!_rowMatchesExpected<TimeEntry>(
+        current: current,
+        expected: change.expectedFor(direction),
+        toMap: (value) => value.toLocalMap(),
+        isDeleted: (value) => value.isDeleted,
+      )) {
+        throw _undoConflict(direction);
+      }
+    }
+    for (final change in changeSet.actionLogs) {
+      final current = await _actionLogById(change.id, executor);
+      if (!_rowMatchesExpected<ActionLog>(
+        current: current,
+        expected: change.expectedFor(direction),
+        toMap: (value) => value.toLocalMap(),
+        isDeleted: (value) => value.isDeleted,
+      )) {
+        throw _undoConflict(direction);
+      }
+    }
+  }
+
+  RepositoryUndoConflictException _undoConflict(
+    RepositoryUndoDirection direction,
+  ) {
+    final actionLabel = direction == RepositoryUndoDirection.undo ? '撤销' : '重做';
+    return RepositoryUndoConflictException('数据已变化，无法$actionLabel。');
+  }
+
+  Future<void> _applyActivityUndoChange(
+    DatabaseExecutor executor,
+    RepositoryUndoRowChange<Activity> change,
+    RepositoryUndoDirection direction,
+    DateTime updatedAt,
+  ) async {
+    final target = change.targetFor(direction);
+    final fallback = change.fallbackFor(direction);
+    final value = target?.copyWith(updatedAt: updatedAt) ??
+        fallback?.copyWith(isDeleted: true, updatedAt: updatedAt);
+    if (value == null) {
+      return;
+    }
+    await executor.insert(
+      'activities',
+      value.toLocalMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _applyEntryUndoChange(
+    DatabaseExecutor executor,
+    RepositoryUndoRowChange<TimeEntry> change,
+    RepositoryUndoDirection direction,
+    DateTime updatedAt,
+  ) async {
+    final target = change.targetFor(direction);
+    final fallback = change.fallbackFor(direction);
+    final value = target?.copyWith(updatedAt: updatedAt) ??
+        fallback?.copyWith(isDeleted: true, updatedAt: updatedAt);
+    if (value == null) {
+      return;
+    }
+    await executor.insert(
+      'time_entries',
+      value.toLocalMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _applyActionLogUndoChange(
+    DatabaseExecutor executor,
+    RepositoryUndoRowChange<ActionLog> change,
+    RepositoryUndoDirection direction,
+    DateTime updatedAt,
+  ) async {
+    final target = change.targetFor(direction);
+    final fallback = change.fallbackFor(direction);
+    final value = target?.copyWith(updatedAt: updatedAt) ??
+        fallback?.copyWith(isDeleted: true, updatedAt: updatedAt);
+    if (value == null) {
+      return;
+    }
+    await executor.insert(
+      'action_logs',
+      value.toLocalMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<TimeEntry?> _entryByIdWithExecutor(
+    String entryId,
+    DatabaseExecutor executor,
+  ) async {
+    final rows = await executor.query(
+      'time_entries',
+      where: 'id = ?',
+      whereArgs: [entryId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return TimeEntry.fromMap(rows.first);
+  }
+
+  Future<ActionLog?> _actionLogById(
+    String logId,
+    DatabaseExecutor executor,
+  ) async {
+    final rows = await executor.query(
+      'action_logs',
+      where: 'id = ?',
+      whereArgs: [logId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return ActionLog.fromMap(rows.first);
+  }
+
+  bool _rowMatchesExpected<T>({
+    required T? current,
+    required T? expected,
+    required Map<String, Object?> Function(T value) toMap,
+    required bool Function(T value) isDeleted,
+  }) {
+    if (expected == null) {
+      return current == null || isDeleted(current);
+    }
+    if (current == null) {
+      return isDeleted(expected);
+    }
+    return _comparableMapsEqual(toMap(current), toMap(expected));
+  }
+
+  bool _comparableMapsEqual(
+    Map<String, Object?> current,
+    Map<String, Object?> expected,
+  ) {
+    final currentComparable = _comparableUndoMap(current);
+    final expectedComparable = _comparableUndoMap(expected);
+    if (currentComparable.length != expectedComparable.length) {
+      return false;
+    }
+    for (final entry in currentComparable.entries) {
+      if (expectedComparable[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Map<String, Object?> _comparableUndoMap(Map<String, Object?> value) {
+    return {...value}
+      ..remove('updated_at')
+      ..remove('user_id');
   }
 
   Future<Activity?> _activityById(

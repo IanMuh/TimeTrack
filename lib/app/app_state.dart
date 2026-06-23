@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../core/date_time_ext.dart';
 import '../data/file_interop_service.dart';
 import '../data/lan_sync.dart';
+import '../data/repository_undo.dart';
 import '../data/sync_peer_store.dart';
 import '../data/sync_service.dart';
 import '../data/time_repository.dart';
@@ -52,6 +53,12 @@ class AppState extends ChangeNotifier {
   String? ignoredSuspiciousEntryId;
   String? interopMessage;
 
+  final List<_UndoHistoryEntry> _undoStack = [];
+  final List<_UndoHistoryEntry> _redoStack = [];
+  var _undoBatchDepth = 0;
+  var _syncAfterUndoBatch = false;
+  bool _historyBusy = false;
+
   bool get canSync => canCloudSync || hasLanPeer;
 
   bool get canCloudSync => _syncService.isCloudEnabled;
@@ -65,6 +72,14 @@ class AppState extends ChangeNotifier {
   bool get canHostLan => Platform.isWindows || Platform.isAndroid;
 
   bool get isLanServerRunning => _lanSyncServer.isRunning;
+
+  bool get canUndo => !_historyBusy && _undoStack.isNotEmpty;
+
+  bool get canRedo => !_historyBusy && _redoStack.isNotEmpty;
+
+  String? get undoLabel => _undoStack.isEmpty ? null : _undoStack.last.label;
+
+  String? get redoLabel => _redoStack.isEmpty ? null : _redoStack.last.label;
 
   String? get lanPairingCode => _lanSyncServer.pairingCode;
 
@@ -165,6 +180,134 @@ class AppState extends ChangeNotifier {
     await refresh();
   }
 
+  Future<T> runUndoBatch<T>(
+    Future<T> Function() action, {
+    String? label,
+  }) async {
+    final isOuterBatch = _undoBatchDepth == 0;
+    final before = isOuterBatch ? await _repository.undoSnapshot() : null;
+    var succeeded = false;
+    _undoBatchDepth += 1;
+    try {
+      final result = await action();
+      succeeded = true;
+      return result;
+    } finally {
+      _undoBatchDepth -= 1;
+      if (isOuterBatch && succeeded) {
+        final after = await _repository.undoSnapshot();
+        final mergedLabel = label ?? '编辑时间段';
+        final changeSet = before!.diff(label: mergedLabel, after: after);
+        if (!changeSet.isEmpty) {
+          _undoStack.add(
+            _UndoHistoryEntry(label: mergedLabel, changeSet: changeSet),
+          );
+          _redoStack.clear();
+          notifyListeners();
+        }
+        if (_syncAfterUndoBatch) {
+          _syncAfterUndoBatch = false;
+          unawaited(sync());
+        }
+      } else if (isOuterBatch) {
+        _syncAfterUndoBatch = false;
+      }
+    }
+  }
+
+  Future<void> undo() async {
+    if (!canUndo) {
+      return;
+    }
+    final entry = _undoStack.removeLast();
+    if (await _applyHistoryEntry(entry, RepositoryUndoDirection.undo)) {
+      _redoStack.add(entry);
+      notifyListeners();
+    }
+  }
+
+  Future<void> redo() async {
+    if (!canRedo) {
+      return;
+    }
+    final entry = _redoStack.removeLast();
+    if (await _applyHistoryEntry(entry, RepositoryUndoDirection.redo)) {
+      _undoStack.add(entry);
+      notifyListeners();
+    }
+  }
+
+  Future<T> _recordUndoable<T>(
+    String label,
+    Future<T> Function() action, {
+    bool syncAfter = true,
+  }) async {
+    final before = await _repository.undoSnapshot();
+    final result = await action();
+    final after = await _repository.undoSnapshot();
+    final changeSet = before.diff(label: label, after: after);
+    if (!changeSet.isEmpty) {
+      final historyEntry = _UndoHistoryEntry(
+        label: label,
+        changeSet: changeSet,
+      );
+      if (_undoBatchDepth > 0) {
+        _syncAfterUndoBatch = _syncAfterUndoBatch || syncAfter;
+      } else {
+        _undoStack.add(historyEntry);
+        _redoStack.clear();
+        notifyListeners();
+      }
+    }
+    if (syncAfter) {
+      if (_undoBatchDepth > 0) {
+        _syncAfterUndoBatch = true;
+      } else {
+        unawaited(sync());
+      }
+    }
+    return result;
+  }
+
+  Future<bool> _applyHistoryEntry(
+    _UndoHistoryEntry entry,
+    RepositoryUndoDirection direction,
+  ) async {
+    _historyBusy = true;
+    notifyListeners();
+    try {
+      await _repository.applyUndoChangeSet(
+        entry.changeSet,
+        direction: direction,
+      );
+      await refresh();
+      await sync();
+      errorMessage = null;
+      return true;
+    } on RepositoryUndoConflictException catch (error) {
+      errorMessage = error.message;
+      if (direction == RepositoryUndoDirection.undo) {
+        _undoStack.add(entry);
+      } else {
+        _redoStack.add(entry);
+      }
+      await refresh();
+      return false;
+    } catch (error) {
+      errorMessage = '操作失败：$error';
+      if (direction == RepositoryUndoDirection.undo) {
+        _undoStack.add(entry);
+      } else {
+        _redoStack.add(entry);
+      }
+      await refresh();
+      return false;
+    } finally {
+      _historyBusy = false;
+      notifyListeners();
+    }
+  }
+
   Activity? activityById(String id) {
     for (final activity in activities) {
       if (activity.id == id) {
@@ -211,15 +354,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> switchTo(Activity activity) async {
-    await _repository.switchToActivity(activity.id);
-    await refresh();
-    unawaited(sync());
+    await _recordUndoable('切换到 ${activity.name}', () async {
+      await _repository.switchToActivity(activity.id);
+      await refresh();
+    });
   }
 
   Future<void> stopCurrent() async {
-    await _repository.stopRunning();
-    await refresh();
-    await sync();
+    await _recordUndoable('停止当前事项', () async {
+      await _repository.stopRunning();
+      await refresh();
+    });
   }
 
   Future<void> continueCurrent() async {
@@ -237,12 +382,13 @@ class AppState extends ChangeNotifier {
     if (entry == null) {
       return;
     }
-    await _repository.saveEntry(
-      entry.copyWith(endAt: endAt, updatedAt: now),
-      logEdit: true,
-    );
-    await refresh();
-    await sync();
+    await _recordUndoable('修正运行记录', () async {
+      await _repository.saveEntry(
+        entry.copyWith(endAt: endAt, updatedAt: now),
+        logEdit: true,
+      );
+      await refresh();
+    });
   }
 
   Future<void> ignoreSuspiciousRunning() async {
@@ -251,35 +397,38 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> saveEntry(TimeEntry entry) async {
-    await _repository.saveEntry(
-      entry.copyWith(updatedAt: DateTime.now()),
-      logEdit: true,
-      cutOverlaps: true,
-    );
-    await refresh();
-    await sync();
+    await _recordUndoable('编辑时间段', () async {
+      await _repository.saveEntry(
+        entry.copyWith(updatedAt: DateTime.now()),
+        logEdit: true,
+        cutOverlaps: true,
+      );
+      await refresh();
+    });
   }
 
   Future<void> splitEntry({
     required String entryId,
     required DateTime splitAt,
   }) async {
-    await _repository.splitEntry(entryId: entryId, splitAt: splitAt);
-    await refresh();
-    await sync();
+    await _recordUndoable('切割时间段', () async {
+      await _repository.splitEntry(entryId: entryId, splitAt: splitAt);
+      await refresh();
+    });
   }
 
   Future<void> extendEntryToNow(TimeEntry entry) async {
     if (entry.isRunning || !entry.startAt.isBefore(now)) {
       return;
     }
-    await _repository.saveEntry(
-      entry.copyWith(clearEndAt: true, updatedAt: DateTime.now()),
-      logEdit: true,
-      cutOverlaps: true,
-    );
-    await refresh();
-    await sync();
+    await _recordUndoable('延续时间段到现在', () async {
+      await _repository.saveEntry(
+        entry.copyWith(clearEndAt: true, updatedAt: DateTime.now()),
+        logEdit: true,
+        cutOverlaps: true,
+      );
+      await refresh();
+    });
   }
 
   Future<void> createManualEntry({
@@ -288,20 +437,22 @@ class AppState extends ChangeNotifier {
     required DateTime endAt,
     required String note,
   }) async {
-    await _repository.createManualEntry(
-      activityId: activityId,
-      startAt: startAt,
-      endAt: endAt,
-      note: note,
-    );
-    await refresh();
-    await sync();
+    await _recordUndoable('补记时间段', () async {
+      await _repository.createManualEntry(
+        activityId: activityId,
+        startAt: startAt,
+        endAt: endAt,
+        note: note,
+      );
+      await refresh();
+    });
   }
 
   Future<void> deleteEntry(TimeEntry entry) async {
-    await _repository.deleteEntry(entry);
-    await refresh();
-    await sync();
+    await _recordUndoable('删除时间段', () async {
+      await _repository.deleteEntry(entry);
+      await refresh();
+    });
   }
 
   Future<List<Activity>> entryActivityChoices() async {
@@ -315,10 +466,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<Activity> createActivity(String name, int color) async {
-    final activity = await _repository.createActivity(name: name, color: color);
-    await refresh();
-    await sync();
-    return activity;
+    return _recordUndoable('新增事项', () async {
+      final activity =
+          await _repository.createActivity(name: name, color: color);
+      await refresh();
+      return activity;
+    });
   }
 
   Future<List<Activity>> oneOffActivitySuggestions() {
@@ -338,17 +491,18 @@ class AppState extends ChangeNotifier {
     int color, {
     Activity? reuseActivity,
   }) async {
-    final activity = reuseActivity == null
-        ? await _repository.createActivity(
-            name: name,
-            color: color,
-            isOneOff: true,
-          )
-        : await _repository.restoreOneOffActivity(reuseActivity);
-    await _repository.switchToActivity(activity.id);
-    await refresh();
-    await sync();
-    return activity;
+    return _recordUndoable('开始临时事项', () async {
+      final activity = reuseActivity == null
+          ? await _repository.createActivity(
+              name: name,
+              color: color,
+              isOneOff: true,
+            )
+          : await _repository.restoreOneOffActivity(reuseActivity);
+      await _repository.switchToActivity(activity.id);
+      await refresh();
+      return activity;
+    });
   }
 
   Future<Activity> createEntryActivity(
@@ -357,16 +511,17 @@ class AppState extends ChangeNotifier {
     required bool isOneOff,
     Activity? reuseActivity,
   }) async {
-    final activity = reuseActivity == null
-        ? await _repository.createActivity(
-            name: name,
-            color: color,
-            isOneOff: isOneOff,
-          )
-        : await _repository.restoreOneOffActivity(reuseActivity);
-    await refresh();
-    await sync();
-    return activity;
+    return _recordUndoable('新增事项', () async {
+      final activity = reuseActivity == null
+          ? await _repository.createActivity(
+              name: name,
+              color: color,
+              isOneOff: isOneOff,
+            )
+          : await _repository.restoreOneOffActivity(reuseActivity);
+      await refresh();
+      return activity;
+    });
   }
 
   Future<Activity> updateActivity(
@@ -377,20 +532,22 @@ class AppState extends ChangeNotifier {
     if (activity.isUnassigned) {
       return unassignedActivity ?? activity;
     }
-    final updated = await _repository.updateActivity(
-      activity: activity,
-      name: name,
-      color: color,
-    );
-    await refresh();
-    await sync();
-    return updated;
+    return _recordUndoable('编辑事项', () async {
+      final updated = await _repository.updateActivity(
+        activity: activity,
+        name: name,
+        color: color,
+      );
+      await refresh();
+      return updated;
+    });
   }
 
   Future<void> deleteActivity(Activity activity) async {
-    await _repository.deleteActivity(activity);
-    await refresh();
-    await sync();
+    await _recordUndoable('删除事项', () async {
+      await _repository.deleteActivity(activity);
+      await refresh();
+    });
   }
 
   Future<List<TimeEntry>> overlaps(TimeEntry entry) {
@@ -409,13 +566,14 @@ class AppState extends ChangeNotifier {
     required EntryMergeDirection direction,
     required bool confirmed,
   }) async {
-    await _repository.mergeEntryWithNeighbor(
-      entryId: entryId,
-      direction: direction,
-      confirmed: confirmed,
-    );
-    await refresh();
-    await sync();
+    await _recordUndoable('合并时间段', () async {
+      await _repository.mergeEntryWithNeighbor(
+        entryId: entryId,
+        direction: direction,
+        confirmed: confirmed,
+      );
+      await refresh();
+    });
   }
 
   Future<List<TimeEntry>> entriesForRange({
@@ -822,6 +980,16 @@ class AppState extends ChangeNotifier {
     unawaited(_lanSyncServer.stop());
     super.dispose();
   }
+}
+
+class _UndoHistoryEntry {
+  const _UndoHistoryEntry({
+    required this.label,
+    required this.changeSet,
+  });
+
+  final String label;
+  final RepositoryUndoChangeSet changeSet;
 }
 
 class TimeRangeStats {

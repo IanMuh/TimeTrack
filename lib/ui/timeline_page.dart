@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../app/app_state.dart';
@@ -28,6 +29,32 @@ enum TimelineSpan {
   const TimelineSpan(this.days);
 
   final int days;
+}
+
+class TimelinePageController {
+  _TimelinePageState? _state;
+
+  void _attach(_TimelinePageState state) {
+    _state = state;
+  }
+
+  void _detach(_TimelinePageState state) {
+    if (_state == state) {
+      _state = null;
+    }
+  }
+
+  void openEntryEditor() {
+    _state?.openEntryEditor();
+  }
+
+  void selectPreviousRange() {
+    _state?.selectPreviousRange();
+  }
+
+  void selectNextRange() {
+    _state?.selectNextRange();
+  }
 }
 
 class _VisibleEntryInterval {
@@ -75,11 +102,13 @@ class TimelinePage extends StatefulWidget {
   const TimelinePage({
     required this.state,
     this.defaultToTodayOnOpen = true,
+    this.controller,
     super.key,
   });
 
   final AppState state;
   final bool defaultToTodayOnOpen;
+  final TimelinePageController? controller;
 
   @override
   State<TimelinePage> createState() => _TimelinePageState();
@@ -94,9 +123,25 @@ class _TimelinePageState extends State<TimelinePage> {
   @override
   void initState() {
     super.initState();
+    widget.controller?._attach(this);
     if (widget.defaultToTodayOnOpen) {
       _defaultToToday();
     }
+  }
+
+  @override
+  void didUpdateWidget(TimelinePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller?._detach(this);
+    super.dispose();
   }
 
   void _defaultToToday() {
@@ -119,6 +164,22 @@ class _TimelinePageState extends State<TimelinePage> {
     }
   }
 
+  void openEntryEditor() {
+    showEntryEditor(context, widget.state);
+  }
+
+  void selectPreviousRange() {
+    widget.state.selectDay(
+      widget.state.selectedDay.subtract(Duration(days: _span.days)),
+    );
+  }
+
+  void selectNextRange() {
+    widget.state.selectDay(
+      widget.state.selectedDay.add(Duration(days: _span.days)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
@@ -138,18 +199,14 @@ class _TimelinePageState extends State<TimelinePage> {
               density: _density,
               span: _span,
               zoom: _zoom,
-              onPreviousRange: () => state.selectDay(
-                state.selectedDay.subtract(Duration(days: _span.days)),
-              ),
-              onNextRange: () => state.selectDay(
-                state.selectedDay.add(Duration(days: _span.days)),
-              ),
+              onPreviousRange: selectPreviousRange,
+              onNextRange: selectNextRange,
               onDateTap: _pickDate,
               onModeChanged: (value) => setState(() => _mode = value),
               onDensityChanged: (value) => setState(() => _density = value),
               onSpanChanged: (value) => setState(() => _span = value),
               onZoomChanged: (value) => setState(() => _zoom = value),
-              onAddEntry: () => showEntryEditor(context, state),
+              onAddEntry: openEntryEditor,
             ),
             const SectionGap(),
             if (isFutureDay) FutureDayBanner(selectedDay: state.selectedDay),
@@ -1353,39 +1410,58 @@ class TimelineEntryCard extends StatelessWidget {
         ? '进行中'
         : _formatVisibleEndTime(interval, state.selectedDay);
     final timeText = '${_formatTime(interval.start)} - $endText';
+    void openEditor() => showEntryEditor(context, state, entry: entry);
     return QuietPanel(
       padding: EdgeInsets.zero,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => showEntryEditor(context, state, entry: entry),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 5,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+      child: FocusableActionDetector(
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              openEditor();
+              return null;
+            },
+          ),
+        },
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: openEditor,
+          child: Semantics(
+            button: true,
+            label: '编辑${state.activityNameForEntry(entry)}时间段',
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 5,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _TimelineEntryContent(
+                      title: state.activityNameForEntry(entry),
+                      duration: formatDurationCompact(interval.duration),
+                      timeText: timeText,
+                      note: entry.note,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '编辑',
+                    onPressed: openEditor,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _TimelineEntryContent(
-                  title: state.activityNameForEntry(entry),
-                  duration: formatDurationCompact(interval.duration),
-                  timeText: timeText,
-                  note: entry.note,
-                ),
-              ),
-              IconButton(
-                tooltip: '编辑',
-                onPressed: () => showEntryEditor(context, state, entry: entry),
-                icon: const Icon(Icons.edit_outlined),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1836,6 +1912,7 @@ Future<void> showEntryEditor(
                     setState(() => formError = '请选择一个有效事项。');
                     return;
                   }
+                  var shouldCreateActivity = false;
                   if (selectedForSave == null &&
                       trimmedActivityQuery.isNotEmpty) {
                     final matches = _entryActivityMatches(
@@ -1847,53 +1924,11 @@ Future<void> showEntryEditor(
                       setState(() => formError = '请选择一个已有事项，或输入新的名称。');
                       return;
                     }
-                    final created = await _showCreateEntryActivityDialog(
-                      context,
-                      state,
-                      initialName: trimmedActivityQuery,
-                    );
-                    if (!context.mounted || created == null) {
-                      return;
-                    }
-                    selectedForSave = created;
-                    setState(() {
-                      if (created.isOneOff) {
-                        oneOffActivities = [created, ...oneOffActivities];
-                      } else {
-                        activities = [created, ...activities];
-                      }
-                      selectedActivity = created;
-                      selectedActivityId = created.id;
-                      activityQuery = created.name;
-                      activityQueryAllowsCreate = false;
-                      formError = null;
-                    });
+                    shouldCreateActivity = true;
                   }
-                  if (selectedForSave == null) {
+                  if (selectedForSave == null && !shouldCreateActivity) {
                     setState(() => formError = '请选择一个有效事项。');
                     return;
-                  }
-                  if (selectedForSave.isOneOff && selectedForSave.isDeleted) {
-                    final restoredActivity = await state.createEntryActivity(
-                      selectedForSave.name,
-                      selectedForSave.color,
-                      isOneOff: true,
-                      reuseActivity: selectedForSave,
-                    );
-                    if (!context.mounted) {
-                      return;
-                    }
-                    selectedForSave = restoredActivity;
-                    setState(() {
-                      selectedActivity = restoredActivity;
-                      selectedActivityId = restoredActivity.id;
-                      activityQuery = restoredActivity.name;
-                      oneOffActivities = [
-                        restoredActivity,
-                        for (final activity in oneOffActivities)
-                          if (activity.id != restoredActivity.id) activity,
-                      ];
-                    });
                   }
                   if (keepRunning && start.isAfter(state.now)) {
                     setState(() => formError = '进行中的记录不能从未来开始。');
@@ -1907,7 +1942,7 @@ Future<void> showEntryEditor(
                   final next = TimeEntry(
                     id: entry?.id ?? 'preview',
                     userId: entry?.userId,
-                    activityId: selectedForSave.id,
+                    activityId: selectedForSave?.id ?? 'preview-activity',
                     startAt: start,
                     endAt: keepRunning ? null : end,
                     note: trimmedNote,
@@ -1925,15 +1960,80 @@ Future<void> showEntryEditor(
                     });
                     return;
                   }
-                  if (entry == null || editingGeneratedGap) {
-                    await state.createManualEntry(
-                      activityId: selectedForSave.id,
-                      startAt: start,
-                      endAt: end,
-                      note: trimmedNote,
-                    );
-                  } else {
-                    await state.saveEntry(next);
+                  var saved = false;
+                  await state.runUndoBatch(() async {
+                    if (shouldCreateActivity) {
+                      final created = await _showCreateEntryActivityDialog(
+                        context,
+                        state,
+                        initialName: trimmedActivityQuery,
+                      );
+                      if (!context.mounted || created == null) {
+                        return;
+                      }
+                      selectedForSave = created;
+                      setState(() {
+                        if (created.isOneOff) {
+                          oneOffActivities = [created, ...oneOffActivities];
+                        } else {
+                          activities = [created, ...activities];
+                        }
+                        selectedActivity = created;
+                        selectedActivityId = created.id;
+                        activityQuery = created.name;
+                        activityQueryAllowsCreate = false;
+                        formError = null;
+                      });
+                    }
+                    final activityForSave = selectedForSave;
+                    if (activityForSave == null) {
+                      return;
+                    }
+                    if (activityForSave.isOneOff && activityForSave.isDeleted) {
+                      final restoredActivity = await state.createEntryActivity(
+                        activityForSave.name,
+                        activityForSave.color,
+                        isOneOff: true,
+                        reuseActivity: activityForSave,
+                      );
+                      if (!context.mounted) {
+                        return;
+                      }
+                      selectedForSave = restoredActivity;
+                      setState(() {
+                        selectedActivity = restoredActivity;
+                        selectedActivityId = restoredActivity.id;
+                        activityQuery = restoredActivity.name;
+                        oneOffActivities = [
+                          restoredActivity,
+                          for (final activity in oneOffActivities)
+                            if (activity.id != restoredActivity.id) activity,
+                        ];
+                      });
+                    }
+                    final finalActivity = selectedForSave;
+                    if (finalActivity == null) {
+                      return;
+                    }
+                    if (entry == null || editingGeneratedGap) {
+                      await state.createManualEntry(
+                        activityId: finalActivity.id,
+                        startAt: start,
+                        endAt: end,
+                        note: trimmedNote,
+                      );
+                    } else {
+                      await state.saveEntry(
+                        next.copyWith(activityId: finalActivity.id),
+                      );
+                    }
+                    saved = true;
+                  },
+                      label: entry == null || editingGeneratedGap
+                          ? '补记时间段'
+                          : '编辑时间段');
+                  if (!saved) {
+                    return;
                   }
                   if (context.mounted) {
                     Navigator.pop(context);

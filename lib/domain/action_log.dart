@@ -23,6 +23,32 @@ class ActionLog {
   final DateTime updatedAt;
   final bool isDeleted;
 
+  ActionLog copyWith({
+    String? id,
+    String? userId,
+    String? actionType,
+    String? activityId,
+    String? entryId,
+    String? message,
+    DateTime? occurredAt,
+    String? deviceId,
+    DateTime? updatedAt,
+    bool? isDeleted,
+  }) {
+    return ActionLog(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      actionType: actionType ?? this.actionType,
+      activityId: activityId ?? this.activityId,
+      entryId: entryId ?? this.entryId,
+      message: message ?? this.message,
+      occurredAt: occurredAt ?? this.occurredAt,
+      deviceId: deviceId ?? this.deviceId,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+    );
+  }
+
   Map<String, Object?> toLocalMap() {
     return {
       'id': id,
