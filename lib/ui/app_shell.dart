@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
+import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
-import 'app_theme.dart';
 import 'home_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
@@ -28,33 +28,43 @@ class _AppShellState extends State<AppShell> {
   bool _reminderBannerVisible = false;
   bool _suspiciousVisible = false;
   final _timelineController = TimelinePageController();
+  late final List<Widget> _pages;
 
-  static const _destinations = [
-    _AppDestination(
-      label: '当前',
-      icon: Icons.timer_outlined,
-      selectedIcon: Icons.timer,
-    ),
-    _AppDestination(
-      label: '时间线',
-      icon: Icons.view_timeline_outlined,
-      selectedIcon: Icons.view_timeline,
-    ),
-    _AppDestination(
-      label: '统计',
-      icon: Icons.bar_chart_outlined,
-      selectedIcon: Icons.bar_chart,
-    ),
-    _AppDestination(
-      label: '设置',
-      icon: Icons.settings_outlined,
-      selectedIcon: Icons.settings,
-    ),
-  ];
+  List<_AppDestination> _buildDestinations(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      _AppDestination(
+        label: l10n.navCurrent,
+        icon: Icons.timer_outlined,
+        selectedIcon: Icons.timer,
+      ),
+      _AppDestination(
+        label: l10n.navTimeline,
+        icon: Icons.view_timeline_outlined,
+        selectedIcon: Icons.view_timeline,
+      ),
+      _AppDestination(
+        label: l10n.navStats,
+        icon: Icons.bar_chart_outlined,
+        selectedIcon: Icons.bar_chart,
+      ),
+      _AppDestination(
+        label: l10n.navSettings,
+        icon: Icons.settings_outlined,
+        selectedIcon: Icons.settings,
+      ),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
+    _pages = [
+      HomePage(state: widget.state),
+      TimelinePage(state: widget.state, controller: _timelineController),
+      StatsPage(state: widget.state),
+      SettingsPage(state: widget.state),
+    ];
     widget.state.addListener(_showPassivePrompts);
   }
 
@@ -89,10 +99,10 @@ class _AppShellState extends State<AppShell> {
             .showSnackBar(
               SnackBar(
                 content: Text(
-                  '当前事项已持续 ${widget.state.runningDuration.inMinutes} 分钟。',
+                  AppLocalizations.of(context)!.activityRunningMinutes(widget.state.runningDuration().inMinutes),
                 ),
                 action: SnackBarAction(
-                  label: '稍后提醒',
+                  label: AppLocalizations.of(context)!.remindLater,
                   onPressed: () => widget.state.snoozeReminder(),
                 ),
               ),
@@ -136,13 +146,6 @@ class _AppShellState extends State<AppShell> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-
-    final pages = [
-      HomePage(state: state),
-      TimelinePage(state: state, controller: _timelineController),
-      StatsPage(state: state),
-      SettingsPage(state: state),
-    ];
 
     final sizeClass = adaptiveSizeClassFor(MediaQuery.sizeOf(context).width);
     final showRail = sizeClass == AdaptiveSizeClass.expanded;
@@ -205,14 +208,15 @@ class _AppShellState extends State<AppShell> {
             child: Scaffold(
               body: SafeArea(
                 child: DecoratedBox(
-                  decoration:
-                      const BoxDecoration(color: TimeTrackTheme.background),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                  ),
                   child: Row(
                     children: [
                       if (showRail) ...[
                         _DesktopNavigationRail(
                           selectedIndex: _index,
-                          destinations: _destinations,
+                          destinations: _buildDestinations(context),
                           onDestinationSelected: _selectDestination,
                           historyControls: UndoRedoControls(
                             state: state,
@@ -221,7 +225,12 @@ class _AppShellState extends State<AppShell> {
                         ),
                         const VerticalDivider(width: 1),
                       ],
-                      Expanded(child: pages[_index]),
+                      Expanded(
+                        child: IndexedStack(
+                          index: _index,
+                          children: _pages,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -231,10 +240,12 @@ class _AppShellState extends State<AppShell> {
                   : SafeArea(
                       top: false,
                       child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          color: TimeTrackTheme.surface,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
                           border: Border(
-                            top: BorderSide(color: TimeTrackTheme.outline),
+                            top: BorderSide(
+                              color: Theme.of(context).colorScheme.outlineVariant,
+                            ),
                           ),
                         ),
                         child: Column(
@@ -248,7 +259,7 @@ class _AppShellState extends State<AppShell> {
                               selectedIndex: _index,
                               onDestinationSelected: _selectDestination,
                               destinations: [
-                                for (final destination in _destinations)
+                                for (final destination in _buildDestinations(context))
                                   NavigationDestination(
                                     icon: Icon(destination.icon),
                                     selectedIcon:
@@ -284,9 +295,10 @@ class _DesktopNavigationRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: 96,
-      color: TimeTrackTheme.surface,
+      color: colorScheme.surface,
       child: Column(
         children: [
           const SizedBox(height: 18),
@@ -295,7 +307,7 @@ class _DesktopNavigationRail extends StatelessWidget {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: TimeTrackTheme.primary,
+              color: colorScheme.primary,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -355,7 +367,7 @@ class UndoRedoControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton.filledTonal(
-              tooltip: undoLabel == null ? '撤销 Ctrl+Z' : '撤销：$undoLabel Ctrl+Z',
+              tooltip: undoLabel == null ? AppLocalizations.of(context)!.undoHint : AppLocalizations.of(context)!.undoWithLabel(undoLabel),
               onPressed: state.canUndo ? () => unawaited(state.undo()) : null,
               icon: const Icon(Icons.undo),
             ),
@@ -364,7 +376,7 @@ class UndoRedoControls extends StatelessWidget {
               height: axis == Axis.vertical ? 8 : 0,
             ),
             IconButton.filledTonal(
-              tooltip: redoLabel == null ? '重做 Ctrl+Y' : '重做：$redoLabel Ctrl+Y',
+              tooltip: redoLabel == null ? AppLocalizations.of(context)!.redoHint : AppLocalizations.of(context)!.redoWithLabel(redoLabel),
               onPressed: state.canRedo ? () => unawaited(state.redo()) : null,
               icon: const Icon(Icons.redo),
             ),
@@ -457,8 +469,8 @@ class ReminderDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('还在做这件事吗？'),
-      content: Text('当前事项已持续 ${state.runningDuration.inMinutes} 分钟。'),
+      title: Text(AppLocalizations.of(context)!.stillDoingThis),
+      content: Text(AppLocalizations.of(context)!.activityRunningMinutes(state.runningDuration().inMinutes)),
       actions: [
         TextButton.icon(
           onPressed: () async {
@@ -468,7 +480,7 @@ class ReminderDialog extends StatelessWidget {
             }
           },
           icon: const Icon(Icons.snooze),
-          label: const Text('稍后提醒'),
+          label: Text(AppLocalizations.of(context)!.remindLater),
         ),
         TextButton.icon(
           onPressed: () async {
@@ -478,7 +490,7 @@ class ReminderDialog extends StatelessWidget {
             }
           },
           icon: const Icon(Icons.stop_circle_outlined),
-          label: const Text('停止'),
+          label: Text(AppLocalizations.of(context)!.stop),
         ),
         FilledButton.icon(
           onPressed: () async {
@@ -488,7 +500,7 @@ class ReminderDialog extends StatelessWidget {
             }
           },
           icon: const Icon(Icons.play_arrow),
-          label: const Text('继续'),
+          label: Text(AppLocalizations.of(context)!.continueLabel),
         ),
       ],
     );
@@ -504,11 +516,11 @@ class SuspiciousEntryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final entry = state.runningEntry;
     return AlertDialog(
-      title: const Text('需要确认上一段时间'),
+      title: Text(AppLocalizations.of(context)!.confirmPreviousPeriod),
       content: Text(
         entry == null
-            ? '没有正在进行的事项。'
-            : '当前事项从 ${TimeOfDay.fromDateTime(entry.startAt).format(context)} 开始，持续时间偏长。可以先结束到当前时间，再补记中间内容。',
+            ? AppLocalizations.of(context)!.noRunningActivity
+            : AppLocalizations.of(context)!.suspiciousEntryContent(TimeOfDay.fromDateTime(entry.startAt).format(context)),
       ),
       actions: [
         TextButton(
@@ -516,7 +528,7 @@ class SuspiciousEntryDialog extends StatelessWidget {
             state.ignoreSuspiciousRunning();
             Navigator.pop(context);
           },
-          child: const Text('继续保留'),
+          child: Text(AppLocalizations.of(context)!.keepCurrent),
         ),
         FilledButton.icon(
           onPressed: () async {
@@ -526,7 +538,7 @@ class SuspiciousEntryDialog extends StatelessWidget {
             }
           },
           icon: const Icon(Icons.check),
-          label: const Text('结束到现在'),
+          label: Text(AppLocalizations.of(context)!.endToNow),
         ),
       ],
     );
@@ -543,19 +555,19 @@ class LoginBanner extends StatelessWidget {
     if (state.isSignedIn) {
       return _StatusBanner(
         icon: state.isSyncing ? Icons.sync : Icons.cloud_done_outlined,
-        text: state.isSyncing ? '正在同步' : '已登录并开启云同步',
+        text: state.isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.cloudSyncActive,
       );
     }
     if (state.hasLanPeer) {
       return _StatusBanner(
         icon: state.isSyncing ? Icons.sync : Icons.lan_outlined,
-        text: state.isSyncing ? '正在同步' : '已配对局域网主机',
+        text: state.isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.lanPeerPaired,
       );
     }
     if (!state.canCloudSync) {
-      return const _StatusBanner(
+      return _StatusBanner(
         icon: Icons.cloud_off_outlined,
-        text: '本地模式：可在设置中开启局域网互通或导入导出',
+        text: AppLocalizations.of(context)!.localModeHint,
       );
     }
     return LoginPage(state: state);

@@ -7,11 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../app/app_state.dart';
+import '../core/app_constants.dart';
 import '../core/date_time_ext.dart';
+import '../data/repository_interfaces.dart';
 import '../data/time_repository.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
 import '../domain/time_entry.dart';
+import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'activity_colors.dart';
 import 'home_page.dart';
@@ -223,15 +226,15 @@ class _TimelinePageState extends State<TimelinePage> {
                       density: _density,
                       zoom: _zoom,
                       emptyText: _span == TimelineSpan.day
-                          ? '这一天还没有记录。'
-                          : '这个范围还没有记录。',
+                          ? AppLocalizations.of(context)!.emptyDayEntries
+                          : AppLocalizations.of(context)!.emptyRangeEntries,
                     ),
                   TimelineViewMode.actions => _ActionLogList(
                       state: state,
                       logs: data.logs,
                       emptyText: _span == TimelineSpan.day
-                          ? '这一天还没有切换或编辑指令。'
-                          : '这个范围还没有切换或编辑指令。',
+                          ? AppLocalizations.of(context)!.emptyDayActions
+                          : AppLocalizations.of(context)!.emptyRangeActions,
                     ),
                 };
               },
@@ -307,7 +310,7 @@ class TimelineHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final rangeEnd = selectedDay.add(Duration(days: span.days - 1));
     final header = PageHeader(
-      title: '时间轴',
+      title: AppLocalizations.of(context)!.timeline,
       subtitle: span == TimelineSpan.day
           ? DateFormat('yyyy-MM-dd').format(selectedDay)
           : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
@@ -330,34 +333,34 @@ class TimelineHeader extends StatelessWidget {
           onModeChanged: onModeChanged,
         );
         final densitySelector = SegmentedButton<TimelineDensity>(
-          segments: const [
+          segments: [
             ButtonSegment(
               value: TimelineDensity.compact,
-              icon: Icon(Icons.density_small),
-              label: Text('紧凑'),
+              icon: const Icon(Icons.density_small),
+              label: Text(AppLocalizations.of(context)!.compact),
             ),
             ButtonSegment(
               value: TimelineDensity.detailed,
-              icon: Icon(Icons.view_agenda_outlined),
-              label: Text('详细'),
+              icon: const Icon(Icons.view_agenda_outlined),
+              label: Text(AppLocalizations.of(context)!.detailed),
             ),
           ],
           selected: {density},
           onSelectionChanged: (value) => onDensityChanged(value.first),
         );
         final spanSelector = SegmentedButton<TimelineSpan>(
-          segments: const [
+          segments: [
             ButtonSegment(
               value: TimelineSpan.day,
-              label: Text('单日'),
+              label: Text(AppLocalizations.of(context)!.singleDay),
             ),
             ButtonSegment(
               value: TimelineSpan.threeDays,
-              label: Text('3日'),
+              label: Text(AppLocalizations.of(context)!.threeDays),
             ),
             ButtonSegment(
               value: TimelineSpan.week,
-              label: Text('7日'),
+              label: Text(AppLocalizations.of(context)!.sevenDays),
             ),
           ],
           selected: {span},
@@ -390,7 +393,7 @@ class TimelineHeader extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onAddEntry,
                 icon: const Icon(Icons.add),
-                label: const Text('补记'),
+                label: Text(AppLocalizations.of(context)!.addEntry),
               ),
             ],
           );
@@ -415,7 +418,7 @@ class TimelineHeader extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onAddEntry,
                   icon: const Icon(Icons.add),
-                  label: const Text('补记'),
+                  label: Text(AppLocalizations.of(context)!.addEntry),
                 ),
               ],
             ),
@@ -452,15 +455,15 @@ class _TimelineModeControl extends StatelessWidget {
     if (compact) {
       return DropdownButtonFormField<TimelineViewMode>(
         initialValue: selectedMode,
-        decoration: const InputDecoration(
-          labelText: '视图',
-          prefixIcon: Icon(Icons.layers_outlined),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.viewMode,
+          prefixIcon: const Icon(Icons.layers_outlined),
         ),
         items: [
           for (final mode in TimelineViewMode.values)
             DropdownMenuItem(
               value: mode,
-              child: Text(_modeLabel(mode)),
+              child: Text(_modeLabel(context, mode)),
             ),
         ],
         onChanged: (value) {
@@ -472,16 +475,16 @@ class _TimelineModeControl extends StatelessWidget {
     }
 
     return SegmentedButton<TimelineViewMode>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: TimelineViewMode.entries,
-          icon: Icon(Icons.timeline),
-          label: Text('记录'),
+          icon: const Icon(Icons.timeline),
+          label: Text(AppLocalizations.of(context)!.entries),
         ),
         ButtonSegment(
           value: TimelineViewMode.actions,
-          icon: Icon(Icons.swap_horiz),
-          label: Text('指令'),
+          icon: const Icon(Icons.swap_horiz),
+          label: Text(AppLocalizations.of(context)!.actions),
         ),
       ],
       selected: {selectedMode},
@@ -489,10 +492,10 @@ class _TimelineModeControl extends StatelessWidget {
     );
   }
 
-  String _modeLabel(TimelineViewMode mode) {
+  String _modeLabel(BuildContext context, TimelineViewMode mode) {
     return switch (mode) {
-      TimelineViewMode.entries => '记录',
-      TimelineViewMode.actions => '指令',
+      TimelineViewMode.entries => AppLocalizations.of(context)!.entries,
+      TimelineViewMode.actions => AppLocalizations.of(context)!.actions,
     };
   }
 }
@@ -560,8 +563,7 @@ class FutureDayBanner extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                '${DateFormat('yyyy-MM-dd').format(selectedDay)} 尚未到来。'
-                '记录会在这一天实际发生后才出现在这里。',
+                AppLocalizations.of(context)!.futureDayBanner(DateFormat('yyyy-MM-dd').format(selectedDay)),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
@@ -604,7 +606,7 @@ class TimelineEmptyState extends StatelessWidget {
     return EmptyState(
       icon: Icons.inbox_outlined,
       title: text,
-      message: '切换到补记或选择其他日期继续查看。',
+      message: AppLocalizations.of(context)!.switchToRecordHint,
     );
   }
 }
@@ -655,8 +657,8 @@ class DayCoverageCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '一天覆盖线',
+              Text(
+                AppLocalizations.of(context)!.dayCoverageLine,
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -736,7 +738,7 @@ class _CoverageSegment extends StatelessWidget {
     final activityName = state.activityNameForEntry(entry);
     final activityColor = state.activityColorForEntry(entry);
     final endText = interval.isRunningNow
-        ? '进行中'
+        ? AppLocalizations.of(context)!.inProgress
         : _formatVisibleEndTime(interval, state.selectedDay);
 
     return Positioned(
@@ -807,9 +809,9 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const TimelineCardHeader(
-                title: '可缩放时间线',
-                subtitle: '横向拖动查看全天刻度，缩放后仍保留同一时间尺度。',
+              TimelineCardHeader(
+                title: AppLocalizations.of(context)!.zoomableTimeline,
+                subtitle: AppLocalizations.of(context)!.timelineDragHint,
                 icon: Icons.timeline,
               ),
               const SizedBox(height: 14),
@@ -860,7 +862,7 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
                 ),
               if (widget.showEmptyState && widget.entries.isEmpty) ...[
                 const SizedBox(height: 12),
-                const TimelineEmptyState(text: '这个范围还没有记录。'),
+                TimelineEmptyState(text: AppLocalizations.of(context)!.emptyRangeEntries),
               ],
             ],
           ),
@@ -1205,7 +1207,7 @@ class _TimelineBlock extends StatelessWidget {
     final color = Color(state.activityColorForEntry(entry));
     final textColor = TimelineBlockColor.textOn(color);
     final timeText =
-        '${_formatTime(entry.startAt)} - ${entry.endAt == null ? '进行中' : _formatTime(entry.endAt!)}';
+        '${_formatTime(entry.startAt)} - ${entry.endAt == null ? AppLocalizations.of(context)!.inProgress : _formatTime(entry.endAt!)}';
     return Tooltip(
       message: '$activityName $timeText',
       child: Material(
@@ -1317,9 +1319,9 @@ class _TimelineEntryListSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const TimelineCardHeader(
-          title: '记录列表',
-          subtitle: '按开始时间排列，点击任一记录可编辑。',
+        TimelineCardHeader(
+          title: AppLocalizations.of(context)!.entryList,
+          subtitle: AppLocalizations.of(context)!.entryListHint,
           icon: Icons.view_list_outlined,
         ),
         const SizedBox(height: 12),
@@ -1407,7 +1409,7 @@ class TimelineEntryCard extends StatelessWidget {
     final color = Color(state.activityColorForEntry(entry));
     final interval = _visibleEntryInterval(entry, state.selectedDay, state.now);
     final endText = interval.isRunningNow
-        ? '进行中'
+        ? AppLocalizations.of(context)!.inProgress
         : _formatVisibleEndTime(interval, state.selectedDay);
     final timeText = '${_formatTime(interval.start)} - $endText';
     void openEditor() => showEntryEditor(context, state, entry: entry);
@@ -1431,7 +1433,7 @@ class TimelineEntryCard extends StatelessWidget {
           onTap: openEditor,
           child: Semantics(
             button: true,
-            label: '编辑${state.activityNameForEntry(entry)}时间段',
+              label: AppLocalizations.of(context)!.editEntrySemantics(state.activityNameForEntry(entry)),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -1455,7 +1457,7 @@ class TimelineEntryCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: '编辑',
+                    tooltip: AppLocalizations.of(context)!.editTooltip,
                     onPressed: openEditor,
                     icon: const Icon(Icons.edit_outlined),
                   ),
@@ -1541,7 +1543,9 @@ class ActionLogCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final activity =
         log.activityId == null ? null : state.activityById(log.activityId!);
-    final color = Color(activity?.color ?? 0xff64748b);
+    final color = Color(
+        activity?.color ?? AppConstants.defaultActivityColor,
+      );
     return QuietPanel(
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -1571,14 +1575,14 @@ class ActionLogCard extends StatelessWidget {
                       Text(
                         activity == null
                             ? log.message
-                            : '${log.message}：${activity.name}',
+                            : '${log.message}: ${activity.name}',
                         style: Theme.of(context)
                             .textTheme
                             .titleSmall
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 3),
-                      Text('设备 ${log.deviceId}'),
+                      Text(AppLocalizations.of(context)!.deviceLabel(log.deviceId)),
                     ],
                   ),
                 ),
@@ -1590,16 +1594,16 @@ class ActionLogCard extends StatelessWidget {
     );
   }
 
-  IconData _logIcon(String actionType) {
+  IconData _logIcon(ActionType actionType) {
     return switch (actionType) {
-      'switch' => Icons.swap_horiz,
-      'stop' => Icons.stop_circle_outlined,
-      'manual' => Icons.add_circle_outline,
-      'edit' => Icons.edit_outlined,
-      'delete' => Icons.delete_outline,
-      'merge' => Icons.merge_type_outlined,
-      'split' => Icons.call_split_outlined,
-      'activity_delete' => Icons.label_off_outlined,
+      ActionType.switch_ => Icons.swap_horiz,
+      ActionType.stop => Icons.stop_circle_outlined,
+      ActionType.manual => Icons.add_circle_outline,
+      ActionType.edit => Icons.edit_outlined,
+      ActionType.delete => Icons.delete_outline,
+      ActionType.merge => Icons.merge_type_outlined,
+      ActionType.split => Icons.call_split_outlined,
+      ActionType.activityDelete => Icons.label_off_outlined,
       _ => Icons.bolt_outlined,
     };
   }
@@ -1733,9 +1737,9 @@ Future<void> showEntryEditor(
           }
 
           return AlertDialog(
-            title: Text(entry == null ? '补记时间段' : '编辑时间段'),
+            title: Text(entry == null ? AppLocalizations.of(context)!.addEntryTitle : AppLocalizations.of(context)!.editEntryTitle),
             content: SizedBox(
-              width: _dialogContentWidth(context, maxWidth: 460),
+              width: dialogContentWidth(context, maxWidth: 460),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1770,8 +1774,8 @@ Future<void> showEntryEditor(
                           : () async {
                               final selected = findActivity(selectedActivityId);
                               if (selected == null || selected.isOneOff) {
-                                setState(
-                                  () => formError = '请选择一个有效事项。',
+                              setState(
+                                () => formError = AppLocalizations.of(context)!.selectValidActivity,
                                 );
                                 return;
                               }
@@ -1790,7 +1794,7 @@ Future<void> showEntryEditor(
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.play_arrow),
-                      title: const Text('开始'),
+                      title: Text(AppLocalizations.of(context)!.start),
                       subtitle: Text(_formatDateTime(start)),
                       onTap: () =>
                           pickDateTime(isStart: true, setState: setState),
@@ -1798,9 +1802,9 @@ Future<void> showEntryEditor(
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.stop),
-                      title: const Text('结束'),
+                      title: Text(AppLocalizations.of(context)!.endTime),
                       subtitle: Text(
-                        keepRunning ? '保持进行中' : _formatDateTime(end),
+                        keepRunning ? AppLocalizations.of(context)!.keepRunning : _formatDateTime(end),
                       ),
                       enabled: !keepRunning,
                       onTap: keepRunning
@@ -1814,8 +1818,8 @@ Future<void> showEntryEditor(
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         secondary: const Icon(Icons.timelapse_outlined),
-                        title: const Text('保持进行中'),
-                        subtitle: const Text('关闭后可把这条记录保存为已结束。'),
+                        title: Text(AppLocalizations.of(context)!.keepRunning),
+                        subtitle: Text(AppLocalizations.of(context)!.closeToSaveHint),
                         value: keepRunning,
                         onChanged: (value) {
                           setState(() {
@@ -1835,9 +1839,9 @@ Future<void> showEntryEditor(
                       initialValue: note,
                       onChanged: (value) => note = value,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: '备注',
-                        prefixIcon: Icon(Icons.notes_outlined),
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(context)!.note,
+                        prefixIcon: const Icon(Icons.notes_outlined),
                       ),
                     ),
                     if (entry != null &&
@@ -1880,11 +1884,11 @@ Future<void> showEntryEditor(
                     }
                   },
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
+                  label: Text(AppLocalizations.of(context)!.delete),
                 ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton.icon(
                 onPressed: () async {
@@ -1909,7 +1913,7 @@ Future<void> showEntryEditor(
                     );
                   }
                   if (selectedForSave == null && !activityQueryAllowsCreate) {
-                    setState(() => formError = '请选择一个有效事项。');
+                    setState(() => formError = AppLocalizations.of(context)!.selectValidActivity);
                     return;
                   }
                   var shouldCreateActivity = false;
@@ -1921,21 +1925,21 @@ Future<void> showEntryEditor(
                       trimmedActivityQuery,
                     );
                     if (matches.isNotEmpty) {
-                      setState(() => formError = '请选择一个已有事项，或输入新的名称。');
+                      setState(() => formError = AppLocalizations.of(context)!.selectExistingOrNew);
                       return;
                     }
                     shouldCreateActivity = true;
                   }
                   if (selectedForSave == null && !shouldCreateActivity) {
-                    setState(() => formError = '请选择一个有效事项。');
+                    setState(() => formError = AppLocalizations.of(context)!.selectValidActivity);
                     return;
                   }
                   if (keepRunning && start.isAfter(state.now)) {
-                    setState(() => formError = '进行中的记录不能从未来开始。');
+                    setState(() => formError = AppLocalizations.of(context)!.runningCannotStartFuture);
                     return;
                   }
                   if (!keepRunning && !end.isAfter(start)) {
-                    setState(() => formError = '结束时间必须晚于开始时间。');
+                    setState(() => formError = AppLocalizations.of(context)!.endMustBeAfterStart);
                     return;
                   }
                   final trimmedNote = note.trim();
@@ -1956,7 +1960,7 @@ Future<void> showEntryEditor(
                   }
                   if (overlaps.isNotEmpty && formError == null) {
                     setState(() {
-                      formError = '这个时间段和已有记录重叠。再次点击保存将自动切割已有记录。';
+                      formError = AppLocalizations.of(context)!.overlapWarning;
                     });
                     return;
                   }
@@ -2030,8 +2034,8 @@ Future<void> showEntryEditor(
                     saved = true;
                   },
                       label: entry == null || editingGeneratedGap
-                          ? '补记时间段'
-                          : '编辑时间段');
+                          ? AppLocalizations.of(context)!.addEntryTitle
+                          : AppLocalizations.of(context)!.editEntryTitle);
                   if (!saved) {
                     return;
                   }
@@ -2040,7 +2044,7 @@ Future<void> showEntryEditor(
                   }
                 },
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('保存'),
+                label: Text(AppLocalizations.of(context)!.save),
               ),
             ],
           );
@@ -2113,7 +2117,7 @@ class _EntrySplitButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () => _splitEntry(context, state, entry, onSplit),
       icon: const Icon(Icons.call_split_outlined),
-      label: const Text('切割'),
+                label: Text(AppLocalizations.of(context)!.split),
     );
   }
 }
@@ -2134,7 +2138,7 @@ class _EntryExtendToNowButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () => _extendEntryToNow(context, state, entry, onExtended),
       icon: const Icon(Icons.update),
-      label: const Text('延续到现在'),
+      label: Text(AppLocalizations.of(context)!.extendToNow),
     );
   }
 }
@@ -2168,7 +2172,9 @@ class _EntryMergeButton extends StatelessWidget {
             : Icons.keyboard_arrow_right,
       ),
       label: Text(
-        direction == EntryMergeDirection.previous ? '合并左侧' : '合并右侧',
+        direction == EntryMergeDirection.previous
+            ? AppLocalizations.of(context)!.mergeLeft
+            : AppLocalizations.of(context)!.mergeRight,
       ),
     );
   }
@@ -2187,7 +2193,7 @@ Future<void> _mergeEntryWithNeighbor(
   }
   if (candidate == null) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text('没有可合并的相邻记录')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.noAdjacentRecord)),
     );
     return;
   }
@@ -2197,22 +2203,27 @@ Future<void> _mergeEntryWithNeighbor(
       context: context,
       builder: (context) {
         final directionText =
-            candidate.direction == EntryMergeDirection.previous ? '左侧' : '右侧';
+            candidate.direction == EntryMergeDirection.previous
+                ? AppLocalizations.of(context)!.left
+                : AppLocalizations.of(context)!.right;
         return AlertDialog(
-          title: Text('合并$directionText记录'),
+          title: Text(AppLocalizations.of(context)!.mergeDirectionRecord(directionText)),
           content: Text(
-            '$neighborName 的时长为 ${formatDurationCompact(candidate.neighborDuration)}，'
-            '超过 ${candidate.threshold.inMinutes} 分钟阈值。确定合并吗？',
+            AppLocalizations.of(context)!.mergeConfirm(
+              neighborName,
+              formatDurationCompact(candidate.neighborDuration),
+              candidate.threshold.inMinutes,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             FilledButton.icon(
               onPressed: () => Navigator.pop(context, true),
               icon: const Icon(Icons.merge_type_outlined),
-              label: const Text('合并'),
+              label: Text(AppLocalizations.of(context)!.merge),
             ),
           ],
         );
@@ -2298,16 +2309,16 @@ Future<DateTime?> _showSplitEntryDialog(
       return StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: const Text('切割时间段'),
+            title: Text(AppLocalizations.of(context)!.splitEntryTitle),
             content: SizedBox(
-              width: _dialogContentWidth(context, maxWidth: 420),
+              width: dialogContentWidth(context, maxWidth: 420),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.call_split_outlined),
-                    title: const Text('切割点'),
+                    title: Text(AppLocalizations.of(context)!.splitPoint),
                     subtitle: Text(_formatDateTime(splitAt)),
                     onTap: () => pickSplitAt(setState),
                   ),
@@ -2329,19 +2340,19 @@ Future<DateTime?> _showSplitEntryDialog(
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton.icon(
                 onPressed: () {
                   if (!entry.startAt.isBefore(splitAt) ||
                       !splitAt.isBefore(endAt)) {
-                    setState(() => error = '切割点必须在开始和结束之间。');
+                      setState(() => error = AppLocalizations.of(context)!.splitPointError);
                     return;
                   }
                   Navigator.pop(context, splitAt);
                 },
                 icon: const Icon(Icons.call_split_outlined),
-                label: const Text('切割'),
+label: Text(AppLocalizations.of(context)!.split),
               ),
             ],
           );
@@ -2359,7 +2370,7 @@ Future<void> _extendEntryToNow(
 ) async {
   if (!entry.startAt.isBefore(state.now)) {
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text('开始时间晚于当前时间，无法延续')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.extendEntryError)),
     );
     return;
   }
@@ -2419,9 +2430,9 @@ Future<Activity?> _showCreateEntryActivityDialog(
       return StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: const Text('创建事项'),
+            title: Text(AppLocalizations.of(context)!.createActivityTitle),
             content: SizedBox(
-              width: _dialogContentWidth(context, maxWidth: 420),
+              width: dialogContentWidth(context, maxWidth: 420),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -2429,24 +2440,24 @@ Future<Activity?> _showCreateEntryActivityDialog(
                   children: [
                     TextField(
                       controller: controller,
-                      decoration: const InputDecoration(
-                        labelText: '名称',
-                        prefixIcon: Icon(Icons.label_outline),
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(context)!.name,
+                        prefixIcon: const Icon(Icons.label_outline),
                       ),
                       autofocus: true,
                     ),
                     const SizedBox(height: 16),
                     SegmentedButton<bool>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: false,
-                          icon: Icon(Icons.bookmark_border),
-                          label: Text('持久'),
+                          icon: const Icon(Icons.bookmark_border),
+                          label: Text(AppLocalizations.of(context)!.persistent),
                         ),
                         ButtonSegment(
                           value: true,
-                          icon: Icon(Icons.bolt_outlined),
-                          label: Text('单次'),
+                          icon: const Icon(Icons.bolt_outlined),
+                          label: Text(AppLocalizations.of(context)!.oneOff),
                         ),
                       ],
                       selected: {isOneOff},
@@ -2467,7 +2478,7 @@ Future<Activity?> _showCreateEntryActivityDialog(
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
               FilledButton.icon(
                 onPressed: () async {
@@ -2485,7 +2496,7 @@ Future<Activity?> _showCreateEntryActivityDialog(
                   }
                 },
                 icon: const Icon(Icons.add),
-                label: const Text('创建'),
+                label: Text(AppLocalizations.of(context)!.create),
               ),
             ],
           );
@@ -2548,7 +2559,7 @@ class _EntryActivitySelectorState extends State<_EntryActivitySelector> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = _dialogContentWidth(context, maxWidth: 460) < 340;
+    final compact = dialogContentWidth(context, maxWidth: 460) < 340;
     final query = _controller.text.trim();
     final visibleActivities = _entryActivityMatches(
       widget.activities,
@@ -2558,14 +2569,14 @@ class _EntryActivitySelectorState extends State<_EntryActivitySelector> {
     final field = TextField(
       key: const ValueKey('entry-activity-search-field'),
       controller: _controller,
-      decoration: const InputDecoration(
-        labelText: '事项',
-        prefixIcon: Icon(Icons.search),
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context)!.entryActivityLabel,
+        prefixIcon: const Icon(Icons.search),
       ),
       onChanged: widget.onQueryChanged,
     );
     final actions = IconButton(
-      tooltip: '编辑当前事项',
+      tooltip: AppLocalizations.of(context)!.editCurrentActivity,
       onPressed: widget.onEditActivity,
       icon: const Icon(Icons.edit_outlined),
     );
@@ -2596,8 +2607,8 @@ class _EntryActivitySelectorState extends State<_EntryActivitySelector> {
         inputRow,
         const SizedBox(height: 10),
         if (visibleActivities.isEmpty)
-          Text(
-            '没有匹配事项',
+            Text(
+              AppLocalizations.of(context)!.noMatchingActivity,
             style: Theme.of(context).textTheme.bodySmall,
           )
         else
@@ -2682,21 +2693,13 @@ class _OneOffTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        '单次',
+        AppLocalizations.of(context)!.oneOff,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: colorScheme.onSecondaryContainer,
             ),
       ),
     );
   }
-}
-
-double _dialogContentWidth(
-  BuildContext context, {
-  required double maxWidth,
-}) {
-  final availableWidth = MediaQuery.sizeOf(context).width - 128;
-  return availableWidth.clamp(0, maxWidth).toDouble();
 }
 
 DateTime _defaultEntryStart(DateTime selectedDay, DateTime now) {

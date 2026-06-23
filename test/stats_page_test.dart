@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/stats_page.dart';
 
 class _StatsFixture {
@@ -20,21 +24,55 @@ class _StatsFixture {
 
 _StatsFixture _buildFixture() {
   final database = LocalDatabase();
-  final repository = TimeRepository(database: database);
+  final activityRepository = ActivityRepository(database: database);
+  final settingsRepository = SettingsRepository(database: database);
+  final deviceIdStore = DeviceIdStore(database: database);
+  final timeEntryRepository = TimeEntryRepository(
+    database: database,
+    activityRepository: activityRepository,
+  );
+  final actionLogRepository = ActionLogRepository(database: database);
+  final repository = TimeRepository(
+    database: database,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: actionLogRepository,
+  );
   final peerStore = SyncPeerStore(database: database);
   final state = AppState(
     repository: repository,
-    syncService: SyncService(repository: repository, client: null),
+    activityRepository: activityRepository,
+    entryRepository: timeEntryRepository,
+    syncService: SyncService(
+      repository: repository,
+      activityRepository: activityRepository,
+      settingsRepository: settingsRepository,
+      timeEntryRepository: timeEntryRepository,
+      actionLogRepository: actionLogRepository,
+      client: null,
+    ),
     lanSyncServer: LanSyncServer(
       repository: repository,
+      activityRepository: activityRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
       portCandidates: const [0],
     ),
     lanSyncClient: LanSyncClient(
       repository: repository,
+      activityRepository: activityRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
-    fileInteropService: FileInteropService(repository: repository),
+    fileInteropService: FileInteropService(
+      repository: repository,
+      activityRepository: activityRepository,
+      timeEntryRepository: timeEntryRepository,
+    ),
   );
   state
     ..isLoading = false
@@ -60,7 +98,7 @@ Future<void> _pumpStats(
   required double width,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
+    MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SizedBox(
           width: width,
@@ -85,7 +123,7 @@ void main() {
     expect(find.text('昨天'), findsOneWidget);
     expect(find.text('本周'), findsOneWidget);
     expect(find.text('上周'), findsOneWidget);
-    expect(find.text('单日'), findsOneWidget);
+    expect(find.text('自选日'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

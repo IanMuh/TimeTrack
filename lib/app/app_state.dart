@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/app_constants.dart';
 import '../core/date_time_ext.dart';
 import '../data/file_interop_service.dart';
 import '../data/lan_sync.dart';
+import '../data/repository_interfaces.dart';
 import '../data/repository_undo.dart';
 import '../data/sync_peer_store.dart';
 import '../data/sync_service.dart';
@@ -16,10 +18,14 @@ import '../domain/activity.dart';
 import '../domain/profile_settings.dart';
 import '../domain/stats_period.dart';
 import '../domain/time_entry.dart';
+import 'activity_state.dart';
+import 'entry_state.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
     required TimeRepository repository,
+    required IActivityRepository activityRepository,
+    required ITimeEntryRepository entryRepository,
     required SyncService syncService,
     required LanSyncServer lanSyncServer,
     required LanSyncClient lanSyncClient,
@@ -28,7 +34,23 @@ class AppState extends ChangeNotifier {
         _syncService = syncService,
         _lanSyncServer = lanSyncServer,
         _lanSyncClient = lanSyncClient,
-        _fileInteropService = fileInteropService;
+        _fileInteropService = fileInteropService {
+    _activityState = ActivityState(
+      activityRepository: activityRepository,
+      entryRepository: entryRepository,
+      onFullRefresh: _onFullRefresh,
+    );
+    _entryState = EntryState(
+      entryRepository: entryRepository,
+      now: () => now,
+      onFullRefresh: _onFullRefresh,
+    );
+    _activityState.addListener(_onSubStateChanged);
+    _entryState.addListener(_onSubStateChanged);
+  }
+
+  late final ActivityState _activityState;
+  late final EntryState _entryState;
 
   final TimeRepository _repository;
   final SyncService _syncService;
@@ -42,13 +64,10 @@ class AppState extends ChangeNotifier {
   bool isSyncing = false;
   String? errorMessage;
   DateTime selectedDay = DateTime.now();
-  List<Activity> activities = const [];
-  List<TimeEntry> dayEntries = const [];
-  List<ActionLog> dayActionLogs = const [];
-  TimeEntry? runningEntry;
   ProfileSettings settings = ProfileSettings.defaults();
   SyncPeer? lanPeer;
   DateTime now = DateTime.now();
+  final ValueNotifier<DateTime> clockNotifier = ValueNotifier(DateTime.now());
   DateTime? lastReminderAt;
   String? ignoredSuspiciousEntryId;
   String? interopMessage;
@@ -58,6 +77,75 @@ class AppState extends ChangeNotifier {
   var _undoBatchDepth = 0;
   var _syncAfterUndoBatch = false;
   bool _historyBusy = false;
+
+  void _onSubStateChanged() {
+    notifyListeners();
+  }
+
+  Future<void> _onFullRefresh() async {
+    await refresh();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Forwarded fields (activity)
+  // ---------------------------------------------------------------------------
+
+  List<Activity> get activities => _activityState.activities;
+  set activities(List<Activity> value) => _activityState.activities = value;
+
+  Activity? activityById(String id) => _activityState.activityById(id);
+
+  Activity? get unassignedActivity => _activityState.unassignedActivity;
+
+  String activityNameForEntry(TimeEntry entry) =>
+      _activityState.activityNameForEntry(entry);
+
+  int activityColorForEntry(TimeEntry entry) =>
+      _activityState.activityColorForEntry(entry);
+
+  bool _entryIsUnassigned(TimeEntry entry) =>
+      _activityState.entryIsUnassigned(entry);
+
+  // ---------------------------------------------------------------------------
+  // Forwarded fields (entry)
+  // ---------------------------------------------------------------------------
+
+  List<TimeEntry> get dayEntries => _entryState.dayEntries;
+  set dayEntries(List<TimeEntry> value) => _entryState.dayEntries = value;
+
+  List<ActionLog> get dayActionLogs => _entryState.dayActionLogs;
+  set dayActionLogs(List<ActionLog> value) => _entryState.dayActionLogs = value;
+
+  TimeEntry? get runningEntry => _entryState.runningEntry;
+  set runningEntry(TimeEntry? value) => _entryState.runningEntry = value;
+
+  // ---------------------------------------------------------------------------
+  // Derived activity getters
+  // ---------------------------------------------------------------------------
+
+  Activity? get runningActivity {
+    final entry = runningEntry;
+    if (entry == null) {
+      return null;
+    }
+    final activity = activityById(entry.activityId);
+    if (activity == null || activity.isUnassigned) {
+      return null;
+    }
+    return activity;
+  }
+
+  Duration runningDuration({DateTime? at}) {
+    final entry = runningEntry;
+    if (entry == null || _entryIsUnassigned(entry)) {
+      return Duration.zero;
+    }
+    return entry.durationUntil(at ?? now);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sync / LAN getters
+  // ---------------------------------------------------------------------------
 
   bool get canSync => canCloudSync || hasLanPeer;
 
@@ -84,26 +172,6 @@ class AppState extends ChangeNotifier {
   String? get lanPairingCode => _lanSyncServer.pairingCode;
 
   List<String> get lanServerUrls => _lanSyncServer.localUrls;
-
-  Activity? get runningActivity {
-    final entry = runningEntry;
-    if (entry == null) {
-      return null;
-    }
-    final activity = activityById(entry.activityId);
-    if (activity == null || activity.isUnassigned) {
-      return null;
-    }
-    return activity;
-  }
-
-  Duration get runningDuration {
-    final entry = runningEntry;
-    if (entry == null || _entryIsUnassigned(entry)) {
-      return Duration.zero;
-    }
-    return entry.durationUntil(now);
-  }
 
   bool get shouldShowReminder {
     final entry = runningEntry;
@@ -139,8 +207,13 @@ class AppState extends ChangeNotifier {
     return entry != null &&
         !_entryIsUnassigned(entry) &&
         entry.id != ignoredSuspiciousEntryId &&
-        entry.durationUntil(now) > const Duration(hours: 12);
+        entry.durationUntil(now) >
+            const Duration(hours: AppConstants.suspiciousEntryHours);
   }
+
+  // ---------------------------------------------------------------------------
+  // Initialize / Refresh / Select
+  // ---------------------------------------------------------------------------
 
   Future<void> initialize() async {
     isLoading = true;
@@ -153,8 +226,8 @@ class AppState extends ChangeNotifier {
       }
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         now = DateTime.now();
+        clockNotifier.value = now;
         unawaited(_rolloverRunningEntryIfNeeded());
-        notifyListeners();
       });
     } catch (error) {
       errorMessage = error.toString();
@@ -166,12 +239,15 @@ class AppState extends ChangeNotifier {
 
   Future<void> refresh() async {
     await _repository.rolloverRunningEntriesIfNeeded(at: now);
-    activities = await _repository.activities();
+    await _activityState.refresh();
     settings = await _repository.settings();
     lanPeer = await _lanSyncClient.currentPeer();
-    runningEntry = await _repository.runningEntry();
-    dayEntries = await _repository.entriesForDay(selectedDay);
-    dayActionLogs = await _repository.actionLogsForDay(selectedDay);
+    await _entryState.refresh(selectedDay);
+    final logs = await _repository.actionLogsForDay(selectedDay);
+    _entryState.setActionLogs(logs);
+    // Also update running entry from TimeRepository to ensure consistency
+    final repoRunning = await _repository.runningEntry();
+    _entryState.setRunningEntry(repoRunning);
     notifyListeners();
   }
 
@@ -179,6 +255,206 @@ class AppState extends ChangeNotifier {
     selectedDay = day;
     await refresh();
   }
+
+  Future<void> _rolloverRunningEntryIfNeeded() async {
+    final entry = runningEntry;
+    if (entry == null || !entry.startAt.startOfDay.isBefore(now.startOfDay)) {
+      return;
+    }
+    await refresh();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Activity mutation forwarding (with undo)
+  // ---------------------------------------------------------------------------
+
+  Future<void> switchTo(Activity activity) async {
+    await _recordUndoable('切换到 ${activity.name}', () async {
+      await _activityState.switchTo(activity);
+    });
+  }
+
+  Future<void> stopCurrent() async {
+    await _recordUndoable('停止当前事项', () async {
+      await _activityState.stopCurrent();
+    });
+  }
+
+  Future<void> continueCurrent() async {
+    lastReminderAt = DateTime.now();
+    notifyListeners();
+  }
+
+  Future<void> snoozeReminder() async {
+    lastReminderAt = DateTime.now();
+    notifyListeners();
+  }
+
+  Future<void> ignoreSuspiciousRunning() async {
+    ignoredSuspiciousEntryId = runningEntry?.id;
+    await continueCurrent();
+  }
+
+  Future<Activity> createActivity(String name, int color) async {
+    return _recordUndoable('新增事项', () async {
+      return _activityState.createActivity(name, color);
+    });
+  }
+
+  Future<List<Activity>> oneOffActivitySuggestions() {
+    return _activityState.oneOffActivitySuggestions();
+  }
+
+  Future<Activity> createOneOffActivity(
+    String name,
+    int color, {
+    Activity? reuseActivity,
+  }) async {
+    return _recordUndoable('开始临时事项', () async {
+      return _activityState.createOneOffActivity(
+        name,
+        color,
+        reuseActivity: reuseActivity,
+      );
+    });
+  }
+
+  Future<Activity> createEntryActivity(
+    String name,
+    int color, {
+    required bool isOneOff,
+    Activity? reuseActivity,
+  }) async {
+    return _recordUndoable('新增事项', () async {
+      return _activityState.createEntryActivity(
+        name,
+        color,
+        isOneOff: isOneOff,
+        reuseActivity: reuseActivity,
+      );
+    });
+  }
+
+  Future<Activity> updateActivity(
+    Activity activity, {
+    required String name,
+    required int color,
+  }) async {
+    return _recordUndoable('编辑事项', () async {
+      return _activityState.updateActivity(
+        activity,
+        name: name,
+        color: color,
+      );
+    });
+  }
+
+  Future<void> deleteActivity(Activity activity) async {
+    await _recordUndoable('删除事项', () async {
+      await _activityState.deleteActivity(activity);
+    });
+  }
+
+  Future<List<Activity>> entryActivityChoices() async {
+    return _activityState.entryActivityChoices();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Entry mutation forwarding (with undo)
+  // ---------------------------------------------------------------------------
+
+  Future<void> saveEntry(TimeEntry entry) async {
+    await _recordUndoable('编辑时间段', () async {
+      await _entryState.saveEntry(entry);
+    });
+  }
+
+  Future<void> splitEntry({
+    required String entryId,
+    required DateTime splitAt,
+  }) async {
+    await _recordUndoable('切割时间段', () async {
+      await _entryState.splitEntry(entryId: entryId, splitAt: splitAt);
+    });
+  }
+
+  Future<void> extendEntryToNow(TimeEntry entry) async {
+    if (entry.isRunning || !entry.startAt.isBefore(now)) {
+      return;
+    }
+    await _recordUndoable('延续时间段到现在', () async {
+      await _entryState.extendEntryToNow(entry);
+    });
+  }
+
+  Future<void> createManualEntry({
+    required String activityId,
+    required DateTime startAt,
+    required DateTime endAt,
+    required String note,
+  }) async {
+    await _recordUndoable('补记时间段', () async {
+      await _entryState.createManualEntry(
+        activityId: activityId,
+        startAt: startAt,
+        endAt: endAt,
+        note: note,
+      );
+    });
+  }
+
+  Future<void> deleteEntry(TimeEntry entry) async {
+    await _recordUndoable('删除时间段', () async {
+      await _entryState.deleteEntry(entry);
+    });
+  }
+
+  Future<void> correctSuspiciousRunning(DateTime endAt) async {
+    final entry = runningEntry;
+    if (entry == null) {
+      return;
+    }
+    await _recordUndoable('修正运行记录', () async {
+      await _entryState.correctSuspiciousRunning(endAt);
+    });
+  }
+
+  Future<List<TimeEntry>> overlaps(TimeEntry entry) {
+    return _entryState.overlaps(entry);
+  }
+
+  Future<EntryMergeCandidate?> mergeCandidate(
+    String entryId,
+    EntryMergeDirection direction,
+  ) {
+    return _entryState.mergeCandidate(entryId, direction);
+  }
+
+  Future<void> mergeEntryWithNeighbor({
+    required String entryId,
+    required EntryMergeDirection direction,
+    required bool confirmed,
+  }) async {
+    await _recordUndoable('合并时间段', () async {
+      await _entryState.mergeEntryWithNeighbor(
+        entryId: entryId,
+        direction: direction,
+        confirmed: confirmed,
+      );
+    });
+  }
+
+  Future<List<TimeEntry>> entriesForRange({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final entries = await _entryState.entriesForRange(start: start, end: end);
+    return _entriesWithUnassignedGaps(entries, start, end);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Undo / Redo
+  // ---------------------------------------------------------------------------
 
   Future<T> runUndoBatch<T>(
     Future<T> Function() action, {
@@ -308,281 +584,9 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Activity? activityById(String id) {
-    for (final activity in activities) {
-      if (activity.id == id) {
-        return activity;
-      }
-    }
-    return null;
-  }
-
-  String activityNameForEntry(TimeEntry entry) {
-    final activity = activityById(entry.activityId);
-    if (activity != null) {
-      return activity.name;
-    }
-    final snapshot = entry.activityNameSnapshot.trim();
-    return snapshot.isEmpty ? '未知事项' : snapshot;
-  }
-
-  int activityColorForEntry(TimeEntry entry) {
-    return activityById(entry.activityId)?.color ??
-        entry.activityColorSnapshot ??
-        0xff64748b;
-  }
-
-  Activity? get unassignedActivity {
-    for (final activity in activities) {
-      if (activity.isUnassigned) {
-        return activity;
-      }
-    }
-    return null;
-  }
-
-  bool _entryIsUnassigned(TimeEntry entry) {
-    return activityById(entry.activityId)?.isUnassigned ?? false;
-  }
-
-  Future<void> _rolloverRunningEntryIfNeeded() async {
-    final entry = runningEntry;
-    if (entry == null || !entry.startAt.startOfDay.isBefore(now.startOfDay)) {
-      return;
-    }
-    await refresh();
-  }
-
-  Future<void> switchTo(Activity activity) async {
-    await _recordUndoable('切换到 ${activity.name}', () async {
-      await _repository.switchToActivity(activity.id);
-      await refresh();
-    });
-  }
-
-  Future<void> stopCurrent() async {
-    await _recordUndoable('停止当前事项', () async {
-      await _repository.stopRunning();
-      await refresh();
-    });
-  }
-
-  Future<void> continueCurrent() async {
-    lastReminderAt = DateTime.now();
-    notifyListeners();
-  }
-
-  Future<void> snoozeReminder() async {
-    lastReminderAt = DateTime.now();
-    notifyListeners();
-  }
-
-  Future<void> correctSuspiciousRunning(DateTime endAt) async {
-    final entry = runningEntry;
-    if (entry == null) {
-      return;
-    }
-    await _recordUndoable('修正运行记录', () async {
-      await _repository.saveEntry(
-        entry.copyWith(endAt: endAt, updatedAt: now),
-        logEdit: true,
-      );
-      await refresh();
-    });
-  }
-
-  Future<void> ignoreSuspiciousRunning() async {
-    ignoredSuspiciousEntryId = runningEntry?.id;
-    await continueCurrent();
-  }
-
-  Future<void> saveEntry(TimeEntry entry) async {
-    await _recordUndoable('编辑时间段', () async {
-      await _repository.saveEntry(
-        entry.copyWith(updatedAt: DateTime.now()),
-        logEdit: true,
-        cutOverlaps: true,
-      );
-      await refresh();
-    });
-  }
-
-  Future<void> splitEntry({
-    required String entryId,
-    required DateTime splitAt,
-  }) async {
-    await _recordUndoable('切割时间段', () async {
-      await _repository.splitEntry(entryId: entryId, splitAt: splitAt);
-      await refresh();
-    });
-  }
-
-  Future<void> extendEntryToNow(TimeEntry entry) async {
-    if (entry.isRunning || !entry.startAt.isBefore(now)) {
-      return;
-    }
-    await _recordUndoable('延续时间段到现在', () async {
-      await _repository.saveEntry(
-        entry.copyWith(clearEndAt: true, updatedAt: DateTime.now()),
-        logEdit: true,
-        cutOverlaps: true,
-      );
-      await refresh();
-    });
-  }
-
-  Future<void> createManualEntry({
-    required String activityId,
-    required DateTime startAt,
-    required DateTime endAt,
-    required String note,
-  }) async {
-    await _recordUndoable('补记时间段', () async {
-      await _repository.createManualEntry(
-        activityId: activityId,
-        startAt: startAt,
-        endAt: endAt,
-        note: note,
-      );
-      await refresh();
-    });
-  }
-
-  Future<void> deleteEntry(TimeEntry entry) async {
-    await _recordUndoable('删除时间段', () async {
-      await _repository.deleteEntry(entry);
-      await refresh();
-    });
-  }
-
-  Future<List<Activity>> entryActivityChoices() async {
-    final choices = <String, Activity>{};
-    for (final activity in activities) {
-      if (!activity.isUnassigned && !activity.isOneOff) {
-        choices[activity.id] = activity;
-      }
-    }
-    return choices.values.toList();
-  }
-
-  Future<Activity> createActivity(String name, int color) async {
-    return _recordUndoable('新增事项', () async {
-      final activity =
-          await _repository.createActivity(name: name, color: color);
-      await refresh();
-      return activity;
-    });
-  }
-
-  Future<List<Activity>> oneOffActivitySuggestions() {
-    return _safeOneOffActivities();
-  }
-
-  Future<List<Activity>> _safeOneOffActivities() async {
-    try {
-      return await _repository.oneOffActivities();
-    } catch (_) {
-      return const [];
-    }
-  }
-
-  Future<Activity> createOneOffActivity(
-    String name,
-    int color, {
-    Activity? reuseActivity,
-  }) async {
-    return _recordUndoable('开始临时事项', () async {
-      final activity = reuseActivity == null
-          ? await _repository.createActivity(
-              name: name,
-              color: color,
-              isOneOff: true,
-            )
-          : await _repository.restoreOneOffActivity(reuseActivity);
-      await _repository.switchToActivity(activity.id);
-      await refresh();
-      return activity;
-    });
-  }
-
-  Future<Activity> createEntryActivity(
-    String name,
-    int color, {
-    required bool isOneOff,
-    Activity? reuseActivity,
-  }) async {
-    return _recordUndoable('新增事项', () async {
-      final activity = reuseActivity == null
-          ? await _repository.createActivity(
-              name: name,
-              color: color,
-              isOneOff: isOneOff,
-            )
-          : await _repository.restoreOneOffActivity(reuseActivity);
-      await refresh();
-      return activity;
-    });
-  }
-
-  Future<Activity> updateActivity(
-    Activity activity, {
-    required String name,
-    required int color,
-  }) async {
-    if (activity.isUnassigned) {
-      return unassignedActivity ?? activity;
-    }
-    return _recordUndoable('编辑事项', () async {
-      final updated = await _repository.updateActivity(
-        activity: activity,
-        name: name,
-        color: color,
-      );
-      await refresh();
-      return updated;
-    });
-  }
-
-  Future<void> deleteActivity(Activity activity) async {
-    await _recordUndoable('删除事项', () async {
-      await _repository.deleteActivity(activity);
-      await refresh();
-    });
-  }
-
-  Future<List<TimeEntry>> overlaps(TimeEntry entry) {
-    return _repository.overlappingEntries(entry);
-  }
-
-  Future<EntryMergeCandidate?> mergeCandidate(
-    String entryId,
-    EntryMergeDirection direction,
-  ) {
-    return _repository.mergeCandidateForEntry(entryId, direction);
-  }
-
-  Future<void> mergeEntryWithNeighbor({
-    required String entryId,
-    required EntryMergeDirection direction,
-    required bool confirmed,
-  }) async {
-    await _recordUndoable('合并时间段', () async {
-      await _repository.mergeEntryWithNeighbor(
-        entryId: entryId,
-        direction: direction,
-        confirmed: confirmed,
-      );
-      await refresh();
-    });
-  }
-
-  Future<List<TimeEntry>> entriesForRange({
-    required DateTime start,
-    required DateTime end,
-  }) async {
-    final entries = await _repository.entriesForRange(start, end);
-    return _entriesWithUnassignedGaps(entries, start, end);
-  }
+  // ---------------------------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------------------------
 
   Future<List<ActionLog>> actionLogsForRange({
     required DateTime start,
@@ -602,164 +606,6 @@ class AppState extends ChangeNotifier {
       end: end,
       effectiveNow: now,
     );
-  }
-
-  Future<void> updateReminderMinutes(int minutes) async {
-    await updateReminderSettings(reminderMinutes: minutes);
-  }
-
-  Future<void> updateReminderSettings({
-    int? reminderMinutes,
-    int? reminderIntervalMinutes,
-    ReminderMethod? reminderMethod,
-    int? reminderTimeOfDayMinutes,
-    int? mergeNeighborThresholdMinutes,
-  }) async {
-    settings = settings.copyWith(
-      reminderMinutes: reminderMinutes,
-      reminderIntervalMinutes: reminderIntervalMinutes,
-      reminderMethod: reminderMethod,
-      reminderTimeOfDayMinutes: reminderTimeOfDayMinutes,
-      mergeNeighborThresholdMinutes: mergeNeighborThresholdMinutes,
-      updatedAt: DateTime.now(),
-    );
-    await _repository.saveSettings(settings);
-    notifyListeners();
-    unawaited(sync());
-  }
-
-  Future<void> sendMagicLink(String email) async {
-    await _syncService.sendMagicLink(email);
-  }
-
-  Future<void> verifyEmailOtp({
-    required String email,
-    required String token,
-  }) async {
-    await _syncService.verifyEmailOtp(email: email, token: token);
-    await refresh();
-    await sync();
-  }
-
-  Future<void> signOut() async {
-    await _syncService.signOut();
-    await refresh();
-  }
-
-  Future<void> sync() async {
-    if (!hasSyncTarget) {
-      return;
-    }
-    isSyncing = true;
-    notifyListeners();
-    try {
-      final errors = <String>[];
-      var lanSynced = false;
-      if (isSignedIn) {
-        try {
-          await _syncService.sync();
-        } catch (error) {
-          errors.add('云同步：$error');
-        }
-      }
-      if (hasLanPeer) {
-        try {
-          await _lanSyncClient.syncNow();
-          lanSynced = true;
-        } catch (error) {
-          errors.add('局域网同步：$error');
-        }
-      }
-      if (isSignedIn && lanSynced) {
-        try {
-          await _syncService.sync();
-        } catch (error) {
-          errors.add('云同步回传：$error');
-        }
-      }
-      await refresh();
-      if (errors.isEmpty) {
-        errorMessage = null;
-      } else {
-        errorMessage = '同步部分失败：${errors.join('；')}';
-      }
-    } catch (error) {
-      errorMessage = '同步失败：$error';
-    } finally {
-      isSyncing = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> startLanServer() async {
-    if (!canHostLan) {
-      interopMessage = '请在 Windows 端开启局域网主机，Android 作为客户端连接。';
-      notifyListeners();
-      return;
-    }
-    try {
-      await _lanSyncServer.start();
-      interopMessage = '局域网主机已开启。';
-      notifyListeners();
-    } catch (error) {
-      interopMessage = '无法开启局域网主机：$error';
-      notifyListeners();
-    }
-  }
-
-  Future<void> stopLanServer() async {
-    await _lanSyncServer.stop();
-    interopMessage = '局域网主机已关闭。';
-    notifyListeners();
-  }
-
-  Future<void> pairLanPeer({
-    required String baseUrl,
-    required String code,
-  }) async {
-    try {
-      lanPeer = await _lanSyncClient.pair(baseUrl: baseUrl, code: code);
-      interopMessage = '局域网主机配对成功。';
-      notifyListeners();
-      await sync();
-    } catch (error) {
-      interopMessage = '局域网配对失败：$error';
-      notifyListeners();
-    }
-  }
-
-  Future<void> clearLanPeer() async {
-    await _lanSyncClient.clearPeer();
-    lanPeer = null;
-    interopMessage = '已移除局域网主机配对。';
-    notifyListeners();
-  }
-
-  Future<void> exportInteropFile() async {
-    try {
-      final path = await _fileInteropService.exportToFile();
-      interopMessage = path == null ? '已取消导出。' : '已导出：$path';
-      notifyListeners();
-    } catch (error) {
-      interopMessage = '导出失败：$error';
-      notifyListeners();
-    }
-  }
-
-  Future<void> importInteropFile() async {
-    try {
-      final path = await _fileInteropService.importFromFile();
-      if (path == null) {
-        interopMessage = '已取消导入。';
-      } else {
-        interopMessage = '已导入：$path';
-        await refresh();
-      }
-      notifyListeners();
-    } catch (error) {
-      interopMessage = '导入失败：$error';
-      notifyListeners();
-    }
   }
 
   Map<String, Duration> todayTotals() {
@@ -817,7 +663,6 @@ class AppState extends ChangeNotifier {
     List<TimeEntry> entries;
     if (period == StatsPeriod.all) {
       entries = await _repository.allEntries();
-      // For "all", don't clip — use full durations.
       var longest = Duration.zero;
       for (final entry in _visibleStoredEntries(entries)) {
         final duration = entry.durationUntil(now);
@@ -892,6 +737,188 @@ class AppState extends ChangeNotifier {
     }).toList();
     return _entriesWithUnassignedGaps(visible, start, end);
   }
+
+  // ---------------------------------------------------------------------------
+  // Reminder settings
+  // ---------------------------------------------------------------------------
+
+  Future<void> updateReminderMinutes(int minutes) async {
+    await updateReminderSettings(reminderMinutes: minutes);
+  }
+
+  Future<void> updateReminderSettings({
+    int? reminderMinutes,
+    int? reminderIntervalMinutes,
+    ReminderMethod? reminderMethod,
+    int? reminderTimeOfDayMinutes,
+    int? mergeNeighborThresholdMinutes,
+  }) async {
+    settings = settings.copyWith(
+      reminderMinutes: reminderMinutes,
+      reminderIntervalMinutes: reminderIntervalMinutes,
+      reminderMethod: reminderMethod,
+      reminderTimeOfDayMinutes: reminderTimeOfDayMinutes,
+      mergeNeighborThresholdMinutes: mergeNeighborThresholdMinutes,
+      updatedAt: DateTime.now(),
+    );
+    await _repository.saveSettings(settings);
+    notifyListeners();
+    unawaited(sync());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auth
+  // ---------------------------------------------------------------------------
+
+  Future<void> sendMagicLink(String email) async {
+    await _syncService.sendMagicLink(email);
+  }
+
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String token,
+  }) async {
+    await _syncService.verifyEmailOtp(email: email, token: token);
+    await refresh();
+    await sync();
+  }
+
+  Future<void> signOut() async {
+    await _syncService.signOut();
+    await refresh();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sync
+  // ---------------------------------------------------------------------------
+
+  Future<void> sync() async {
+    if (!hasSyncTarget) {
+      return;
+    }
+    isSyncing = true;
+    notifyListeners();
+    try {
+      final errors = <String>[];
+      var lanSynced = false;
+      if (isSignedIn) {
+        try {
+          await _syncService.sync();
+        } catch (error) {
+          errors.add('云同步：$error');
+        }
+      }
+      if (hasLanPeer) {
+        try {
+          await _lanSyncClient.syncNow();
+          lanSynced = true;
+        } catch (error) {
+          errors.add('局域网同步：$error');
+        }
+      }
+      if (isSignedIn && lanSynced) {
+        try {
+          await _syncService.sync();
+        } catch (error) {
+          errors.add('云同步回传：$error');
+        }
+      }
+      await refresh();
+      if (errors.isEmpty) {
+        errorMessage = null;
+      } else {
+        errorMessage = '同步部分失败：${errors.join('；')}';
+      }
+    } catch (error) {
+      errorMessage = '同步失败：$error';
+    } finally {
+      isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // LAN
+  // ---------------------------------------------------------------------------
+
+  Future<void> startLanServer() async {
+    if (!canHostLan) {
+      interopMessage = '请在 Windows 端开启局域网主机，Android 作为客户端连接。';
+      notifyListeners();
+      return;
+    }
+    try {
+      await _lanSyncServer.start();
+      interopMessage = '局域网主机已开启。';
+      notifyListeners();
+    } catch (error) {
+      interopMessage = '无法开启局域网主机：$error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopLanServer() async {
+    await _lanSyncServer.stop();
+    interopMessage = '局域网主机已关闭。';
+    notifyListeners();
+  }
+
+  Future<void> pairLanPeer({
+    required String baseUrl,
+    required String code,
+  }) async {
+    try {
+      lanPeer = await _lanSyncClient.pair(baseUrl: baseUrl, code: code);
+      interopMessage = '局域网主机配对成功。';
+      notifyListeners();
+      await sync();
+    } catch (error) {
+      interopMessage = '局域网配对失败：$error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> clearLanPeer() async {
+    await _lanSyncClient.clearPeer();
+    lanPeer = null;
+    interopMessage = '已移除局域网主机配对。';
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Import / Export
+  // ---------------------------------------------------------------------------
+
+  Future<void> exportInteropFile() async {
+    try {
+      final path = await _fileInteropService.exportToFile();
+      interopMessage = path == null ? '已取消导出。' : '已导出：$path';
+      notifyListeners();
+    } catch (error) {
+      interopMessage = '导出失败：$error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> importInteropFile() async {
+    try {
+      final path = await _fileInteropService.importFromFile();
+      if (path == null) {
+        interopMessage = '已取消导入。';
+      } else {
+        interopMessage = '已导入：$path';
+        await refresh();
+      }
+      notifyListeners();
+    } catch (error) {
+      interopMessage = '导入失败：$error';
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Unassigned gap helpers
+  // ---------------------------------------------------------------------------
 
   List<TimeEntry> _entriesWithUnassignedGaps(
     List<TimeEntry> entries,
@@ -974,9 +1001,18 @@ class AppState extends ChangeNotifier {
     return first.isBefore(second) ? first : second;
   }
 
+  // ---------------------------------------------------------------------------
+  // Dispose
+  // ---------------------------------------------------------------------------
+
   @override
   void dispose() {
     _ticker?.cancel();
+    clockNotifier.dispose();
+    _activityState.removeListener(_onSubStateChanged);
+    _entryState.removeListener(_onSubStateChanged);
+    _activityState.dispose();
+    _entryState.dispose();
     unawaited(_lanSyncServer.stop());
     super.dispose();
   }

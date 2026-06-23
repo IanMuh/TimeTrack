@@ -1,3 +1,6 @@
+import '../core/app_constants.dart';
+import '../core/model_utils.dart';
+
 class TimeEntry {
   const TimeEntry({
     required this.id,
@@ -58,11 +61,23 @@ class TimeEntry {
 
   bool overlaps(TimeEntry other) {
     final thisEnd =
-        endAt ?? DateTime.fromMillisecondsSinceEpoch(8640000000000000);
+        endAt ?? AppConstants.maxDateTime;
     final otherEnd =
-        other.endAt ?? DateTime.fromMillisecondsSinceEpoch(8640000000000000);
+        other.endAt ?? AppConstants.maxDateTime;
     return startAt.isBefore(otherEnd) && other.startAt.isBefore(thisEnd);
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TimeEntry && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'TimeEntry(id: $id, activityId: $activityId, startAt: $startAt, endAt: $endAt, isDeleted: $isDeleted)';
 
   TimeEntry copyWith({
     String? id,
@@ -129,30 +144,25 @@ class TimeEntry {
   }
 
   static TimeEntry fromMap(Map<String, Object?> map) {
-    return TimeEntry(
-      id: map['id'] as String,
-      userId: map['user_id'] as String?,
-      activityId: map['activity_id'] as String,
-      activityNameSnapshot: (map['activity_name'] as String?) ?? '',
-      activityColorSnapshot: (map['activity_color'] as num?)?.toInt(),
-      startAt: DateTime.parse(map['start_at'] as String).toLocal(),
-      endAt: map['end_at'] == null
-          ? null
-          : DateTime.parse(map['end_at'] as String).toLocal(),
-      note: (map['note'] as String?) ?? '',
-      deviceId: (map['device_id'] as String?) ?? 'unknown',
-      updatedAt: DateTime.parse(map['updated_at'] as String).toLocal(),
-      isDeleted: _readBool(map['is_deleted']),
-    );
-  }
-
-  static bool _readBool(Object? value) {
-    if (value is bool) {
-      return value;
+    try {
+      return TimeEntry(
+        id: (map['id'] as String?) ??
+            (throw const FormatException('TimeEntry.fromMap: id is required')),
+        userId: map['user_id'] as String?,
+        activityId: (map['activity_id'] as String?) ?? '',
+        activityNameSnapshot: (map['activity_name'] as String?) ?? '',
+        activityColorSnapshot: (map['activity_color'] as num?)?.toInt(),
+        startAt: parseDateTime(map, 'start_at'),
+        endAt: map['end_at'] == null
+            ? null
+            : parseDateTime(map, 'end_at'),
+        note: (map['note'] as String?) ?? '',
+        deviceId: (map['device_id'] as String?) ?? 'unknown',
+        updatedAt: parseDateTime(map, 'updated_at'),
+        isDeleted: readBool(map['is_deleted']),
+      );
+    } on TypeError catch (e) {
+      throw FormatException('TimeEntry.fromMap: invalid data type', e);
     }
-    if (value is num) {
-      return value != 0;
-    }
-    return false;
   }
 }

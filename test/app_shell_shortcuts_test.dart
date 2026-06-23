@@ -2,29 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/time_entry.dart';
+import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/app_shell.dart';
 
 class _ShellTestState extends AppState {
   _ShellTestState()
       : super(
           repository: _repository,
-          syncService: SyncService(repository: _repository, client: null),
+          activityRepository: _activityRepository,
+          entryRepository: _timeEntryRepository,
+          syncService: SyncService(
+            repository: _repository,
+            activityRepository: _activityRepository,
+            settingsRepository: _settingsRepository,
+            timeEntryRepository: _timeEntryRepository,
+            actionLogRepository: _actionLogRepository,
+            client: null,
+          ),
           lanSyncServer: LanSyncServer(
             repository: _repository,
+            activityRepository: _activityRepository,
+            deviceIdStore: _deviceIdStore,
+            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
             portCandidates: const [0],
           ),
-          lanSyncClient:
-              LanSyncClient(repository: _repository, peerStore: _peerStore),
-          fileInteropService: FileInteropService(repository: _repository),
+          lanSyncClient: LanSyncClient(
+            repository: _repository,
+            activityRepository: _activityRepository,
+            deviceIdStore: _deviceIdStore,
+            timeEntryRepository: _timeEntryRepository,
+            peerStore: _peerStore,
+          ),
+          fileInteropService: FileInteropService(
+            repository: _repository,
+            activityRepository: _activityRepository,
+            timeEntryRepository: _timeEntryRepository,
+          ),
         ) {
     isLoading = false;
     now = DateTime(2026, 1, 1, 12);
@@ -53,7 +78,22 @@ class _ShellTestState extends AppState {
   }
 
   static final _database = LocalDatabase();
-  static final _repository = TimeRepository(database: _database);
+  static final _activityRepository = ActivityRepository(database: _database);
+  static final _settingsRepository = SettingsRepository(database: _database);
+  static final _deviceIdStore = DeviceIdStore(database: _database);
+  static final _timeEntryRepository = TimeEntryRepository(
+    database: _database,
+    activityRepository: _activityRepository,
+  );
+  static final _actionLogRepository = ActionLogRepository(database: _database);
+  static final _repository = TimeRepository(
+    database: _database,
+    activityRepository: _activityRepository,
+    settingsRepository: _settingsRepository,
+    deviceIdStore: _deviceIdStore,
+    timeEntryRepository: _timeEntryRepository,
+    actionLogRepository: _actionLogRepository,
+  );
   static final _peerStore = SyncPeerStore(database: _database);
 
   var undoCount = 0;
@@ -162,7 +202,7 @@ Future<void> _pumpShell(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(MaterialApp(home: AppShell(state: state)));
+  await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,home: AppShell(state: state)));
   await tester.pump();
 }
 

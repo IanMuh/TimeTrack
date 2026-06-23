@@ -1,0 +1,369 @@
+{
+  "@@locale": "zh",
+  "@@last_modified": "2026-06-23",
+  "appTitle": "TimeTrack",
+  "appSubtitle": "离线优先记录，按下一个事项就开始。",
+  "navCurrent": "当前",
+  "navTimeline": "时间线",
+  "navStats": "统计",
+  "navSettings": "设置",
+  "ok": "确认",
+  "cancel": "取消",
+  "delete": "删除",
+  "save": "保存",
+  "syncStatusLocal": "本地模式",
+  "syncStatusCloud": "可同步",
+  "activityUnassigned": "未分配",
+  "reminderClose": "关闭",
+  "emptyTimeline": "暂无记录",
+  "sync": "同步",
+  "edit": "编辑",
+  "create": "创建",
+  "start": "开始",
+  "stop": "停止",
+  "continueLabel": "继续",
+  "confirm": "确认",
+  "undoHint": "撤销 Ctrl+Z",
+  "undoWithLabel": "撤销：{label} Ctrl+Z",
+  "@undoWithLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "redoHint": "重做 Ctrl+Y",
+  "redoWithLabel": "重做：{label} Ctrl+Y",
+  "@redoWithLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "quickSwitch": "快捷切换",
+  "quickSwitchHint": "轻点选择，再点一次确认切换。",
+  "quickSwitchSelected": "已选择 {name}，再次点击后切换。",
+  "@quickSwitchSelected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "currentDoing": "当前正在做",
+  "notStarted": "未开始",
+  "recording": "记录中",
+  "notStartedRecord": "未开始记录",
+  "selectActivityToStart": "选择一个事项开始记录今天的时间。",
+  "elapsedDuration": "已持续 {duration}",
+  "@elapsedDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "stopCurrentActivity": "停止当前事项",
+  "confirmSwitchSemantics": "确认切换到{name}",
+  "@confirmSwitchSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "currentActivitySemantics": "当前事项{name}",
+  "@currentActivitySemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "switchToSemantics": "切换到{name}",
+  "@switchToSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "systemActivityCannotEdit": "系统事项，不能编辑",
+  "editActivity": "编辑事项",
+  "oneOffActivity": "临时事项",
+  "newActivity": "新增事项",
+  "editActivityTitle": "编辑事项",
+  "name": "名称",
+  "deleteActivityTitle": "删除事项",
+  "confirmDeleteActivity": "确定删除\"{name}\"吗？已有时间记录会保留，但之后不能再选择这个事项。",
+  "@confirmDeleteActivity": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "selectColorTooltip": "选择颜色 {hex}",
+  "@selectColorTooltip": {
+    "placeholders": {
+      "hex": {
+        "type": "String"
+      }
+    }
+  },
+  "rgbTuner": "RGB 调色",
+  "oneOff": "单次",
+  "activityRunningMinutes": "当前事项已持续 {minutes} 分钟。",
+  "@activityRunningMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "remindLater": "稍后提醒",
+  "stillDoingThis": "还在做这件事吗？",
+  "confirmPreviousPeriod": "需要确认上一段时间",
+  "noRunningActivity": "没有正在进行的事项。",
+  "suspiciousEntryContent": "当前事项从 {time} 开始，持续时间偏长。可以先结束到当前时间，再补记中间内容。",
+  "@suspiciousEntryContent": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "keepCurrent": "继续保留",
+  "endToNow": "结束到现在",
+  "syncing": "正在同步",
+  "cloudSyncActive": "已登录并开启云同步",
+  "lanPeerPaired": "已配对局域网主机",
+  "localModeHint": "本地模式：可在设置中开启局域网互通或导入导出",
+  "selectDate": "选择日期",
+  "previousDay": "前一天",
+  "nextDay": "后一天",
+  "emptyDayEntries": "这一天还没有记录。",
+  "emptyRangeEntries": "这个范围还没有记录。",
+  "emptyDayActions": "这一天还没有切换或编辑指令。",
+  "emptyRangeActions": "这个范围还没有切换或编辑指令。",
+  "timeline": "时间轴",
+  "compact": "紧凑",
+  "detailed": "详细",
+  "singleDay": "单日",
+  "threeDays": "3日",
+  "sevenDays": "7日",
+  "addEntry": "补记",
+  "viewMode": "视图",
+  "entries": "记录",
+  "actions": "指令",
+  "futureDayBanner": "{date} 尚未到来。记录会在这一天实际发生后才出现在这里。",
+  "@futureDayBanner": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dayCoverageLine": "一天覆盖线",
+  "inProgress": "进行中",
+  "zoomableTimeline": "可缩放时间线",
+  "timelineDragHint": "横向拖动查看全天刻度，缩放后仍保留同一时间尺度。",
+  "entryList": "记录列表",
+  "entryListHint": "按开始时间排列，点击任一记录可编辑。",
+  "switchToRecordHint": "切换到补记或选择其他日期继续查看。",
+  "editEntrySemantics": "编辑{name}时间段",
+  "@editEntrySemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editTooltip": "编辑",
+  "deviceLabel": "设备 {id}",
+  "@deviceLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "addEntryTitle": "补记时间段",
+  "editEntryTitle": "编辑时间段",
+  "selectValidActivity": "请选择一个有效事项。",
+  "endTime": "结束",
+  "keepRunning": "保持进行中",
+  "closeToSaveHint": "关闭后可把这条记录保存为已结束。",
+  "note": "备注",
+  "selectExistingOrNew": "请选择一个已有事项，或输入新的名称。",
+  "runningCannotStartFuture": "进行中的记录不能从未来开始。",
+  "endMustBeAfterStart": "结束时间必须晚于开始时间。",
+  "overlapWarning": "这个时间段和已有记录重叠。再次点击保存将自动切割已有记录。",
+  "split": "切割",
+  "extendToNow": "延续到现在",
+  "mergeLeft": "合并左侧",
+  "mergeRight": "合并右侧",
+  "noAdjacentRecord": "没有可合并的相邻记录",
+  "left": "左侧",
+  "right": "右侧",
+  "mergeDirectionRecord": "合并{direction}记录",
+  "@mergeDirectionRecord": {
+    "placeholders": {
+      "direction": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeConfirm": "{name} 的时长为 {duration}，超过 {threshold} 分钟阈值。确定合并吗？",
+  "@mergeConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      },
+      "threshold": {
+        "type": "int"
+      }
+    }
+  },
+  "merge": "合并",
+  "splitEntryTitle": "切割时间段",
+  "splitPoint": "切割点",
+  "splitPointError": "切割点必须在开始和结束之间。",
+  "extendEntryError": "开始时间晚于当前时间，无法延续",
+  "createActivityTitle": "创建事项",
+  "persistent": "持久",
+  "entryActivityLabel": "事项",
+  "editCurrentActivity": "编辑当前事项",
+  "noMatchingActivity": "没有匹配事项",
+  "today": "今天",
+  "yesterday": "昨天",
+  "thisWeek": "本周",
+  "lastWeek": "上周",
+  "stats": "统计",
+  "statsSubtitle": "查看 {label} 的时间分布和每日累计。",
+  "@statsSubtitle": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "range": "范围",
+  "customDay": "自选日",
+  "totalRangeRecords": "范围总记录",
+  "longestStreak": "最长连续",
+  "distributionChartTitle": "{label}分布",
+  "@distributionChartTitle": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "noDataToVisualize": "暂无可视化数据",
+  "activityColorLegend": "按事项汇总，颜色与事项保持一致。",
+  "noData": "暂无数据",
+  "startRecordingHint": "开始记录或选择其他范围后会显示分布。",
+  "unknownActivity": "未知事项",
+  "dailyTotal": "每日累计",
+  "dailyTotalHint": "用于观察本周或自选范围的记录节奏。",
+  "recordHint": "有记录后会按日期列出总时长。",
+  "settings": "设置",
+  "settingsSubtitle": "提醒、同步和设备互通都保持本地优先。",
+  "timelineSettings": "时间线",
+  "timelineSettingsHint": "控制相邻记录合并时是否需要确认。",
+  "mergeThreshold": "合并阈值",
+  "minutesFormat": "{count} 分钟",
+  "@minutesFormat": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reminderSettings": "提醒",
+  "reminderSettingsHint": "用轻提示确认长时间运行的事项。",
+  "triggerTime": "触发时间",
+  "durationLabel": "持续时间",
+  "interval": "间隔",
+  "method": "方式",
+  "methodDialog": "对话框",
+  "methodBanner": "横幅",
+  "methodSilent": "静默",
+  "supabaseConfigured": "Supabase 已配置",
+  "supabaseNotConfigured": "Supabase 未配置",
+  "loggedIn": "已登录",
+  "notLoggedIn": "未登录或本地模式",
+  "cloudSync": "云同步",
+  "cloudSyncHint": "未配置 Supabase 时应用继续以本地模式运行。",
+  "signOut": "退出",
+  "syncNow": "立即同步",
+  "deviceInterop": "设备互通",
+  "deviceInteropHint": "同一 Wi-Fi 下可通过局域网或文件互通数据。",
+  "importFile": "导入文件",
+  "exportFile": "导出文件",
+  "lanHost": "局域网主机",
+  "lanHostWaiting": "正在等待同网段设备连接。",
+  "lanHostWindowsNote": "v1 默认 Windows 作为局域网主机；Android 作为客户端连接电脑。",
+  "lanHostAndroidNote": "在 Android 上输入下方地址和配对码。",
+  "lanHostStartNote": "开启后，其他设备可在同一 Wi-Fi 内配对。",
+  "pairingCodeLabel": "配对码：{code}",
+  "@pairingCodeLabel": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "windowsOnly": "仅 Windows 可开启",
+  "stopHost": "关闭主机",
+  "startHost": "开启主机",
+  "connectLanHost": "连接局域网主机",
+  "connectLanHostHint": "输入地址和配对码后会立即尝试同步。",
+  "pairedWith": "已配对：{name}",
+  "@pairedWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removePairing": "移除配对",
+  "hostAddress": "主机地址",
+  "hostHint": "192.168.1.10:8787",
+  "pairingCodeInput": "配对码",
+  "pairAndSync": "配对并同步",
+  "multiDeviceSync": "多设备同步",
+  "multiDeviceSyncHint": "本地记录始终可用，登录后再同步到云端。",
+  "emailLabel": "邮箱",
+  "sending": "发送中",
+  "sendCode": "发送验证码",
+  "emailCode": "邮箱验证码",
+  "verifying": "验证中",
+  "verifyLogin": "验证登录",
+  "sendFailed": "发送失败：{error}",
+  "@sendFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyFailed": "验证失败：{error}",
+  "@verifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exported": "已导出",
+  "imported": "已导入",
+  "operationFailed": "操作失败",
+  "interopStatus": "互通状态",
+  "failed": "失败"
+}

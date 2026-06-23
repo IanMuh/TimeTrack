@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../app/app_state.dart';
+import '../core/app_constants.dart';
 import '../core/date_time_ext.dart';
+import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'ui_components.dart';
 
@@ -96,17 +98,17 @@ class _StatsPageState extends State<StatsPage> {
       StatsPreset.today => StatsRange(
           start: today,
           end: today.add(const Duration(days: 1)),
-          label: '今天',
+          label: AppLocalizations.of(context)!.today,
         ),
       StatsPreset.yesterday => StatsRange(
           start: today.subtract(const Duration(days: 1)),
           end: today,
-          label: '昨天',
+          label: AppLocalizations.of(context)!.yesterday,
         ),
-      StatsPreset.thisWeek => _weekRange(today, '本周'),
+      StatsPreset.thisWeek => _weekRange(today, AppLocalizations.of(context)!.thisWeek),
       StatsPreset.lastWeek => _weekRange(
           today.subtract(const Duration(days: 7)),
-          '上周',
+          AppLocalizations.of(context)!.lastWeek,
         ),
       StatsPreset.customDay => StatsRange(
           start: _customDay.startOfDay,
@@ -173,8 +175,8 @@ class StatsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final header = PageHeader(
-      title: '统计',
-      subtitle: '查看 ${range.label} 的时间分布和每日累计。',
+      title: AppLocalizations.of(context)!.stats,
+      subtitle: AppLocalizations.of(context)!.statsSubtitle(range.label),
       trailing: StatusPill(
         label: range.label,
         icon: Icons.insights_outlined,
@@ -254,15 +256,15 @@ class _StatsPresetControl extends StatelessWidget {
     if (compact) {
       return DropdownButtonFormField<StatsPreset>(
         initialValue: selectedPreset,
-        decoration: const InputDecoration(
-          labelText: '范围',
-          prefixIcon: Icon(Icons.date_range),
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.range,
+          prefixIcon: const Icon(Icons.date_range),
         ),
         items: [
           for (final preset in StatsPreset.values)
             DropdownMenuItem(
               value: preset,
-              child: Text(_presetLabel(preset)),
+              child: Text(_presetLabel(context, preset)),
             ),
         ],
         onChanged: (value) {
@@ -278,7 +280,7 @@ class _StatsPresetControl extends StatelessWidget {
         for (final preset in StatsPreset.values)
           ButtonSegment(
             value: preset,
-            label: Text(_presetLabel(preset)),
+            label: Text(_presetLabel(context, preset)),
           ),
       ],
       selected: {selectedPreset},
@@ -286,13 +288,14 @@ class _StatsPresetControl extends StatelessWidget {
     );
   }
 
-  String _presetLabel(StatsPreset preset) {
+  String _presetLabel(BuildContext context, StatsPreset preset) {
+    final l10n = AppLocalizations.of(context)!;
     return switch (preset) {
-      StatsPreset.today => '今天',
-      StatsPreset.yesterday => '昨天',
-      StatsPreset.thisWeek => '本周',
-      StatsPreset.lastWeek => '上周',
-      StatsPreset.customDay => '单日',
+      StatsPreset.today => l10n.today,
+      StatsPreset.yesterday => l10n.yesterday,
+      StatsPreset.thisWeek => l10n.thisWeek,
+      StatsPreset.lastWeek => l10n.lastWeek,
+      StatsPreset.customDay => l10n.customDay,
     };
   }
 }
@@ -313,11 +316,11 @@ class _StatsMetrics extends StatelessWidget {
         final compact = constraints.maxWidth < compactBreakpoint;
         final cards = [
           _MetricCard(
-            label: '范围总记录',
+            label: AppLocalizations.of(context)!.totalRangeRecords,
             value: formatDurationCompact(totalDuration),
           ),
           _MetricCard(
-            label: '最长连续',
+            label: AppLocalizations.of(context)!.longestStreak,
             value: formatDurationCompact(longestBlock),
           ),
         ];
@@ -363,7 +366,7 @@ class _StatsCharts extends StatelessWidget {
         final expanded = constraints.maxWidth >= expandedBreakpoint;
         final distributionCard = RangeDistributionCard(
           state: state,
-          title: '${range.label}分布',
+          title: AppLocalizations.of(context)!.distributionChartTitle(range.label),
           totals: stats.totalsByActivity,
           activitySnapshots: stats.activitySnapshots,
           totalMinutes: totalMinutes,
@@ -417,7 +420,7 @@ class RangeDistributionCard extends StatelessWidget {
         children: [
           SectionTitle(
             title: title,
-            subtitle: totals.isEmpty ? '暂无可视化数据' : '按事项汇总，颜色与事项保持一致。',
+            subtitle: totals.isEmpty ? AppLocalizations.of(context)!.noDataToVisualize : AppLocalizations.of(context)!.activityColorLegend,
             icon: Icons.pie_chart_outline,
           ),
           const SizedBox(height: 16),
@@ -427,10 +430,10 @@ class RangeDistributionCard extends StatelessWidget {
               final chart = SizedBox(
                 height: compact ? 220 : 260,
                 child: totals.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.pie_chart_outline,
-                        title: '暂无数据',
-                        message: '开始记录或选择其他范围后会显示分布。',
+                        title: AppLocalizations.of(context)!.noData,
+                        message: AppLocalizations.of(context)!.startRecordingHint,
                       )
                     : PieChart(
                         PieChartData(
@@ -460,7 +463,7 @@ class RangeDistributionCard extends StatelessWidget {
                   for (final item in totals.entries)
                     _LegendRow(
                       color: Color(_activityColor(item.key)),
-                      label: _activityName(item.key),
+                      label: _activityName(item.key, AppLocalizations.of(context)!.unknownActivity),
                       value: formatDurationCompact(item.value),
                     ),
                 ],
@@ -489,7 +492,7 @@ class RangeDistributionCard extends StatelessWidget {
     );
   }
 
-  String _activityName(String activityId) {
+  String _activityName(String activityId, String fallbackName) {
     final activity = state.activityById(activityId);
     if (activity != null) {
       return activity.name;
@@ -498,13 +501,13 @@ class RangeDistributionCard extends StatelessWidget {
     if (snapshot != null && snapshot.isNotEmpty) {
       return snapshot;
     }
-    return '未知事项';
+    return fallbackName;
   }
 
   int _activityColor(String activityId) {
     return state.activityById(activityId)?.color ??
         activitySnapshots[activityId]?.color ??
-        0xff64748b;
+        AppConstants.defaultActivityColor;
   }
 }
 
@@ -520,17 +523,17 @@ class DayTotalsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            title: '每日累计',
-            subtitle: '用于观察本周或自选范围的记录节奏。',
+          SectionTitle(
+            title: AppLocalizations.of(context)!.dailyTotal,
+            subtitle: AppLocalizations.of(context)!.dailyTotalHint,
             icon: Icons.calendar_view_week_outlined,
           ),
           const SizedBox(height: 12),
           if (dayTotals.isEmpty)
-            const EmptyState(
+            EmptyState(
               icon: Icons.event_busy_outlined,
-              title: '暂无数据',
-              message: '有记录后会按日期列出总时长。',
+              title: AppLocalizations.of(context)!.noData,
+              message: AppLocalizations.of(context)!.recordHint,
             )
           else
             for (final item in _sortedDayTotals())

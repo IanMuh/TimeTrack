@@ -1,3 +1,5 @@
+import '../core/model_utils.dart';
+
 enum ReminderMethod {
   dialog('dialog'),
   banner('banner'),
@@ -49,6 +51,21 @@ class ProfileSettings {
       updatedAt: DateTime.now(),
     );
   }
+
+  // ProfileSettings is a singleton identified by userId.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProfileSettings &&
+          runtimeType == other.runtimeType &&
+          userId == other.userId;
+
+  @override
+  int get hashCode => userId.hashCode;
+
+  @override
+  String toString() =>
+      'ProfileSettings(userId: $userId, reminderMinutes: $reminderMinutes, reminderMethod: $reminderMethod, timezone: $timezone)';
 
   ProfileSettings copyWith({
     String? userId,
@@ -103,18 +120,23 @@ class ProfileSettings {
   }
 
   static ProfileSettings fromMap(Map<String, Object?> map) {
-    return ProfileSettings(
-      userId: map['user_id'] as String?,
-      reminderMinutes: (map['reminder_minutes'] as num).toInt(),
-      reminderIntervalMinutes:
-          ((map['reminder_interval_minutes'] as num?) ?? 10).toInt(),
-      reminderMethod: ReminderMethod.fromStorageValue(map['reminder_method']),
-      reminderTimeOfDayMinutes:
-          ((map['reminder_time_of_day_minutes'] as num?) ?? 9 * 60).toInt(),
-      mergeNeighborThresholdMinutes:
-          ((map['merge_neighbor_threshold_minutes'] as num?) ?? 1).toInt(),
-      timezone: map['timezone'] as String,
-      updatedAt: DateTime.parse(map['updated_at'] as String).toLocal(),
-    );
+    try {
+      return ProfileSettings(
+        userId: map['user_id'] as String?,
+        reminderMinutes:
+            (map['reminder_minutes'] as num?)?.toInt() ?? 45,
+        reminderIntervalMinutes:
+            (map['reminder_interval_minutes'] as num?)?.toInt() ?? 10,
+        reminderMethod: ReminderMethod.fromStorageValue(map['reminder_method']),
+        reminderTimeOfDayMinutes:
+            (map['reminder_time_of_day_minutes'] as num?)?.toInt() ?? 9 * 60,
+        mergeNeighborThresholdMinutes:
+            (map['merge_neighbor_threshold_minutes'] as num?)?.toInt() ?? 1,
+        timezone: (map['timezone'] as String?) ?? DateTime.now().timeZoneName,
+        updatedAt: parseDateTime(map, 'updated_at'),
+      );
+    } on TypeError catch (e) {
+      throw FormatException('ProfileSettings.fromMap: invalid data type', e);
+    }
   }
 }

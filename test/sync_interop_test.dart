@@ -2,8 +2,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_bundle.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/time_repository.dart';
@@ -11,8 +14,13 @@ import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
 
-Future<({LocalDatabase database, TimeRepository repository})> buildSyncRepo(
-    [String? deviceId]) async {
+Future<({
+  LocalDatabase database,
+  TimeRepository repository,
+  ActivityRepository activityRepository,
+  TimeEntryRepository timeEntryRepository,
+  DeviceIdStore deviceIdStore,
+})> buildSyncRepo([String? deviceId]) async {
   sqfliteFfiInit();
   final db = await databaseFactoryFfi.openDatabase(
     inMemoryDatabasePath,
@@ -20,9 +28,27 @@ Future<({LocalDatabase database, TimeRepository repository})> buildSyncRepo(
   );
   await LocalDatabase.createSchema(db);
   final database = LocalDatabase(database: db);
+  final activityRepository = ActivityRepository(database: database);
+  final settingsRepository = SettingsRepository(database: database);
+  final deviceIdStore = DeviceIdStore(database: database);
+  final timeEntryRepository = TimeEntryRepository(
+    database: database,
+    activityRepository: activityRepository,
+  );
+  final actionLogRepository = ActionLogRepository(database: database);
   return (
     database: database,
-    repository: TimeRepository(database: database, deviceId: deviceId),
+    repository: TimeRepository(
+      database: database,
+      activityRepository: activityRepository,
+      settingsRepository: settingsRepository,
+      deviceIdStore: deviceIdStore,
+      timeEntryRepository: timeEntryRepository,
+      actionLogRepository: actionLogRepository,
+    ),
+    activityRepository: activityRepository,
+    timeEntryRepository: timeEntryRepository,
+    deviceIdStore: deviceIdStore,
   );
 }
 
@@ -270,6 +296,9 @@ void main() {
     final clientPeerStore = SyncPeerStore(database: client.database);
     final server = LanSyncServer(
       repository: host.repository,
+      activityRepository: host.activityRepository,
+      deviceIdStore: host.deviceIdStore,
+      timeEntryRepository: host.timeEntryRepository,
       peerStore: hostPeerStore,
       portCandidates: const [0],
       bindAddress: InternetAddress.loopbackIPv4,
@@ -279,6 +308,9 @@ void main() {
 
     final lanClient = LanSyncClient(
       repository: client.repository,
+      activityRepository: client.activityRepository,
+      deviceIdStore: client.deviceIdStore,
+      timeEntryRepository: client.timeEntryRepository,
       peerStore: clientPeerStore,
     );
     await lanClient.pair(
@@ -328,6 +360,9 @@ void main() {
 
     final server = LanSyncServer(
       repository: host.repository,
+      activityRepository: host.activityRepository,
+      deviceIdStore: host.deviceIdStore,
+      timeEntryRepository: host.timeEntryRepository,
       peerStore: SyncPeerStore(database: host.database),
       portCandidates: const [0],
       bindAddress: InternetAddress.loopbackIPv4,
@@ -337,10 +372,16 @@ void main() {
 
     final firstLanClient = LanSyncClient(
       repository: firstClient.repository,
+      activityRepository: firstClient.activityRepository,
+      deviceIdStore: firstClient.deviceIdStore,
+      timeEntryRepository: firstClient.timeEntryRepository,
       peerStore: SyncPeerStore(database: firstClient.database),
     );
     final secondLanClient = LanSyncClient(
       repository: secondClient.repository,
+      activityRepository: secondClient.activityRepository,
+      deviceIdStore: secondClient.deviceIdStore,
+      timeEntryRepository: secondClient.timeEntryRepository,
       peerStore: SyncPeerStore(database: secondClient.database),
     );
     final baseUrl = 'http://127.0.0.1:${server.port}';
@@ -372,6 +413,9 @@ void main() {
 
     final server = LanSyncServer(
       repository: host.repository,
+      activityRepository: host.activityRepository,
+      deviceIdStore: host.deviceIdStore,
+      timeEntryRepository: host.timeEntryRepository,
       peerStore: SyncPeerStore(database: host.database),
       portCandidates: const [0],
       bindAddress: InternetAddress.loopbackIPv4,
@@ -381,6 +425,9 @@ void main() {
 
     final lanClient = LanSyncClient(
       repository: client.repository,
+      activityRepository: client.activityRepository,
+      deviceIdStore: client.deviceIdStore,
+      timeEntryRepository: client.timeEntryRepository,
       peerStore: SyncPeerStore(database: client.database),
     );
     await lanClient.pair(

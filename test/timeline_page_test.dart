@@ -5,14 +5,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
 import 'package:timetrack/core/date_time_ext.dart';
+import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/domain/action_log.dart';
 import 'package:timetrack/domain/time_entry.dart';
+import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/timeline_page.dart';
 
 class _TimelineFixture {
@@ -30,6 +35,8 @@ class _TimelineFixture {
 class _DelayedOverlapAppState extends AppState {
   _DelayedOverlapAppState({
     required super.repository,
+    required super.activityRepository,
+    required super.entryRepository,
     required super.syncService,
     required super.lanSyncServer,
     required super.lanSyncClient,
@@ -49,23 +56,46 @@ class _DelayedOverlapAppState extends AppState {
 AppState _createAppState({
   required LocalDatabase database,
   required TimeRepository repository,
+  required ActivityRepository activityRepository,
+  required TimeEntryRepository timeEntryRepository,
+  required SettingsRepository settingsRepository,
+  required DeviceIdStore deviceIdStore,
   bool delayOverlaps = false,
 }) {
   final peerStore = SyncPeerStore(database: database);
-  final syncService = SyncService(repository: repository, client: null);
+  final syncService = SyncService(
+    repository: repository,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: ActionLogRepository(database: database),
+    client: null,
+  );
   final lanSyncServer = LanSyncServer(
     repository: repository,
+    activityRepository: activityRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
     peerStore: peerStore,
     portCandidates: const [0],
   );
   final lanSyncClient = LanSyncClient(
     repository: repository,
+    activityRepository: activityRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
     peerStore: peerStore,
   );
-  final fileInteropService = FileInteropService(repository: repository);
+  final fileInteropService = FileInteropService(
+    repository: repository,
+    activityRepository: activityRepository,
+    timeEntryRepository: timeEntryRepository,
+  );
   if (delayOverlaps) {
     return _DelayedOverlapAppState(
       repository: repository,
+      activityRepository: activityRepository,
+      entryRepository: timeEntryRepository,
       syncService: syncService,
       lanSyncServer: lanSyncServer,
       lanSyncClient: lanSyncClient,
@@ -74,6 +104,8 @@ AppState _createAppState({
   }
   return AppState(
     repository: repository,
+    activityRepository: activityRepository,
+    entryRepository: timeEntryRepository,
     syncService: syncService,
     lanSyncServer: lanSyncServer,
     lanSyncClient: lanSyncClient,
@@ -83,8 +115,30 @@ AppState _createAppState({
 
 _TimelineFixture _buildFixture() {
   final database = LocalDatabase();
-  final repository = TimeRepository(database: database);
-  final state = _createAppState(database: database, repository: repository);
+  final activityRepository = ActivityRepository(database: database);
+  final settingsRepository = SettingsRepository(database: database);
+  final deviceIdStore = DeviceIdStore(database: database);
+  final timeEntryRepository = TimeEntryRepository(
+    database: database,
+    activityRepository: activityRepository,
+  );
+  final actionLogRepository = ActionLogRepository(database: database);
+  final repository = TimeRepository(
+    database: database,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: actionLogRepository,
+  );
+  final state = _createAppState(
+    database: database,
+    repository: repository,
+    activityRepository: activityRepository,
+    timeEntryRepository: timeEntryRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+  );
   state
     ..isLoading = false
     ..activities = [_activity, _unassignedActivity]
@@ -103,11 +157,30 @@ Future<_TimelineFixture> _buildPersistedFixture({
   );
   await LocalDatabase.createSchema(db);
   final database = LocalDatabase(database: db);
-  final repository = TimeRepository(database: database);
+  final activityRepository = ActivityRepository(database: database);
+  final settingsRepository = SettingsRepository(database: database);
+  final deviceIdStore = DeviceIdStore(database: database);
+  final timeEntryRepository = TimeEntryRepository(
+    database: database,
+    activityRepository: activityRepository,
+  );
+  final actionLogRepository = ActionLogRepository(database: database);
+  final repository = TimeRepository(
+    database: database,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: actionLogRepository,
+  );
   await repository.ensureSeedData();
   final state = _createAppState(
     database: database,
     repository: repository,
+    activityRepository: activityRepository,
+    timeEntryRepository: timeEntryRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
     delayOverlaps: delayOverlaps,
   );
   state
@@ -196,7 +269,7 @@ Future<void> _pumpTimeline(
   bool defaultToTodayOnOpen = false,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
+    MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SizedBox(
           width: width,
@@ -554,7 +627,7 @@ void main() {
     expect(
       allLogs.where(
         (log) =>
-            log.actionType == 'manual' && log.entryId == realEntries.single.id,
+            log.actionType == ActionType.manual && log.entryId == realEntries.single.id,
       ),
       hasLength(1),
     );
