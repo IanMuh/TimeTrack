@@ -3,39 +3,12 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:timetrack/data/activity_repository.dart';
-import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
-import 'package:timetrack/data/local_database.dart';
-import 'package:timetrack/data/settings_repository.dart';
-import 'package:timetrack/data/time_repository.dart';
+import 'test_fixtures.dart';
 
-Future<({TimeRepository repository, ActivityRepository activityRepository, TimeEntryRepository timeEntryRepository})> buildFileInteropRepository() async {
-  sqfliteFfiInit();
-  final db = await databaseFactoryFfi.openDatabase(
-    inMemoryDatabasePath,
-    options: OpenDatabaseOptions(singleInstance: false),
-  );
-  await LocalDatabase.createSchema(db);
-  final database = LocalDatabase(database: db);
-  final activityRepository = ActivityRepository(database: database);
-  final settingsRepository = SettingsRepository(database: database);
-  final deviceIdStore = DeviceIdStore(database: database);
-  final timeEntryRepository = TimeEntryRepository(
-    database: database,
-    activityRepository: activityRepository,
-  );
-  final actionLogRepository = ActionLogRepository(database: database);
-  final repository = TimeRepository(
-    database: database,
-    activityRepository: activityRepository,
-    settingsRepository: settingsRepository,
-    deviceIdStore: deviceIdStore,
-    timeEntryRepository: timeEntryRepository,
-    actionLogRepository: actionLogRepository,
-  );
-  await repository.ensureSeedData();
+Future<TestRepositoryFixture> buildFileInteropFixture() async {
+  final fixture = await buildTestRepositoryFixture();
+  final repository = fixture.repository;
   final activity = (await repository.activities()).first;
   await repository.createManualEntry(
     activityId: activity.id,
@@ -43,13 +16,13 @@ Future<({TimeRepository repository, ActivityRepository activityRepository, TimeE
     endAt: DateTime(2026, 1, 1, 10),
     note: 'export me',
   );
-  return (repository: repository, activityRepository: activityRepository, timeEntryRepository: timeEntryRepository);
+  return fixture;
 }
 
 void main() {
   test('file export writes to save dialog path when available', () async {
-    final (:repository, :activityRepository, :timeEntryRepository) =
-        await buildFileInteropRepository();
+    final fixture = await buildFileInteropFixture();
+    addTearDown(fixture.close);
     final exportDir =
         await Directory.systemTemp.createTemp('timetrack-export-');
     addTearDown(() => exportDir.delete(recursive: true));
@@ -57,9 +30,7 @@ void main() {
     var directoryPickerCalled = false;
 
     final service = FileInteropService(
-      repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
+      repository: fixture.repository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,
@@ -85,8 +56,8 @@ void main() {
 
   test('file export uses directory picker when save dialog is unavailable',
       () async {
-    final (:repository, :activityRepository, :timeEntryRepository) =
-        await buildFileInteropRepository();
+    final fixture = await buildFileInteropFixture();
+    addTearDown(fixture.close);
     final exportDir =
         await Directory.systemTemp.createTemp('timetrack-export-');
     addTearDown(() => exportDir.delete(recursive: true));
@@ -94,9 +65,7 @@ void main() {
     bool? pickedCanCreateDirectories;
 
     final service = FileInteropService(
-      repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
+      repository: fixture.repository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,
@@ -128,14 +97,12 @@ void main() {
 
   test('file export cancels when fallback directory picker is cancelled',
       () async {
-    final (:repository, :activityRepository, :timeEntryRepository) =
-        await buildFileInteropRepository();
+    final fixture = await buildFileInteropFixture();
+    addTearDown(fixture.close);
     var directoryPickerCalled = false;
 
     final service = FileInteropService(
-      repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
+      repository: fixture.repository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,
@@ -163,16 +130,14 @@ void main() {
 
   test('file export falls back to app documents when all pickers unavailable',
       () async {
-    final (:repository, :activityRepository, :timeEntryRepository) =
-        await buildFileInteropRepository();
+    final fixture = await buildFileInteropFixture();
+    addTearDown(fixture.close);
     final exportDir =
         await Directory.systemTemp.createTemp('timetrack-export-');
     addTearDown(() => exportDir.delete(recursive: true));
 
     final service = FileInteropService(
-      repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
+      repository: fixture.repository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,

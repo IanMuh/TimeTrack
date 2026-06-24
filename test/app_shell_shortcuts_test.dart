@@ -23,7 +23,6 @@ class _ShellTestState extends AppState {
           activityRepository: _activityRepository,
           entryRepository: _timeEntryRepository,
           syncService: SyncService(
-            repository: _repository,
             activityRepository: _activityRepository,
             settingsRepository: _settingsRepository,
             timeEntryRepository: _timeEntryRepository,
@@ -32,23 +31,17 @@ class _ShellTestState extends AppState {
           ),
           lanSyncServer: LanSyncServer(
             repository: _repository,
-            activityRepository: _activityRepository,
             deviceIdStore: _deviceIdStore,
-            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
             portCandidates: const [0],
           ),
           lanSyncClient: LanSyncClient(
             repository: _repository,
-            activityRepository: _activityRepository,
             deviceIdStore: _deviceIdStore,
-            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
           ),
           fileInteropService: FileInteropService(
             repository: _repository,
-            activityRepository: _activityRepository,
-            timeEntryRepository: _timeEntryRepository,
           ),
         ) {
     isLoading = false;
@@ -202,7 +195,11 @@ Future<void> _pumpShell(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,home: AppShell(state: state)));
+  await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: AppShell(state: state)));
   await tester.pump();
 }
 

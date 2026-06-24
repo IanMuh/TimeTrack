@@ -85,6 +85,14 @@ flutter build windows --release `
 
 ### 构建 Android APK
 
+Release APK 默认可在没有签名配置时用 debug key 构建，方便本地验证；正式分发前必须配置自己的 keystore。
+
+1. 复制 `android/key.properties.example` 为 `android/key.properties`。
+2. 将 keystore 放在不会提交到仓库的位置，例如 `android/release/timetrack-release.jks`。
+3. 填写 `storePassword`、`keyPassword`、`keyAlias` 和 `storeFile`。
+
+`android/key.properties`、`*.jks` 和 `*.keystore` 已被忽略，不要提交真实密钥。
+
 ```powershell
 flutter build apk --release
 ```
@@ -96,6 +104,22 @@ flutter build apk --release
 ```powershell
 flutter build appbundle --release
 ```
+
+## 发布前检查
+
+每次发布前至少确认：
+
+```powershell
+flutter analyze
+flutter test
+flutter build windows --release
+flutter build apk --release
+```
+
+- Android 正式分发必须使用自己的 release keystore。
+- Windows 产物位于 `build\windows\x64\runner\Release\`，分发时保持目录结构完整。
+- 如需云同步，构建命令必须携带 `SUPABASE_URL` 和 `SUPABASE_ANON_KEY`。
+- 不要提交 Supabase 密钥、Android keystore、本地 SQLite 数据库或 build 产物。
 
 ## 技术架构
 
@@ -124,6 +148,15 @@ flutter build appbundle --release
 - Windows 端和 Android 端都可以开启局域网主机。
 - 另一台设备可以使用主机地址和配对码连接并同步。
 - 配对信息和同步目标会保存在本地。
+- 只在可信 Wi-Fi 下配对；不用时可在设置页移除配对并关闭主机。
+
+## 安全与隐私
+
+详见 `docs/security-privacy.md`。核心边界：
+
+- 本地 SQLite 数据库不由 TimeTrack 加密，依赖系统账户、磁盘加密和设备锁屏保护。
+- 导出的 `.timetrack.json` 是明文 JSON，可能包含事项、备注、时间戳和设备信息。
+- 当前提醒是应用内提示，不是系统级后台通知；应用关闭、被系统挂起或后台受限时不保证触发。
 
 ## 静态分析与测试
 

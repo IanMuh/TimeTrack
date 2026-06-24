@@ -64,7 +64,6 @@ AppState _createAppState({
 }) {
   final peerStore = SyncPeerStore(database: database);
   final syncService = SyncService(
-    repository: repository,
     activityRepository: activityRepository,
     settingsRepository: settingsRepository,
     timeEntryRepository: timeEntryRepository,
@@ -73,23 +72,17 @@ AppState _createAppState({
   );
   final lanSyncServer = LanSyncServer(
     repository: repository,
-    activityRepository: activityRepository,
     deviceIdStore: deviceIdStore,
-    timeEntryRepository: timeEntryRepository,
     peerStore: peerStore,
     portCandidates: const [0],
   );
   final lanSyncClient = LanSyncClient(
     repository: repository,
-    activityRepository: activityRepository,
     deviceIdStore: deviceIdStore,
-    timeEntryRepository: timeEntryRepository,
     peerStore: peerStore,
   );
   final fileInteropService = FileInteropService(
     repository: repository,
-    activityRepository: activityRepository,
-    timeEntryRepository: timeEntryRepository,
   );
   if (delayOverlaps) {
     return _DelayedOverlapAppState(
@@ -269,7 +262,10 @@ Future<void> _pumpTimeline(
   bool defaultToTodayOnOpen = false,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+    MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SizedBox(
           width: width,
@@ -627,7 +623,8 @@ void main() {
     expect(
       allLogs.where(
         (log) =>
-            log.actionType == ActionType.manual && log.entryId == realEntries.single.id,
+            log.actionType == ActionType.manual &&
+            log.entryId == realEntries.single.id,
       ),
       hasLength(1),
     );

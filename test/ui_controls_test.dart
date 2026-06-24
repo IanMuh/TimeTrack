@@ -10,6 +10,7 @@ import 'package:timetrack/data/local_database.dart';
 import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
+import 'package:timetrack/data/sync_status_store.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/time_entry.dart';
@@ -27,7 +28,10 @@ void main() {
     var selectedColor = 0xff112233;
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -61,7 +65,10 @@ void main() {
   ) async {
     Future<void> pumpAtWidth(double width) async {
       await tester.pumpWidget(
-        MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SizedBox(
               width: width,
@@ -109,7 +116,10 @@ void main() {
         'timetrack-export-20260620-123456.json';
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      const MaterialApp(
+        locale: Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 320,
@@ -135,10 +145,17 @@ void main() {
     const exportPath = '/data/user/0/com.example.timetrack/app_flutter/'
         'timetrack-export-20260620-123456.timetrack.json';
     final state = _FakeAppState()..interopMessage = '已导出：$exportPath';
+    state.syncStatus = SyncStatus(
+      lastSuccessfulSyncAt: DateTime(2026, 6, 24, 9, 15),
+      lastTarget: 'lan',
+    );
     addTearDown(state.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 320,
@@ -154,6 +171,10 @@ void main() {
       (widget) => widget is SelectableText && widget.data == exportPath,
     );
     expect(find.text('已导出'), findsOneWidget);
+    expect(find.textContaining('应用内提示'), findsOneWidget);
+    expect(find.text('同步状态'), findsOneWidget);
+    expect(find.textContaining('最近成功'), findsOneWidget);
+    expect(find.textContaining('明文 JSON'), findsOneWidget);
     expect(pathFinder, findsOneWidget);
     expect(tester.getSize(pathFinder).height, greaterThan(20));
     expect(tester.takeException(), isNull);
@@ -178,7 +199,10 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
             child: SizedBox(
@@ -228,7 +252,10 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
             child: SizedBox(
@@ -289,7 +316,10 @@ void main() {
     ];
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 520,
@@ -334,7 +364,10 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) {
@@ -375,7 +408,10 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) {
@@ -403,7 +439,10 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: HomePage(state: state),
         ),
@@ -427,7 +466,10 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: HomePage(state: state),
         ),
@@ -455,7 +497,10 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: HomePage(state: state),
         ),
@@ -491,7 +536,10 @@ void main() {
     addTearDown(state.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 390,
@@ -518,7 +566,10 @@ void main() {
     final state = _FakeAppState();
 
     await tester.pumpWidget(
-      MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) {
@@ -557,7 +608,6 @@ class _FakeAppState extends AppState {
           activityRepository: _activityRepository,
           entryRepository: _timeEntryRepository,
           syncService: SyncService(
-            repository: _repository,
             activityRepository: _activityRepository,
             settingsRepository: _settingsRepository,
             timeEntryRepository: _timeEntryRepository,
@@ -566,24 +616,18 @@ class _FakeAppState extends AppState {
           ),
           lanSyncServer: LanSyncServer(
             repository: _repository,
-            activityRepository: _activityRepository,
             deviceIdStore: _deviceIdStore,
-            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
             portCandidates: const [0],
           ),
           lanSyncClient: LanSyncClient(
             repository: _repository,
-            activityRepository: _activityRepository,
             deviceIdStore: _deviceIdStore,
-            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
             timeout: const Duration(milliseconds: 50),
           ),
           fileInteropService: FileInteropService(
             repository: _repository,
-            activityRepository: _activityRepository,
-            timeEntryRepository: _timeEntryRepository,
           ),
         ) {
     now = DateTime(2026, 6, 16, 12);
@@ -626,7 +670,8 @@ class _FakeAppState extends AppState {
       ActivityRepository(database: _database);
   static final SettingsRepository _settingsRepository =
       SettingsRepository(database: _database);
-  static final DeviceIdStore _deviceIdStore = DeviceIdStore(database: _database);
+  static final DeviceIdStore _deviceIdStore =
+      DeviceIdStore(database: _database);
   static final TimeEntryRepository _timeEntryRepository = TimeEntryRepository(
     database: _database,
     activityRepository: _activityRepository,

@@ -111,13 +111,15 @@ class _TimelineSettingsCardState extends State<TimelineSettingsCard> {
           _ReminderField(
             icon: Icons.merge_type_outlined,
             label: AppLocalizations.of(context)!.mergeThreshold,
-            value: AppLocalizations.of(context)!.minutesFormat(thresholdMinutes),
+            value:
+                AppLocalizations.of(context)!.minutesFormat(thresholdMinutes),
             child: Slider(
               min: 1,
               max: 60,
               divisions: 59,
               value: thresholdMinutes.toDouble(),
-              label: AppLocalizations.of(context)!.minutesFormat(thresholdMinutes),
+              label:
+                  AppLocalizations.of(context)!.minutesFormat(thresholdMinutes),
               onChanged: (value) =>
                   setState(() => _draftMergeThresholdMinutes = value),
               onChangeEnd: (value) {
@@ -166,6 +168,13 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
             subtitle: AppLocalizations.of(context)!.reminderSettingsHint,
             icon: Icons.notifications_outlined,
           ),
+          const SizedBox(height: 10),
+          Text(
+            AppLocalizations.of(context)!.reminderInAppNotice,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
           const SizedBox(height: 14),
           _ReminderField(
             icon: Icons.schedule_outlined,
@@ -191,7 +200,8 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
               max: 180,
               divisions: 11,
               value: reminderMinutes.toDouble(),
-              label: AppLocalizations.of(context)!.minutesFormat(reminderMinutes),
+              label:
+                  AppLocalizations.of(context)!.minutesFormat(reminderMinutes),
               onChanged: (value) =>
                   setState(() => _draftReminderMinutes = value),
               onChangeEnd: (value) {
@@ -210,10 +220,10 @@ class _ReminderSettingsCardState extends State<ReminderSettingsCard> {
               max: 60,
               divisions: 11,
               value: intervalMinutes.toDouble(),
-            label: _formatInterval(context, intervalMinutes),
-            onChanged: (value) =>
-                setState(() => _draftIntervalMinutes = value),
-            onChangeEnd: (value) {
+              label: _formatInterval(context, intervalMinutes),
+              onChanged: (value) =>
+                  setState(() => _draftIntervalMinutes = value),
+              onChangeEnd: (value) {
                 _draftIntervalMinutes = null;
                 state.updateReminderSettings(
                   reminderIntervalMinutes: value.round(),
@@ -395,6 +405,8 @@ class CloudSyncSettingsCard extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 14),
+          _SyncStatusSummary(state: state),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed:
@@ -406,6 +418,59 @@ class CloudSyncSettingsCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SyncStatusSummary extends StatelessWidget {
+  const _SyncStatusSummary({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final status = state.syncStatus;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.syncStatus,
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 6),
+        Text(l10n.syncTargetLabel(_formatSyncTarget(context, state))),
+        const SizedBox(height: 2),
+        Text(_formatLastSync(context, status.lastSuccessfulSyncAt)),
+        if (status.hasError) ...[
+          const SizedBox(height: 2),
+          Text(
+            l10n.lastSyncError(status.lastError!),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+String _formatSyncTarget(BuildContext context, AppState state) {
+  final l10n = AppLocalizations.of(context)!;
+  return switch (state.currentSyncTarget) {
+    'cloud_lan' => l10n.syncTargetCloudLan,
+    'cloud' => l10n.syncTargetCloud,
+    'lan' => l10n.syncTargetLan,
+    _ => l10n.syncTargetNone,
+  };
+}
+
+String _formatLastSync(BuildContext context, DateTime? value) {
+  final l10n = AppLocalizations.of(context)!;
+  if (value == null) {
+    return l10n.lastSyncNever;
+  }
+  final local = value.toLocal();
+  final date = MaterialLocalizations.of(context).formatShortDate(local);
+  final time = TimeOfDay.fromDateTime(local).format(context);
+  return l10n.lastSyncAt('$date $time');
 }
 
 class InteropSettingsCard extends StatefulWidget {
@@ -444,6 +509,13 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
             title: AppLocalizations.of(context)!.deviceInterop,
             subtitle: AppLocalizations.of(context)!.deviceInteropHint,
             icon: Icons.devices_other_outlined,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            AppLocalizations.of(context)!.interopSecurityNotice,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -494,7 +566,9 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
                 onPressed:
                     state.hasSyncTarget && !state.isSyncing ? state.sync : null,
                 icon: const Icon(Icons.sync),
-                label: Text(state.isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.syncNow),
+                label: Text(state.isSyncing
+                    ? AppLocalizations.of(context)!.syncing
+                    : AppLocalizations.of(context)!.syncNow),
               ),
             ],
           ),
@@ -520,7 +594,9 @@ class _LanHostPanel extends StatelessWidget {
       children: [
         SectionTitle(
           title: AppLocalizations.of(context)!.lanHost,
-          subtitle: state.isLanServerRunning ? AppLocalizations.of(context)!.lanHostWaiting : null,
+          subtitle: state.isLanServerRunning
+              ? AppLocalizations.of(context)!.lanHostWaiting
+              : null,
           icon: Icons.router_outlined,
         ),
         const SizedBox(height: 8),
@@ -543,7 +619,8 @@ class _LanHostPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           StatusPill(
-            label: AppLocalizations.of(context)!.pairingCodeLabel(state.lanPairingCode ?? ''),
+            label: AppLocalizations.of(context)!
+                .pairingCodeLabel(state.lanPairingCode ?? ''),
             icon: Icons.pin_outlined,
             color: Theme.of(context).colorScheme.primary,
           ),

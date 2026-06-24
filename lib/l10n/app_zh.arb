@@ -287,6 +287,7 @@
   },
   "reminderSettings": "提醒",
   "reminderSettingsHint": "用轻提示确认长时间运行的事项。",
+  "reminderInAppNotice": "当前提醒是应用内提示；应用关闭、被系统挂起或后台受限时不保证触发。",
   "triggerTime": "触发时间",
   "durationLabel": "持续时间",
   "interval": "间隔",
@@ -300,10 +301,41 @@
   "notLoggedIn": "未登录或本地模式",
   "cloudSync": "云同步",
   "cloudSyncHint": "未配置 Supabase 时应用继续以本地模式运行。",
+  "syncStatus": "同步状态",
+  "syncTargetLabel": "当前目标：{target}",
+  "@syncTargetLabel": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "syncTargetNone": "无",
+  "syncTargetCloud": "云同步",
+  "syncTargetLan": "局域网",
+  "syncTargetCloudLan": "云同步 + 局域网",
+  "lastSyncNever": "最近成功：尚未同步",
+  "lastSyncAt": "最近成功：{time}",
+  "@lastSyncAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "lastSyncError": "最近失败：{error}",
+  "@lastSyncError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "signOut": "退出",
   "syncNow": "立即同步",
   "deviceInterop": "设备互通",
   "deviceInteropHint": "同一 Wi-Fi 下可通过局域网或文件互通数据。",
+  "interopSecurityNotice": "导出的文件是明文 JSON；局域网同步请只在可信 Wi-Fi 使用，移除配对会清除此设备保存的主机令牌。",
   "importFile": "导入文件",
   "exportFile": "导出文件",
   "lanHost": "局域网主机",

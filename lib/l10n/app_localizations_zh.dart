@@ -488,6 +488,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reminderSettingsHint => '用轻提示确认长时间运行的事项。';
 
   @override
+  String get reminderInAppNotice => '当前提醒是应用内提示；应用关闭、被系统挂起或后台受限时不保证触发。';
+
+  @override
   String get triggerTime => '触发时间';
 
   @override
@@ -527,6 +530,39 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cloudSyncHint => '未配置 Supabase 时应用继续以本地模式运行。';
 
   @override
+  String get syncStatus => '同步状态';
+
+  @override
+  String syncTargetLabel(String target) {
+    return '当前目标：$target';
+  }
+
+  @override
+  String get syncTargetNone => '无';
+
+  @override
+  String get syncTargetCloud => '云同步';
+
+  @override
+  String get syncTargetLan => '局域网';
+
+  @override
+  String get syncTargetCloudLan => '云同步 + 局域网';
+
+  @override
+  String get lastSyncNever => '最近成功：尚未同步';
+
+  @override
+  String lastSyncAt(String time) {
+    return '最近成功：$time';
+  }
+
+  @override
+  String lastSyncError(String error) {
+    return '最近失败：$error';
+  }
+
+  @override
   String get signOut => '退出';
 
   @override
@@ -537,6 +573,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceInteropHint => '同一 Wi-Fi 下可通过局域网或文件互通数据。';
+
+  @override
+  String get interopSecurityNotice =>
+      '导出的文件是明文 JSON；局域网同步请只在可信 Wi-Fi 使用，移除配对会清除此设备保存的主机令牌。';
 
   @override
   String get importFile => '导入文件';

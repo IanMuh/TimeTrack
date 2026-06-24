@@ -12,6 +12,7 @@ import '../data/repository_interfaces.dart';
 import '../data/repository_undo.dart';
 import '../data/sync_peer_store.dart';
 import '../data/sync_service.dart';
+import '../data/sync_status_store.dart';
 import '../data/time_repository.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
@@ -30,11 +31,13 @@ class AppState extends ChangeNotifier {
     required LanSyncServer lanSyncServer,
     required LanSyncClient lanSyncClient,
     required FileInteropService fileInteropService,
+    SyncStatusStore? syncStatusStore,
   })  : _repository = repository,
         _syncService = syncService,
         _lanSyncServer = lanSyncServer,
         _lanSyncClient = lanSyncClient,
-        _fileInteropService = fileInteropService {
+        _fileInteropService = fileInteropService,
+        _syncStatusStore = syncStatusStore ?? SyncStatusStore.memory() {
     _activityState = ActivityState(
       activityRepository: activityRepository,
       entryRepository: entryRepository,
@@ -57,6 +60,7 @@ class AppState extends ChangeNotifier {
   final LanSyncServer _lanSyncServer;
   final LanSyncClient _lanSyncClient;
   final FileInteropService _fileInteropService;
+  final SyncStatusStore _syncStatusStore;
 
   Timer? _ticker;
 
@@ -71,6 +75,7 @@ class AppState extends ChangeNotifier {
   DateTime? lastReminderAt;
   String? ignoredSuspiciousEntryId;
   String? interopMessage;
+  SyncStatus syncStatus = const SyncStatus();
 
   final List<_UndoHistoryEntry> _undoStack = [];
   final List<_UndoHistoryEntry> _redoStack = [];
@@ -157,6 +162,19 @@ class AppState extends ChangeNotifier {
 
   bool get hasSyncTarget => isSignedIn || hasLanPeer;
 
+  String get currentSyncTarget {
+    if (isSignedIn && hasLanPeer) {
+      return 'cloud_lan';
+    }
+    if (isSignedIn) {
+      return 'cloud';
+    }
+    if (hasLanPeer) {
+      return 'lan';
+    }
+    return 'none';
+  }
+
   bool get canHostLan => Platform.isWindows || Platform.isAndroid;
 
   bool get isLanServerRunning => _lanSyncServer.isRunning;
@@ -172,6 +190,9 @@ class AppState extends ChangeNotifier {
   String? get lanPairingCode => _lanSyncServer.pairingCode;
 
   List<String> get lanServerUrls => _lanSyncServer.localUrls;
+
+  @visibleForTesting
+  int? get lanSyncPortForTest => _lanSyncServer.port;
 
   bool get shouldShowReminder {
     final entry = runningEntry;
@@ -242,6 +263,7 @@ class AppState extends ChangeNotifier {
     await _activityState.refresh();
     settings = await _repository.settings();
     lanPeer = await _lanSyncClient.currentPeer();
+    syncStatus = await _syncStatusStore.load();
     await _entryState.refresh(selectedDay);
     final logs = await _repository.actionLogsForDay(selectedDay);
     _entryState.setActionLogs(logs);
@@ -796,6 +818,8 @@ class AppState extends ChangeNotifier {
     if (!hasSyncTarget) {
       return;
     }
+    final target = currentSyncTarget;
+    final cloudSince = _cloudSyncSince();
     isSyncing = true;
     notifyListeners();
     try {
@@ -803,7 +827,7 @@ class AppState extends ChangeNotifier {
       var lanSynced = false;
       if (isSignedIn) {
         try {
-          await _syncService.sync();
+          await _syncService.sync(since: cloudSince);
         } catch (error) {
           errors.add('云同步：$error');
         }
@@ -826,15 +850,35 @@ class AppState extends ChangeNotifier {
       await refresh();
       if (errors.isEmpty) {
         errorMessage = null;
+        syncStatus = await _syncStatusStore.markSuccess(
+          at: DateTime.now(),
+          target: target,
+        );
       } else {
         errorMessage = '同步部分失败：${errors.join('；')}';
+        syncStatus = await _syncStatusStore.markFailure(
+          error: errorMessage!,
+          target: target,
+        );
       }
     } catch (error) {
       errorMessage = '同步失败：$error';
+      syncStatus = await _syncStatusStore.markFailure(
+        error: errorMessage!,
+        target: target,
+      );
     } finally {
       isSyncing = false;
       notifyListeners();
     }
+  }
+
+  DateTime? _cloudSyncSince() {
+    final lastTarget = syncStatus.lastTarget;
+    if (lastTarget == 'cloud' || lastTarget == 'cloud_lan') {
+      return syncStatus.lastSuccessfulSyncAt;
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------

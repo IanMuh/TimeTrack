@@ -11,6 +11,7 @@ import 'data/local_database.dart';
 import 'data/settings_repository.dart';
 import 'data/sync_peer_store.dart';
 import 'data/sync_service.dart';
+import 'data/sync_status_store.dart';
 import 'data/time_repository.dart';
 import 'l10n/app_localizations.dart';
 import 'ui/app_shell.dart';
@@ -51,7 +52,6 @@ Future<void> main() async {
     activityRepository: activityRepository,
     entryRepository: timeEntryRepository,
     syncService: SyncService(
-      repository: repository,
       activityRepository: activityRepository,
       settingsRepository: settingsRepository,
       timeEntryRepository: timeEntryRepository,
@@ -60,23 +60,18 @@ Future<void> main() async {
     ),
     lanSyncServer: LanSyncServer(
       repository: repository,
-      activityRepository: activityRepository,
       deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
     lanSyncClient: LanSyncClient(
       repository: repository,
-      activityRepository: activityRepository,
       deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
     fileInteropService: FileInteropService(
       repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
     ),
+    syncStatusStore: SyncStatusStore(database: database),
   );
   await state.initialize();
 

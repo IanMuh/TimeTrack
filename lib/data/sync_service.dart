@@ -8,7 +8,6 @@ import '../domain/activity.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 import 'repository_interfaces.dart';
-import 'time_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Top-level helpers (testable independently of SupabaseClient)
@@ -41,14 +40,12 @@ Future<List<Map<String, dynamic>>> fetchAllPaginated({
 Future<void> batchProcess({
   required List<Map<String, dynamic>> items,
   required int maxBatchSize,
-  required Future<void> Function(List<Map<String, dynamic>> batch)
-      processBatch,
+  required Future<void> Function(List<Map<String, dynamic>> batch) processBatch,
 }) async {
   if (items.isEmpty) return;
   for (var i = 0; i < items.length; i += maxBatchSize) {
-    final end = (i + maxBatchSize > items.length)
-        ? items.length
-        : i + maxBatchSize;
+    final end =
+        (i + maxBatchSize > items.length) ? items.length : i + maxBatchSize;
     await processBatch(items.sublist(i, end));
   }
 }
@@ -100,7 +97,6 @@ abstract class SyncBackend {
 
 class SyncService {
   SyncService({
-    required TimeRepository repository,
     required IActivityRepository activityRepository,
     required ISettingsRepository settingsRepository,
     required ITimeEntryRepository timeEntryRepository,
@@ -109,7 +105,6 @@ class SyncService {
   }) : _cloudBackend = client == null
             ? null
             : SupabaseSyncBackend(
-                repository: repository,
                 activityRepository: activityRepository,
                 settingsRepository: settingsRepository,
                 timeEntryRepository: timeEntryRepository,
@@ -160,21 +155,17 @@ class SyncService {
 
 class SupabaseSyncBackend implements SyncBackend {
   SupabaseSyncBackend({
-    required TimeRepository repository,
     required IActivityRepository activityRepository,
     required ISettingsRepository settingsRepository,
     required ITimeEntryRepository timeEntryRepository,
     required IActionLogRepository actionLogRepository,
     required SupabaseClient client,
-  })  : _repository = repository,
-        _activityRepository = activityRepository,
+  })  : _activityRepository = activityRepository,
         _settingsRepository = settingsRepository,
         _timeEntryRepository = timeEntryRepository,
         _actionLogRepository = actionLogRepository,
         _client = client;
 
-  // ignore: unused_field
-  final TimeRepository _repository;
   final IActivityRepository _activityRepository;
   final ISettingsRepository _settingsRepository;
   final ITimeEntryRepository _timeEntryRepository;
@@ -274,8 +265,8 @@ class SupabaseSyncBackend implements SyncBackend {
 
     final fetchedSettings = await fetchRemoteSettings();
     if (fetchedSettings != null) {
-      final settingsResult =
-          await _settingsRepository.replaceSettingsIfRemoteNewer(fetchedSettings);
+      final settingsResult = await _settingsRepository
+          .replaceSettingsIfRemoteNewer(fetchedSettings);
       settingsResult.fold(
         onSuccess: (_) {},
         onFailure: (msg) =>
@@ -295,14 +286,11 @@ class SupabaseSyncBackend implements SyncBackend {
         table: 'activities',
         idColumn: 'id',
         userId: user.id,
-        valuesList: localActivities
-            .map((a) => a.toRemoteMap(user.id))
-            .toList(),
+        valuesList: localActivities.map((a) => a.toRemoteMap(user.id)).toList(),
       );
     }
 
-    final localEntriesResult =
-        await _timeEntryRepository.entriesSince(floor);
+    final localEntriesResult = await _timeEntryRepository.entriesSince(floor);
     final localEntries = localEntriesResult.fold(
       onSuccess: (list) => list,
       onFailure: (_) => <TimeEntry>[],
@@ -312,8 +300,7 @@ class SupabaseSyncBackend implements SyncBackend {
         table: 'time_entries',
         idColumn: 'id',
         userId: user.id,
-        valuesList:
-            localEntries.map((e) => e.toRemoteMap(user.id)).toList(),
+        valuesList: localEntries.map((e) => e.toRemoteMap(user.id)).toList(),
       );
     }
 
@@ -328,16 +315,14 @@ class SupabaseSyncBackend implements SyncBackend {
         table: 'action_logs',
         idColumn: 'id',
         userId: user.id,
-        valuesList:
-            localActionLogs.map((l) => l.toRemoteMap(user.id)).toList(),
+        valuesList: localActionLogs.map((l) => l.toRemoteMap(user.id)).toList(),
       );
     }
 
     final settingsResult = await _settingsRepository.settings();
     final settings = settingsResult.fold(
       onSuccess: (value) => value,
-      onFailure: (msg) =>
-          throw StateError('Failed to load settings: $msg'),
+      onFailure: (msg) => throw StateError('Failed to load settings: $msg'),
     );
     await _batchUploadIfNotStale(
       table: 'profiles',
@@ -412,8 +397,7 @@ class SupabaseSyncBackend implements SyncBackend {
     final remoteTimestamps = <String, DateTime>{};
     for (final row in remoteRows) {
       final rowId = row[idColumn] as String;
-      remoteTimestamps[rowId] =
-          DateTime.parse(row['updated_at'] as String);
+      remoteTimestamps[rowId] = DateTime.parse(row['updated_at'] as String);
     }
 
     // Keep only items where local >= remote (or remote absent)

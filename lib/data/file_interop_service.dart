@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'repository_interfaces.dart';
 import 'sync_bundle.dart';
 import 'time_repository.dart';
 
@@ -30,15 +29,11 @@ typedef ExportDirectoryProvider = Future<Directory> Function();
 class FileInteropService {
   FileInteropService({
     required TimeRepository repository,
-    required IActivityRepository activityRepository,
-    required ITimeEntryRepository timeEntryRepository,
     SaveLocationPicker? saveLocationPicker,
     OpenFilePicker? openFilePicker,
     ExportDirectoryPicker? exportDirectoryPicker,
     ExportDirectoryProvider? exportDirectoryProvider,
   })  : _repository = repository,
-        _activityRepository = activityRepository,
-        _timeEntryRepository = timeEntryRepository,
         _saveLocationPicker = saveLocationPicker ?? _defaultSaveLocationPicker,
         _openFilePicker = openFilePicker ?? _defaultOpenFilePicker,
         _exportDirectoryPicker =
@@ -53,10 +48,6 @@ class FileInteropService {
   );
 
   final TimeRepository _repository;
-  // ignore: unused_field
-  final IActivityRepository _activityRepository;
-  // ignore: unused_field
-  final ITimeEntryRepository _timeEntryRepository;
   final SaveLocationPicker _saveLocationPicker;
   final OpenFilePicker _openFilePicker;
   final ExportDirectoryPicker _exportDirectoryPicker;

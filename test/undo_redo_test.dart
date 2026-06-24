@@ -1,89 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:timetrack/app/app_state.dart';
-import 'package:timetrack/data/activity_repository.dart';
-import 'package:timetrack/data/device_id_store.dart';
-import 'package:timetrack/data/file_interop_service.dart';
-import 'package:timetrack/data/lan_sync.dart';
-import 'package:timetrack/data/local_database.dart';
-import 'package:timetrack/data/settings_repository.dart';
-import 'package:timetrack/data/sync_peer_store.dart';
-import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/time_repository.dart';
+import 'test_fixtures.dart';
 
-Future<({AppState state, TimeRepository repository, Database db})>
-    _buildState() async {
-  sqfliteFfiInit();
-  final db = await databaseFactoryFfi.openDatabase(
-    inMemoryDatabasePath,
-    options: OpenDatabaseOptions(singleInstance: false),
+Future<TestAppFixture> _buildState() {
+  return buildTestAppFixture(
+    now: DateTime(2026, 1, 1, 12),
+    selectedDay: DateTime(2026, 1, 1),
   );
-  await LocalDatabase.createSchema(db);
-  final database = LocalDatabase(database: db);
-  final activityRepository = ActivityRepository(database: database);
-  final settingsRepository = SettingsRepository(database: database);
-  final deviceIdStore = DeviceIdStore(database: database);
-  final timeEntryRepository = TimeEntryRepository(
-    database: database,
-    activityRepository: activityRepository,
-  );
-  final actionLogRepository = ActionLogRepository(database: database);
-  final repository = TimeRepository(
-    database: database,
-    activityRepository: activityRepository,
-    settingsRepository: settingsRepository,
-    deviceIdStore: deviceIdStore,
-    timeEntryRepository: timeEntryRepository,
-    actionLogRepository: actionLogRepository,
-  );
-  await repository.ensureSeedData();
-  final peerStore = SyncPeerStore(database: database);
-  final state = AppState(
-    repository: repository,
-    activityRepository: activityRepository,
-    entryRepository: timeEntryRepository,
-    syncService: SyncService(
-      repository: repository,
-      activityRepository: activityRepository,
-      settingsRepository: settingsRepository,
-      timeEntryRepository: timeEntryRepository,
-      actionLogRepository: actionLogRepository,
-      client: null,
-    ),
-    lanSyncServer: LanSyncServer(
-      repository: repository,
-      activityRepository: activityRepository,
-      deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
-      peerStore: peerStore,
-      portCandidates: const [0],
-    ),
-    lanSyncClient: LanSyncClient(
-      repository: repository,
-      activityRepository: activityRepository,
-      deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
-      peerStore: peerStore,
-    ),
-    fileInteropService: FileInteropService(
-      repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
-    ),
-  )
-    ..isLoading = false
-    ..now = DateTime(2026, 1, 1, 12)
-    ..selectedDay = DateTime(2026, 1, 1);
-  await state.refresh();
-  return (state: state, repository: repository, db: db);
 }
 
 void main() {
   test('manual entry undo restores an overlapped entry and redo reapplies cut',
       () async {
     final fixture = await _buildState();
-    addTearDown(fixture.state.dispose);
-    addTearDown(fixture.db.close);
+    addTearDown(fixture.dispose);
     final activities = fixture.state.activities
         .where((activity) => !activity.isUnassigned)
         .toList();
@@ -128,8 +58,7 @@ void main() {
 
   test('switch and stop can be undone and redone', () async {
     final fixture = await _buildState();
-    addTearDown(fixture.state.dispose);
-    addTearDown(fixture.db.close);
+    addTearDown(fixture.dispose);
     final activities = fixture.state.activities
         .where((activity) => !activity.isUnassigned)
         .toList();
@@ -191,8 +120,7 @@ void main() {
   test('entry edits, split, merge, delete, extend, and activity edits undo',
       () async {
     final fixture = await _buildState();
-    addTearDown(fixture.state.dispose);
-    addTearDown(fixture.db.close);
+    addTearDown(fixture.dispose);
     final activities = fixture.state.activities
         .where((activity) => !activity.isUnassigned)
         .toList();
@@ -269,8 +197,7 @@ void main() {
 
   test('new operation clears redo stack', () async {
     final fixture = await _buildState();
-    addTearDown(fixture.state.dispose);
-    addTearDown(fixture.db.close);
+    addTearDown(fixture.dispose);
     final activities = fixture.state.activities
         .where((activity) => !activity.isUnassigned)
         .toList();

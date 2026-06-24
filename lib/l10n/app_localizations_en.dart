@@ -504,6 +504,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Use gentle prompts to confirm long-running activities.';
 
   @override
+  String get reminderInAppNotice =>
+      'Reminders are in-app prompts; they are not guaranteed when the app is closed, suspended, or restricted in the background.';
+
+  @override
   String get triggerTime => 'Trigger time';
 
   @override
@@ -544,6 +548,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'App runs in local mode when Supabase is not configured.';
 
   @override
+  String get syncStatus => 'Sync status';
+
+  @override
+  String syncTargetLabel(String target) {
+    return 'Current target: $target';
+  }
+
+  @override
+  String get syncTargetNone => 'None';
+
+  @override
+  String get syncTargetCloud => 'Cloud';
+
+  @override
+  String get syncTargetLan => 'LAN';
+
+  @override
+  String get syncTargetCloudLan => 'Cloud + LAN';
+
+  @override
+  String get lastSyncNever => 'Last success: never';
+
+  @override
+  String lastSyncAt(String time) {
+    return 'Last success: $time';
+  }
+
+  @override
+  String lastSyncError(String error) {
+    return 'Last failure: $error';
+  }
+
+  @override
   String get signOut => 'Sign out';
 
   @override
@@ -555,6 +592,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceInteropHint =>
       'Share data via LAN on the same Wi-Fi or through file import/export.';
+
+  @override
+  String get interopSecurityNotice =>
+      'Exported files are plain JSON. Use LAN sync only on trusted Wi-Fi; removing a pairing clears the host token saved on this device.';
 
   @override
   String get importFile => 'Import file';
