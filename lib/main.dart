@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app_state.dart';
 import 'core/app_config.dart';
 import 'data/activity_repository.dart';
+import 'data/app_update_service.dart';
 import 'data/device_id_store.dart';
 import 'data/file_interop_service.dart';
 import 'data/lan_sync.dart';
@@ -70,6 +71,9 @@ Future<void> main() async {
     ),
     fileInteropService: FileInteropService(
       repository: repository,
+    ),
+    updateService: AppUpdateService(
+      releasesUri: AppConfig.updateReleasesUri,
     ),
     syncStatusStore: SyncStatusStore(database: database),
   );

@@ -83,6 +83,13 @@ flutter build windows --release `
   --dart-define=SUPABASE_ANON_KEY=your-anon-key
 ```
 
+若需要让内置更新检查读取其他 GitHub Releases API 地址，可额外传入 `UPDATE_RELEASES_URL`：
+
+```powershell
+flutter build windows --release `
+  --dart-define=UPDATE_RELEASES_URL=https://api.github.com/repos/your-org/TimeTrack/releases
+```
+
 ### 构建 Android APK
 
 Release APK 默认可在没有签名配置时用 debug key 构建，方便本地验证；正式分发前必须配置自己的 keystore。
@@ -99,11 +106,26 @@ flutter build apk --release
 
 产物位于 `build\app\outputs\flutter-apk\app-release.apk`。
 
+如需为 Android 构建嵌入同一个更新源，也可在构建命令中追加 `--dart-define=UPDATE_RELEASES_URL=...`。
+
 构建 App Bundle（用于 Google Play）：
 
 ```powershell
 flutter build appbundle --release
 ```
+
+## 发布与更新检查
+
+TimeTrack 的更新检查读取 GitHub Releases 列表。默认地址是 `https://api.github.com/repos/IanMuh/TimeTrack/releases`，可在运行或构建时通过 `--dart-define=UPDATE_RELEASES_URL=...` 覆盖。该值应指向 GitHub Releases API 的列表端点，而不是网页地址。
+
+Release tag 使用语义化版本，预发布版建议命名为 `v0.2.0-pre`，也可使用不带 `v` 的 `0.2.0-pre`。应用会忽略 draft；稳定版构建不会提示预发布版更新，预发布版构建可以接收更新的预发布版。
+
+Release assets 建议按平台命名，便于应用优先打开匹配平台的下载地址：
+
+- Windows: 文件名包含 `windows`、`win` 或 `x64`，扩展名使用 `.zip`、`.msix` 或 `.exe`，例如 `TimeTrack-0.2.0-pre-windows-x64.zip`。
+- Android: 文件名使用 `.apk`，建议包含 `android`，例如 `TimeTrack-0.2.0-pre-android.apk`。
+
+如果某个 Release 没有匹配当前平台的 asset，应用会回退打开该 Release 的 GitHub 页面。更新功能只打开下载地址或 Release 页面，不会自动下载、自动安装或静默替换当前应用。
 
 ## 发布前检查
 
@@ -119,6 +141,10 @@ flutter build apk --release
 - Android 正式分发必须使用自己的 release keystore。
 - Windows 产物位于 `build\windows\x64\runner\Release\`，分发时保持目录结构完整。
 - 如需云同步，构建命令必须携带 `SUPABASE_URL` 和 `SUPABASE_ANON_KEY`。
+- 如需自定义更新源，运行和发布构建命令必须携带正确的 `UPDATE_RELEASES_URL`。
+- GitHub Release 的版本号、tag 和应用版本保持一致，例如 `0.2.0-pre` 对应 `v0.2.0-pre` 或 `0.2.0-pre`。
+- 上传 Windows 与 Android 对应 assets，并确认文件名符合平台匹配规则。
+- 确认更新入口只打开下载地址或 Release 页面，不承诺自动下载或自动安装。
 - 不要提交 Supabase 密钥、Android keystore、本地 SQLite 数据库或 build 产物。
 
 ## 技术架构

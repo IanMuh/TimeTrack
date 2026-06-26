@@ -333,6 +333,35 @@
   },
   "signOut": "Sign out",
   "syncNow": "Sync now",
+  "versionUpdate": "Version update",
+  "versionUpdateHint": "Check for a newer TimeTrack release and open the matching download page.",
+  "currentVersion": "Current version",
+  "latestVersion": "Latest version",
+  "versionUnknown": "Unknown",
+  "updateStatusIdle": "Not checked yet",
+  "updateStatusChecking": "Checking for updates...",
+  "updateStatusUpToDate": "You're up to date",
+  "updateStatusAvailable": "Update available",
+  "updateStatusFailed": "Update check failed",
+  "updateErrorLabel": "Error: {error}",
+  "@updateErrorLabel": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "checkUpdates": "Check updates",
+  "openDownloadPage": "Open download page",
+  "updateAvailablePrompt": "TimeTrack {version} is available.",
+  "@updateAvailablePrompt": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "viewInSettings": "Settings",
   "deviceInterop": "Device sharing",
   "deviceInteropHint": "Share data via LAN on the same Wi-Fi or through file import/export.",
   "interopSecurityNotice": "Exported files are plain JSON. Use LAN sync only on trusted Wi-Fi; removing a pairing clears the host token saved on this device.",

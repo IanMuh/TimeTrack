@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/app_version.dart';
 import '../core/app_constants.dart';
 import '../core/date_time_ext.dart';
+import '../data/app_update_service.dart';
 import '../data/file_interop_service.dart';
 import '../data/lan_sync.dart';
 import '../data/repository_interfaces.dart';
@@ -22,6 +25,9 @@ import '../domain/time_entry.dart';
 import 'activity_state.dart';
 import 'entry_state.dart';
 
+typedef AppVersionLoader = Future<String> Function();
+typedef TargetPlatformLoader = TargetPlatform Function();
+
 class AppState extends ChangeNotifier {
   AppState({
     required TimeRepository repository,
@@ -31,12 +37,20 @@ class AppState extends ChangeNotifier {
     required LanSyncServer lanSyncServer,
     required LanSyncClient lanSyncClient,
     required FileInteropService fileInteropService,
+    AppUpdateService? updateService,
+    AppVersionLoader? appVersionLoader,
+    TargetPlatformLoader? targetPlatformLoader,
     SyncStatusStore? syncStatusStore,
   })  : _repository = repository,
         _syncService = syncService,
         _lanSyncServer = lanSyncServer,
         _lanSyncClient = lanSyncClient,
         _fileInteropService = fileInteropService,
+        _updateService = updateService ?? AppUpdateService.disabled(),
+        _updateChecksEnabled = updateService != null,
+        _appVersionLoader = appVersionLoader ?? _defaultAppVersionLoader,
+        _targetPlatformLoader =
+            targetPlatformLoader ?? _defaultTargetPlatformLoader,
         _syncStatusStore = syncStatusStore ?? SyncStatusStore.memory() {
     _activityState = ActivityState(
       activityRepository: activityRepository,
@@ -60,9 +74,15 @@ class AppState extends ChangeNotifier {
   final LanSyncServer _lanSyncServer;
   final LanSyncClient _lanSyncClient;
   final FileInteropService _fileInteropService;
+  final AppUpdateService _updateService;
+  final bool _updateChecksEnabled;
+  final AppVersionLoader _appVersionLoader;
+  final TargetPlatformLoader _targetPlatformLoader;
   final SyncStatusStore _syncStatusStore;
 
   Timer? _ticker;
+  bool _startupUpdateCheckStarted = false;
+  bool _updatePromptShown = false;
 
   bool isLoading = true;
   bool isSyncing = false;
@@ -76,6 +96,10 @@ class AppState extends ChangeNotifier {
   String? ignoredSuspiciousEntryId;
   String? interopMessage;
   SyncStatus syncStatus = const SyncStatus();
+  AppUpdateStatus updateStatus = AppUpdateStatus.idle;
+  AppUpdateInfo? availableUpdate;
+  String currentAppVersion = '';
+  String? updateErrorMessage;
 
   final List<_UndoHistoryEntry> _undoStack = [];
   final List<_UndoHistoryEntry> _redoStack = [];
@@ -194,6 +218,12 @@ class AppState extends ChangeNotifier {
   @visibleForTesting
   int? get lanSyncPortForTest => _lanSyncServer.port;
 
+  bool get shouldShowUpdatePrompt {
+    return !_updatePromptShown &&
+        updateStatus == AppUpdateStatus.available &&
+        availableUpdate != null;
+  }
+
   bool get shouldShowReminder {
     final entry = runningEntry;
     if (entry == null || _entryIsUnassigned(entry)) {
@@ -245,6 +275,7 @@ class AppState extends ChangeNotifier {
       if (Platform.isWindows && !isLanServerRunning) {
         await startLanServer();
       }
+      _startStartupUpdateCheck();
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         now = DateTime.now();
         clockNotifier.value = now;
@@ -256,6 +287,85 @@ class AppState extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  void markUpdatePromptShown() {
+    if (_updatePromptShown) {
+      return;
+    }
+    _updatePromptShown = true;
+    notifyListeners();
+  }
+
+  Future<void> checkForUpdates({bool silent = false}) async {
+    if (!_updateChecksEnabled || updateStatus == AppUpdateStatus.checking) {
+      return;
+    }
+
+    updateStatus = AppUpdateStatus.checking;
+    updateErrorMessage = null;
+    if (!silent) {
+      notifyListeners();
+    }
+
+    try {
+      final versionValue = (await _appVersionLoader()).trim();
+      currentAppVersion = versionValue;
+      final currentVersion = AppVersion.parse(versionValue);
+      final result = await _updateService.checkForUpdate(
+        currentVersion: currentVersion,
+        platform: _targetPlatformLoader(),
+      );
+      result.when(
+        onSuccess: (update) {
+          availableUpdate = update;
+          updateStatus = update == null
+              ? AppUpdateStatus.upToDate
+              : AppUpdateStatus.available;
+          updateErrorMessage = null;
+        },
+        onFailure: (message) {
+          availableUpdate = null;
+          updateStatus = AppUpdateStatus.failed;
+          updateErrorMessage = message;
+        },
+      );
+    } on FormatException catch (error) {
+      availableUpdate = null;
+      updateStatus = AppUpdateStatus.failed;
+      updateErrorMessage = 'Invalid app version: ${error.source}.';
+    } catch (error) {
+      availableUpdate = null;
+      updateStatus = AppUpdateStatus.failed;
+      updateErrorMessage = 'Update check failed: $error';
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> openUpdateDownload() async {
+    final update = availableUpdate;
+    if (update == null) {
+      return;
+    }
+    final result = await _updateService.openDownload(update);
+    result.when(
+      onSuccess: (_) {
+        updateErrorMessage = null;
+      },
+      onFailure: (message) {
+        updateErrorMessage = message;
+      },
+    );
+    notifyListeners();
+  }
+
+  void _startStartupUpdateCheck() {
+    if (!_updateChecksEnabled || _startupUpdateCheckStarted) {
+      return;
+    }
+    _startupUpdateCheckStarted = true;
+    unawaited(checkForUpdates(silent: true));
   }
 
   Future<void> refresh() async {
@@ -1061,6 +1171,18 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 }
+
+Future<String> _defaultAppVersionLoader() async {
+  final packageInfo = await PackageInfo.fromPlatform();
+  final version = packageInfo.version.trim();
+  final buildNumber = packageInfo.buildNumber.trim();
+  if (buildNumber.isEmpty || version.contains('+')) {
+    return version;
+  }
+  return '$version+$buildNumber';
+}
+
+TargetPlatform _defaultTargetPlatformLoader() => defaultTargetPlatform;
 
 class _UndoHistoryEntry {
   const _UndoHistoryEntry({

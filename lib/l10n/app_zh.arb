@@ -333,6 +333,35 @@
   },
   "signOut": "退出",
   "syncNow": "立即同步",
+  "versionUpdate": "版本更新",
+  "versionUpdateHint": "检查是否有新的 TimeTrack 版本，并打开对应下载页。",
+  "currentVersion": "当前版本",
+  "latestVersion": "最新版本",
+  "versionUnknown": "未知",
+  "updateStatusIdle": "尚未检查",
+  "updateStatusChecking": "正在检查更新...",
+  "updateStatusUpToDate": "已是最新版本",
+  "updateStatusAvailable": "有可用更新",
+  "updateStatusFailed": "更新检查失败",
+  "updateErrorLabel": "错误：{error}",
+  "@updateErrorLabel": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "checkUpdates": "检查更新",
+  "openDownloadPage": "打开下载页",
+  "updateAvailablePrompt": "TimeTrack {version} 已可用。",
+  "@updateAvailablePrompt": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "viewInSettings": "设置",
   "deviceInterop": "设备互通",
   "deviceInteropHint": "同一 Wi-Fi 下可通过局域网或文件互通数据。",
   "interopSecurityNotice": "导出的文件是明文 JSON；局域网同步请只在可信 Wi-Fi 使用，移除配对会清除此设备保存的主机令牌。",

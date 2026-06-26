@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import '../data/app_update_service.dart';
 import '../domain/profile_settings.dart';
 import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
@@ -33,6 +36,7 @@ class SettingsPage extends StatelessWidget {
                 final timeline = TimelineSettingsCard(state: state);
                 final cloudSync = CloudSyncSettingsCard(state: state);
                 final interop = InteropSettingsCard(state: state);
+                final updates = VersionUpdateSettingsCard(state: state);
                 if (!expanded) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -44,6 +48,8 @@ class SettingsPage extends StatelessWidget {
                       cloudSync,
                       const SectionGap(),
                       interop,
+                      const SectionGap(),
+                      updates,
                     ],
                   );
                 }
@@ -67,6 +73,8 @@ class SettingsPage extends StatelessWidget {
                         Expanded(child: interop),
                       ],
                     ),
+                    const SectionGap(),
+                    updates,
                   ],
                 );
               },
@@ -418,6 +426,156 @@ class CloudSyncSettingsCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class VersionUpdateSettingsCard extends StatelessWidget {
+  const VersionUpdateSettingsCard({required this.state, super.key});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final update = state.availableUpdate;
+    final isChecking = state.updateStatus == AppUpdateStatus.checking;
+    final statusText = state.updateErrorMessage == null
+        ? _formatUpdateStatus(context, state.updateStatus)
+        : l10n.updateErrorLabel(state.updateErrorMessage!);
+    final statusColor = _updateStatusColor(context, state.updateStatus);
+
+    return QuietPanel(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(
+            title: l10n.versionUpdate,
+            subtitle: l10n.versionUpdateHint,
+            icon: Icons.system_update_alt_outlined,
+          ),
+          const SizedBox(height: 14),
+          _UpdateInfoRow(
+            label: l10n.currentVersion,
+            value: state.currentAppVersion.isEmpty
+                ? l10n.versionUnknown
+                : state.currentAppVersion,
+          ),
+          if (update != null) ...[
+            const SizedBox(height: 10),
+            _UpdateInfoRow(
+              label: l10n.latestVersion,
+              value: update.latestVersion.toString(),
+            ),
+          ],
+          const SizedBox(height: 12),
+          StatusPill(
+            label: statusText,
+            icon: _updateStatusIcon(state.updateStatus),
+            color: statusColor,
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: isChecking
+                    ? null
+                    : () {
+                        unawaited(state.checkForUpdates());
+                      },
+                icon: const Icon(Icons.refresh_outlined),
+                label: Text(l10n.checkUpdates),
+              ),
+              OutlinedButton.icon(
+                onPressed: update == null
+                    ? null
+                    : () {
+                        unawaited(state.openUpdateDownload());
+                      },
+                icon: const Icon(Icons.open_in_new_outlined),
+                label: Text(l10n.openDownloadPage),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpdateInfoRow extends StatelessWidget {
+  const _UpdateInfoRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final valueText = Text(
+      value,
+      textAlign: TextAlign.end,
+      softWrap: true,
+      style: Theme.of(context).textTheme.titleSmall,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label),
+              const SizedBox(height: 4),
+              Align(alignment: Alignment.centerLeft, child: valueText),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: Text(label)),
+            const SizedBox(width: 12),
+            Flexible(child: valueText),
+          ],
+        );
+      },
+    );
+  }
+}
+
+String _formatUpdateStatus(BuildContext context, AppUpdateStatus status) {
+  final l10n = AppLocalizations.of(context)!;
+  return switch (status) {
+    AppUpdateStatus.idle => l10n.updateStatusIdle,
+    AppUpdateStatus.checking => l10n.updateStatusChecking,
+    AppUpdateStatus.upToDate => l10n.updateStatusUpToDate,
+    AppUpdateStatus.available => l10n.updateStatusAvailable,
+    AppUpdateStatus.failed => l10n.updateStatusFailed,
+  };
+}
+
+IconData _updateStatusIcon(AppUpdateStatus status) {
+  return switch (status) {
+    AppUpdateStatus.idle => Icons.info_outline,
+    AppUpdateStatus.checking => Icons.sync,
+    AppUpdateStatus.upToDate => Icons.verified_outlined,
+    AppUpdateStatus.available => Icons.system_update_outlined,
+    AppUpdateStatus.failed => Icons.error_outline,
+  };
+}
+
+Color _updateStatusColor(BuildContext context, AppUpdateStatus status) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return switch (status) {
+    AppUpdateStatus.idle => colorScheme.onSurfaceVariant,
+    AppUpdateStatus.checking => colorScheme.primary,
+    AppUpdateStatus.upToDate => colorScheme.primary,
+    AppUpdateStatus.available => colorScheme.tertiary,
+    AppUpdateStatus.failed => colorScheme.error,
+  };
 }
 
 class _SyncStatusSummary extends StatelessWidget {

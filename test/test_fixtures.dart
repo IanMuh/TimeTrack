@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
 import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/app_update_service.dart';
 import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
@@ -92,6 +93,9 @@ class TestRepositoryFixture {
     LanSyncServer? lanSyncServer,
     LanSyncClient? lanSyncClient,
     FileInteropService? fileInteropService,
+    AppUpdateService? updateService,
+    AppVersionLoader? appVersionLoader,
+    TargetPlatformLoader? targetPlatformLoader,
     SyncStatusStore? syncStatusStore,
   }) {
     return AppState(
@@ -102,6 +106,9 @@ class TestRepositoryFixture {
       lanSyncServer: lanSyncServer ?? createLanSyncServer(),
       lanSyncClient: lanSyncClient ?? createLanSyncClient(),
       fileInteropService: fileInteropService ?? createFileInteropService(),
+      updateService: updateService,
+      appVersionLoader: appVersionLoader,
+      targetPlatformLoader: targetPlatformLoader,
       syncStatusStore: syncStatusStore ?? this.syncStatusStore,
     );
   }

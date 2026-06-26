@@ -569,6 +569,55 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncNow => '立即同步';
 
   @override
+  String get versionUpdate => '版本更新';
+
+  @override
+  String get versionUpdateHint => '检查是否有新的 TimeTrack 版本，并打开对应下载页。';
+
+  @override
+  String get currentVersion => '当前版本';
+
+  @override
+  String get latestVersion => '最新版本';
+
+  @override
+  String get versionUnknown => '未知';
+
+  @override
+  String get updateStatusIdle => '尚未检查';
+
+  @override
+  String get updateStatusChecking => '正在检查更新...';
+
+  @override
+  String get updateStatusUpToDate => '已是最新版本';
+
+  @override
+  String get updateStatusAvailable => '有可用更新';
+
+  @override
+  String get updateStatusFailed => '更新检查失败';
+
+  @override
+  String updateErrorLabel(String error) {
+    return '错误：$error';
+  }
+
+  @override
+  String get checkUpdates => '检查更新';
+
+  @override
+  String get openDownloadPage => '打开下载页';
+
+  @override
+  String updateAvailablePrompt(String version) {
+    return 'TimeTrack $version 已可用。';
+  }
+
+  @override
+  String get viewInSettings => '设置';
+
+  @override
   String get deviceInterop => '设备互通';
 
   @override

@@ -1130,6 +1130,96 @@ abstract class AppLocalizations {
   /// **'立即同步'**
   String get syncNow;
 
+  /// No description provided for @versionUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本更新'**
+  String get versionUpdate;
+
+  /// No description provided for @versionUpdateHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查是否有新的 TimeTrack 版本，并打开对应下载页。'**
+  String get versionUpdateHint;
+
+  /// No description provided for @currentVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本'**
+  String get currentVersion;
+
+  /// No description provided for @latestVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新版本'**
+  String get latestVersion;
+
+  /// No description provided for @versionUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get versionUnknown;
+
+  /// No description provided for @updateStatusIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未检查'**
+  String get updateStatusIdle;
+
+  /// No description provided for @updateStatusChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在检查更新...'**
+  String get updateStatusChecking;
+
+  /// No description provided for @updateStatusUpToDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'已是最新版本'**
+  String get updateStatusUpToDate;
+
+  /// No description provided for @updateStatusAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'有可用更新'**
+  String get updateStatusAvailable;
+
+  /// No description provided for @updateStatusFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新检查失败'**
+  String get updateStatusFailed;
+
+  /// No description provided for @updateErrorLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'错误：{error}'**
+  String updateErrorLabel(String error);
+
+  /// No description provided for @checkUpdates.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新'**
+  String get checkUpdates;
+
+  /// No description provided for @openDownloadPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开下载页'**
+  String get openDownloadPage;
+
+  /// No description provided for @updateAvailablePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'TimeTrack {version} 已可用。'**
+  String updateAvailablePrompt(String version);
+
+  /// No description provided for @viewInSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get viewInSettings;
+
   /// No description provided for @deviceInterop.
   ///
   /// In zh, this message translates to:

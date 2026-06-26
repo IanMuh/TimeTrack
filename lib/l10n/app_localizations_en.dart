@@ -587,6 +587,56 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncNow => 'Sync now';
 
   @override
+  String get versionUpdate => 'Version update';
+
+  @override
+  String get versionUpdateHint =>
+      'Check for a newer TimeTrack release and open the matching download page.';
+
+  @override
+  String get currentVersion => 'Current version';
+
+  @override
+  String get latestVersion => 'Latest version';
+
+  @override
+  String get versionUnknown => 'Unknown';
+
+  @override
+  String get updateStatusIdle => 'Not checked yet';
+
+  @override
+  String get updateStatusChecking => 'Checking for updates...';
+
+  @override
+  String get updateStatusUpToDate => 'You\'re up to date';
+
+  @override
+  String get updateStatusAvailable => 'Update available';
+
+  @override
+  String get updateStatusFailed => 'Update check failed';
+
+  @override
+  String updateErrorLabel(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get checkUpdates => 'Check updates';
+
+  @override
+  String get openDownloadPage => 'Open download page';
+
+  @override
+  String updateAvailablePrompt(String version) {
+    return 'TimeTrack $version is available.';
+  }
+
+  @override
+  String get viewInSettings => 'Settings';
+
+  @override
   String get deviceInterop => 'Device sharing';
 
   @override
