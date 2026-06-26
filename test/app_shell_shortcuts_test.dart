@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/core/app_version.dart';
 import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/app_update_service.dart';
 import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
@@ -23,7 +25,6 @@ class _ShellTestState extends AppState {
           activityRepository: _activityRepository,
           entryRepository: _timeEntryRepository,
           syncService: SyncService(
-            repository: _repository,
             activityRepository: _activityRepository,
             settingsRepository: _settingsRepository,
             timeEntryRepository: _timeEntryRepository,
@@ -32,23 +33,17 @@ class _ShellTestState extends AppState {
           ),
           lanSyncServer: LanSyncServer(
             repository: _repository,
-            activityRepository: _activityRepository,
             deviceIdStore: _deviceIdStore,
-            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
             portCandidates: const [0],
           ),
           lanSyncClient: LanSyncClient(
             repository: _repository,
-            activityRepository: _activityRepository,
             deviceIdStore: _deviceIdStore,
-            timeEntryRepository: _timeEntryRepository,
             peerStore: _peerStore,
           ),
           fileInteropService: FileInteropService(
             repository: _repository,
-            activityRepository: _activityRepository,
-            timeEntryRepository: _timeEntryRepository,
           ),
         ) {
     isLoading = false;
@@ -99,6 +94,7 @@ class _ShellTestState extends AppState {
   var undoCount = 0;
   var redoCount = 0;
   var manualEntryDialogOpened = false;
+  var updatePromptMarkCount = 0;
   bool _canUndo = false;
   bool _canRedo = false;
   String? _undoLabel;
@@ -114,6 +110,21 @@ class _ShellTestState extends AppState {
     _canRedo = canRedo;
     _undoLabel = undoLabel;
     _redoLabel = redoLabel;
+    notifyListeners();
+  }
+
+  void showUpdatePrompt() {
+    currentAppVersion = '0.1.0-pre';
+    updateStatus = AppUpdateStatus.available;
+    availableUpdate = AppUpdateInfo(
+      currentVersion: AppVersion.parse('0.1.0-pre'),
+      latestVersion: AppVersion.parse('0.2.0-pre'),
+      releaseName: 'TimeTrack 0.2.0-pre',
+      releaseNotes: 'Release notes',
+      pageUrl: Uri.parse('https://example.com/release'),
+      downloadUrl: Uri.parse('https://example.com/app.apk'),
+      isPrerelease: true,
+    );
     notifyListeners();
   }
 
@@ -143,6 +154,12 @@ class _ShellTestState extends AppState {
 
   @override
   bool get hasSuspiciousRunningEntry => false;
+
+  @override
+  void markUpdatePromptShown() {
+    updatePromptMarkCount += 1;
+    super.markUpdatePromptShown();
+  }
 
   @override
   Future<void> undo() async {
@@ -202,7 +219,11 @@ Future<void> _pumpShell(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,home: AppShell(state: state)));
+  await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: AppShell(state: state)));
   await tester.pump();
 }
 
@@ -360,5 +381,37 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await _pumpShortcutFrame(tester);
     expect(find.text('设置'), findsWidgets);
+  });
+
+  testWidgets('update snackbar appears once and action opens settings',
+      (tester) async {
+    final state = _ShellTestState();
+    addTearDown(state.dispose);
+    await _pumpShell(tester, state, width: 1000);
+
+    state.showUpdatePrompt();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('TimeTrack 0.2.0-pre 已可用。'), findsOneWidget);
+    expect(state.updatePromptMarkCount, 1);
+
+    state.showUpdatePrompt();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('TimeTrack 0.2.0-pre 已可用。'), findsOneWidget);
+    expect(state.updatePromptMarkCount, 1);
+
+    final settingsAction = find.byWidgetPredicate(
+      (widget) => widget is SnackBarAction && widget.label == '设置',
+    );
+    expect(settingsAction, findsOneWidget);
+
+    await tester.tap(settingsAction);
+    await tester.pumpAndSettle();
+
+    expect(find.text('版本更新'), findsOneWidget);
+    expect(find.text('当前版本'), findsOneWidget);
   });
 }

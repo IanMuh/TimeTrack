@@ -22,27 +22,19 @@ class LanSyncException implements Exception {
 class LanSyncServer {
   LanSyncServer({
     required TimeRepository repository,
-    required IActivityRepository activityRepository,
     required IDeviceIdStore deviceIdStore,
-    required ITimeEntryRepository timeEntryRepository,
     required SyncPeerStore peerStore,
     List<int>? portCandidates,
     InternetAddress? bindAddress,
   })  : _repository = repository,
-        _activityRepository = activityRepository,
         _deviceIdStore = deviceIdStore,
-        _timeEntryRepository = timeEntryRepository,
         _peerStore = peerStore,
         _portCandidates =
             portCandidates ?? List<int>.generate(11, (index) => 8787 + index),
         _bindAddress = bindAddress ?? InternetAddress.anyIPv4;
 
   final TimeRepository _repository;
-  // ignore: unused_field
-  final IActivityRepository _activityRepository;
   final IDeviceIdStore _deviceIdStore;
-  // ignore: unused_field
-  final ITimeEntryRepository _timeEntryRepository;
   final SyncPeerStore _peerStore;
   final List<int> _portCandidates;
   final InternetAddress _bindAddress;
@@ -138,8 +130,7 @@ class LanSyncServer {
   }
 
   Future<void> _handlePair(HttpRequest request) async {
-    final clientIp =
-        request.connectionInfo?.remoteAddress.address ?? 'unknown';
+    final clientIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
 
     // Rate limiting: clean old entries and check threshold
     _pairAttempts[clientIp]
@@ -257,24 +248,16 @@ class LanSyncServer {
 class LanSyncClient {
   LanSyncClient({
     required TimeRepository repository,
-    required IActivityRepository activityRepository,
     required IDeviceIdStore deviceIdStore,
-    required ITimeEntryRepository timeEntryRepository,
     required SyncPeerStore peerStore,
     Duration timeout = const Duration(seconds: 8),
   })  : _repository = repository,
-        _activityRepository = activityRepository,
         _deviceIdStore = deviceIdStore,
-        _timeEntryRepository = timeEntryRepository,
         _peerStore = peerStore,
         _timeout = timeout;
 
   final TimeRepository _repository;
-  // ignore: unused_field
-  final IActivityRepository _activityRepository;
   final IDeviceIdStore _deviceIdStore;
-  // ignore: unused_field
-  final ITimeEntryRepository _timeEntryRepository;
   final SyncPeerStore _peerStore;
   final Duration _timeout;
   final SyncBundleCodec _codec = const SyncBundleCodec();
@@ -386,10 +369,43 @@ class LanSyncClient {
     if (!uri.hasScheme || uri.host.isEmpty) {
       throw const LanSyncException('局域网主机地址格式不正确。');
     }
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      throw const LanSyncException('局域网主机地址仅支持 HTTP 或 HTTPS。');
+    }
+    if (uri.scheme == 'http' && !_isLocalNetworkHost(uri.host)) {
+      throw const LanSyncException('HTTP 局域网同步仅支持本机或私有局域网地址。');
+    }
     return uri
         .replace(path: '', query: null, fragment: null)
         .toString()
         .replaceFirst(RegExp(r'/$'), '');
+  }
+
+  bool _isLocalNetworkHost(String host) {
+    final normalized = host.toLowerCase();
+    if (normalized == 'localhost' ||
+        normalized.endsWith('.local') ||
+        !normalized.contains('.')) {
+      return true;
+    }
+
+    final address = InternetAddress.tryParse(host);
+    if (address == null) {
+      return false;
+    }
+    if (address.isLoopback || address.isLinkLocal) {
+      return true;
+    }
+    final bytes = address.rawAddress;
+    if (address.type == InternetAddressType.IPv4 && bytes.length == 4) {
+      return bytes[0] == 10 ||
+          (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+          (bytes[0] == 192 && bytes[1] == 168);
+    }
+    if (address.type == InternetAddressType.IPv6 && bytes.isNotEmpty) {
+      return bytes[0] == 0xfc || bytes[0] == 0xfd;
+    }
+    return false;
   }
 }
 

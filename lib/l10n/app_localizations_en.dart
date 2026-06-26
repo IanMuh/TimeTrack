@@ -504,6 +504,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Use gentle prompts to confirm long-running activities.';
 
   @override
+  String get reminderInAppNotice =>
+      'Reminders are in-app prompts; they are not guaranteed when the app is closed, suspended, or restricted in the background.';
+
+  @override
   String get triggerTime => 'Trigger time';
 
   @override
@@ -544,10 +548,93 @@ class AppLocalizationsEn extends AppLocalizations {
       'App runs in local mode when Supabase is not configured.';
 
   @override
+  String get syncStatus => 'Sync status';
+
+  @override
+  String syncTargetLabel(String target) {
+    return 'Current target: $target';
+  }
+
+  @override
+  String get syncTargetNone => 'None';
+
+  @override
+  String get syncTargetCloud => 'Cloud';
+
+  @override
+  String get syncTargetLan => 'LAN';
+
+  @override
+  String get syncTargetCloudLan => 'Cloud + LAN';
+
+  @override
+  String get lastSyncNever => 'Last success: never';
+
+  @override
+  String lastSyncAt(String time) {
+    return 'Last success: $time';
+  }
+
+  @override
+  String lastSyncError(String error) {
+    return 'Last failure: $error';
+  }
+
+  @override
   String get signOut => 'Sign out';
 
   @override
   String get syncNow => 'Sync now';
+
+  @override
+  String get versionUpdate => 'Version update';
+
+  @override
+  String get versionUpdateHint =>
+      'Check for a newer TimeTrack release and open the matching download page.';
+
+  @override
+  String get currentVersion => 'Current version';
+
+  @override
+  String get latestVersion => 'Latest version';
+
+  @override
+  String get versionUnknown => 'Unknown';
+
+  @override
+  String get updateStatusIdle => 'Not checked yet';
+
+  @override
+  String get updateStatusChecking => 'Checking for updates...';
+
+  @override
+  String get updateStatusUpToDate => 'You\'re up to date';
+
+  @override
+  String get updateStatusAvailable => 'Update available';
+
+  @override
+  String get updateStatusFailed => 'Update check failed';
+
+  @override
+  String updateErrorLabel(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get checkUpdates => 'Check updates';
+
+  @override
+  String get openDownloadPage => 'Open download page';
+
+  @override
+  String updateAvailablePrompt(String version) {
+    return 'TimeTrack $version is available.';
+  }
+
+  @override
+  String get viewInSettings => 'Settings';
 
   @override
   String get deviceInterop => 'Device sharing';
@@ -555,6 +642,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceInteropHint =>
       'Share data via LAN on the same Wi-Fi or through file import/export.';
+
+  @override
+  String get interopSecurityNotice =>
+      'Exported files are plain JSON. Use LAN sync only on trusted Wi-Fi; removing a pairing clears the host token saved on this device.';
 
   @override
   String get importFile => 'Import file';

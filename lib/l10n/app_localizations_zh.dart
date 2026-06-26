@@ -488,6 +488,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reminderSettingsHint => '用轻提示确认长时间运行的事项。';
 
   @override
+  String get reminderInAppNotice => '当前提醒是应用内提示；应用关闭、被系统挂起或后台受限时不保证触发。';
+
+  @override
   String get triggerTime => '触发时间';
 
   @override
@@ -527,16 +530,102 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cloudSyncHint => '未配置 Supabase 时应用继续以本地模式运行。';
 
   @override
+  String get syncStatus => '同步状态';
+
+  @override
+  String syncTargetLabel(String target) {
+    return '当前目标：$target';
+  }
+
+  @override
+  String get syncTargetNone => '无';
+
+  @override
+  String get syncTargetCloud => '云同步';
+
+  @override
+  String get syncTargetLan => '局域网';
+
+  @override
+  String get syncTargetCloudLan => '云同步 + 局域网';
+
+  @override
+  String get lastSyncNever => '最近成功：尚未同步';
+
+  @override
+  String lastSyncAt(String time) {
+    return '最近成功：$time';
+  }
+
+  @override
+  String lastSyncError(String error) {
+    return '最近失败：$error';
+  }
+
+  @override
   String get signOut => '退出';
 
   @override
   String get syncNow => '立即同步';
 
   @override
+  String get versionUpdate => '版本更新';
+
+  @override
+  String get versionUpdateHint => '检查是否有新的 TimeTrack 版本，并打开对应下载页。';
+
+  @override
+  String get currentVersion => '当前版本';
+
+  @override
+  String get latestVersion => '最新版本';
+
+  @override
+  String get versionUnknown => '未知';
+
+  @override
+  String get updateStatusIdle => '尚未检查';
+
+  @override
+  String get updateStatusChecking => '正在检查更新...';
+
+  @override
+  String get updateStatusUpToDate => '已是最新版本';
+
+  @override
+  String get updateStatusAvailable => '有可用更新';
+
+  @override
+  String get updateStatusFailed => '更新检查失败';
+
+  @override
+  String updateErrorLabel(String error) {
+    return '错误：$error';
+  }
+
+  @override
+  String get checkUpdates => '检查更新';
+
+  @override
+  String get openDownloadPage => '打开下载页';
+
+  @override
+  String updateAvailablePrompt(String version) {
+    return 'TimeTrack $version 已可用。';
+  }
+
+  @override
+  String get viewInSettings => '设置';
+
+  @override
   String get deviceInterop => '设备互通';
 
   @override
   String get deviceInteropHint => '同一 Wi-Fi 下可通过局域网或文件互通数据。';
+
+  @override
+  String get interopSecurityNotice =>
+      '导出的文件是明文 JSON；局域网同步请只在可信 Wi-Fi 使用，移除配对会清除此设备保存的主机令牌。';
 
   @override
   String get importFile => '导入文件';

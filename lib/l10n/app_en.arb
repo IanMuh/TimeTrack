@@ -287,6 +287,7 @@
   },
   "reminderSettings": "Reminders",
   "reminderSettingsHint": "Use gentle prompts to confirm long-running activities.",
+  "reminderInAppNotice": "Reminders are in-app prompts; they are not guaranteed when the app is closed, suspended, or restricted in the background.",
   "triggerTime": "Trigger time",
   "durationLabel": "Duration",
   "interval": "Interval",
@@ -300,10 +301,70 @@
   "notLoggedIn": "Not signed in or local mode",
   "cloudSync": "Cloud sync",
   "cloudSyncHint": "App runs in local mode when Supabase is not configured.",
+  "syncStatus": "Sync status",
+  "syncTargetLabel": "Current target: {target}",
+  "@syncTargetLabel": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "syncTargetNone": "None",
+  "syncTargetCloud": "Cloud",
+  "syncTargetLan": "LAN",
+  "syncTargetCloudLan": "Cloud + LAN",
+  "lastSyncNever": "Last success: never",
+  "lastSyncAt": "Last success: {time}",
+  "@lastSyncAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "lastSyncError": "Last failure: {error}",
+  "@lastSyncError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "signOut": "Sign out",
   "syncNow": "Sync now",
+  "versionUpdate": "Version update",
+  "versionUpdateHint": "Check for a newer TimeTrack release and open the matching download page.",
+  "currentVersion": "Current version",
+  "latestVersion": "Latest version",
+  "versionUnknown": "Unknown",
+  "updateStatusIdle": "Not checked yet",
+  "updateStatusChecking": "Checking for updates...",
+  "updateStatusUpToDate": "You're up to date",
+  "updateStatusAvailable": "Update available",
+  "updateStatusFailed": "Update check failed",
+  "updateErrorLabel": "Error: {error}",
+  "@updateErrorLabel": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "checkUpdates": "Check updates",
+  "openDownloadPage": "Open download page",
+  "updateAvailablePrompt": "TimeTrack {version} is available.",
+  "@updateAvailablePrompt": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "viewInSettings": "Settings",
   "deviceInterop": "Device sharing",
   "deviceInteropHint": "Share data via LAN on the same Wi-Fi or through file import/export.",
+  "interopSecurityNotice": "Exported files are plain JSON. Use LAN sync only on trusted Wi-Fi; removing a pairing clears the host token saved on this device.",
   "importFile": "Import file",
   "exportFile": "Export file",
   "lanHost": "LAN host",

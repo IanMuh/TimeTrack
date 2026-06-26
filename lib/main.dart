@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app_state.dart';
 import 'core/app_config.dart';
 import 'data/activity_repository.dart';
+import 'data/app_update_service.dart';
 import 'data/device_id_store.dart';
 import 'data/file_interop_service.dart';
 import 'data/lan_sync.dart';
@@ -11,6 +12,7 @@ import 'data/local_database.dart';
 import 'data/settings_repository.dart';
 import 'data/sync_peer_store.dart';
 import 'data/sync_service.dart';
+import 'data/sync_status_store.dart';
 import 'data/time_repository.dart';
 import 'l10n/app_localizations.dart';
 import 'ui/app_shell.dart';
@@ -51,7 +53,6 @@ Future<void> main() async {
     activityRepository: activityRepository,
     entryRepository: timeEntryRepository,
     syncService: SyncService(
-      repository: repository,
       activityRepository: activityRepository,
       settingsRepository: settingsRepository,
       timeEntryRepository: timeEntryRepository,
@@ -60,23 +61,21 @@ Future<void> main() async {
     ),
     lanSyncServer: LanSyncServer(
       repository: repository,
-      activityRepository: activityRepository,
       deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
     lanSyncClient: LanSyncClient(
       repository: repository,
-      activityRepository: activityRepository,
       deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
       peerStore: peerStore,
     ),
     fileInteropService: FileInteropService(
       repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
     ),
+    updateService: AppUpdateService(
+      releasesUri: AppConfig.updateReleasesUri,
+    ),
+    syncStatusStore: SyncStatusStore(database: database),
   );
   await state.initialize();
 

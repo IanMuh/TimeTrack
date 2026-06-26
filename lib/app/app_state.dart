@@ -2,16 +2,20 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/app_version.dart';
 import '../core/app_constants.dart';
 import '../core/date_time_ext.dart';
+import '../data/app_update_service.dart';
 import '../data/file_interop_service.dart';
 import '../data/lan_sync.dart';
 import '../data/repository_interfaces.dart';
 import '../data/repository_undo.dart';
 import '../data/sync_peer_store.dart';
 import '../data/sync_service.dart';
+import '../data/sync_status_store.dart';
 import '../data/time_repository.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
@@ -20,6 +24,9 @@ import '../domain/stats_period.dart';
 import '../domain/time_entry.dart';
 import 'activity_state.dart';
 import 'entry_state.dart';
+
+typedef AppVersionLoader = Future<String> Function();
+typedef TargetPlatformLoader = TargetPlatform Function();
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -30,11 +37,21 @@ class AppState extends ChangeNotifier {
     required LanSyncServer lanSyncServer,
     required LanSyncClient lanSyncClient,
     required FileInteropService fileInteropService,
+    AppUpdateService? updateService,
+    AppVersionLoader? appVersionLoader,
+    TargetPlatformLoader? targetPlatformLoader,
+    SyncStatusStore? syncStatusStore,
   })  : _repository = repository,
         _syncService = syncService,
         _lanSyncServer = lanSyncServer,
         _lanSyncClient = lanSyncClient,
-        _fileInteropService = fileInteropService {
+        _fileInteropService = fileInteropService,
+        _updateService = updateService ?? AppUpdateService.disabled(),
+        _updateChecksEnabled = updateService != null,
+        _appVersionLoader = appVersionLoader ?? _defaultAppVersionLoader,
+        _targetPlatformLoader =
+            targetPlatformLoader ?? _defaultTargetPlatformLoader,
+        _syncStatusStore = syncStatusStore ?? SyncStatusStore.memory() {
     _activityState = ActivityState(
       activityRepository: activityRepository,
       entryRepository: entryRepository,
@@ -57,8 +74,15 @@ class AppState extends ChangeNotifier {
   final LanSyncServer _lanSyncServer;
   final LanSyncClient _lanSyncClient;
   final FileInteropService _fileInteropService;
+  final AppUpdateService _updateService;
+  final bool _updateChecksEnabled;
+  final AppVersionLoader _appVersionLoader;
+  final TargetPlatformLoader _targetPlatformLoader;
+  final SyncStatusStore _syncStatusStore;
 
   Timer? _ticker;
+  bool _startupUpdateCheckStarted = false;
+  bool _updatePromptShown = false;
 
   bool isLoading = true;
   bool isSyncing = false;
@@ -71,6 +95,11 @@ class AppState extends ChangeNotifier {
   DateTime? lastReminderAt;
   String? ignoredSuspiciousEntryId;
   String? interopMessage;
+  SyncStatus syncStatus = const SyncStatus();
+  AppUpdateStatus updateStatus = AppUpdateStatus.idle;
+  AppUpdateInfo? availableUpdate;
+  String currentAppVersion = '';
+  String? updateErrorMessage;
 
   final List<_UndoHistoryEntry> _undoStack = [];
   final List<_UndoHistoryEntry> _redoStack = [];
@@ -157,6 +186,19 @@ class AppState extends ChangeNotifier {
 
   bool get hasSyncTarget => isSignedIn || hasLanPeer;
 
+  String get currentSyncTarget {
+    if (isSignedIn && hasLanPeer) {
+      return 'cloud_lan';
+    }
+    if (isSignedIn) {
+      return 'cloud';
+    }
+    if (hasLanPeer) {
+      return 'lan';
+    }
+    return 'none';
+  }
+
   bool get canHostLan => Platform.isWindows || Platform.isAndroid;
 
   bool get isLanServerRunning => _lanSyncServer.isRunning;
@@ -172,6 +214,15 @@ class AppState extends ChangeNotifier {
   String? get lanPairingCode => _lanSyncServer.pairingCode;
 
   List<String> get lanServerUrls => _lanSyncServer.localUrls;
+
+  @visibleForTesting
+  int? get lanSyncPortForTest => _lanSyncServer.port;
+
+  bool get shouldShowUpdatePrompt {
+    return !_updatePromptShown &&
+        updateStatus == AppUpdateStatus.available &&
+        availableUpdate != null;
+  }
 
   bool get shouldShowReminder {
     final entry = runningEntry;
@@ -224,6 +275,7 @@ class AppState extends ChangeNotifier {
       if (Platform.isWindows && !isLanServerRunning) {
         await startLanServer();
       }
+      _startStartupUpdateCheck();
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         now = DateTime.now();
         clockNotifier.value = now;
@@ -237,11 +289,91 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  void markUpdatePromptShown() {
+    if (_updatePromptShown) {
+      return;
+    }
+    _updatePromptShown = true;
+    notifyListeners();
+  }
+
+  Future<void> checkForUpdates({bool silent = false}) async {
+    if (!_updateChecksEnabled || updateStatus == AppUpdateStatus.checking) {
+      return;
+    }
+
+    updateStatus = AppUpdateStatus.checking;
+    updateErrorMessage = null;
+    if (!silent) {
+      notifyListeners();
+    }
+
+    try {
+      final versionValue = (await _appVersionLoader()).trim();
+      currentAppVersion = versionValue;
+      final currentVersion = AppVersion.parse(versionValue);
+      final result = await _updateService.checkForUpdate(
+        currentVersion: currentVersion,
+        platform: _targetPlatformLoader(),
+      );
+      result.when(
+        onSuccess: (update) {
+          availableUpdate = update;
+          updateStatus = update == null
+              ? AppUpdateStatus.upToDate
+              : AppUpdateStatus.available;
+          updateErrorMessage = null;
+        },
+        onFailure: (message) {
+          availableUpdate = null;
+          updateStatus = AppUpdateStatus.failed;
+          updateErrorMessage = message;
+        },
+      );
+    } on FormatException catch (error) {
+      availableUpdate = null;
+      updateStatus = AppUpdateStatus.failed;
+      updateErrorMessage = 'Invalid app version: ${error.source}.';
+    } catch (error) {
+      availableUpdate = null;
+      updateStatus = AppUpdateStatus.failed;
+      updateErrorMessage = 'Update check failed: $error';
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> openUpdateDownload() async {
+    final update = availableUpdate;
+    if (update == null) {
+      return;
+    }
+    final result = await _updateService.openDownload(update);
+    result.when(
+      onSuccess: (_) {
+        updateErrorMessage = null;
+      },
+      onFailure: (message) {
+        updateErrorMessage = message;
+      },
+    );
+    notifyListeners();
+  }
+
+  void _startStartupUpdateCheck() {
+    if (!_updateChecksEnabled || _startupUpdateCheckStarted) {
+      return;
+    }
+    _startupUpdateCheckStarted = true;
+    unawaited(checkForUpdates(silent: true));
+  }
+
   Future<void> refresh() async {
     await _repository.rolloverRunningEntriesIfNeeded(at: now);
     await _activityState.refresh();
     settings = await _repository.settings();
     lanPeer = await _lanSyncClient.currentPeer();
+    syncStatus = await _syncStatusStore.load();
     await _entryState.refresh(selectedDay);
     final logs = await _repository.actionLogsForDay(selectedDay);
     _entryState.setActionLogs(logs);
@@ -796,6 +928,8 @@ class AppState extends ChangeNotifier {
     if (!hasSyncTarget) {
       return;
     }
+    final target = currentSyncTarget;
+    final cloudSince = _cloudSyncSince();
     isSyncing = true;
     notifyListeners();
     try {
@@ -803,7 +937,7 @@ class AppState extends ChangeNotifier {
       var lanSynced = false;
       if (isSignedIn) {
         try {
-          await _syncService.sync();
+          await _syncService.sync(since: cloudSince);
         } catch (error) {
           errors.add('云同步：$error');
         }
@@ -826,15 +960,35 @@ class AppState extends ChangeNotifier {
       await refresh();
       if (errors.isEmpty) {
         errorMessage = null;
+        syncStatus = await _syncStatusStore.markSuccess(
+          at: DateTime.now(),
+          target: target,
+        );
       } else {
         errorMessage = '同步部分失败：${errors.join('；')}';
+        syncStatus = await _syncStatusStore.markFailure(
+          error: errorMessage!,
+          target: target,
+        );
       }
     } catch (error) {
       errorMessage = '同步失败：$error';
+      syncStatus = await _syncStatusStore.markFailure(
+        error: errorMessage!,
+        target: target,
+      );
     } finally {
       isSyncing = false;
       notifyListeners();
     }
+  }
+
+  DateTime? _cloudSyncSince() {
+    final lastTarget = syncStatus.lastTarget;
+    if (lastTarget == 'cloud' || lastTarget == 'cloud_lan') {
+      return syncStatus.lastSuccessfulSyncAt;
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1017,6 +1171,18 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 }
+
+Future<String> _defaultAppVersionLoader() async {
+  final packageInfo = await PackageInfo.fromPlatform();
+  final version = packageInfo.version.trim();
+  final buildNumber = packageInfo.buildNumber.trim();
+  if (buildNumber.isEmpty || version.contains('+')) {
+    return version;
+  }
+  return '$version+$buildNumber';
+}
+
+TargetPlatform _defaultTargetPlatformLoader() => defaultTargetPlatform;
 
 class _UndoHistoryEntry {
   const _UndoHistoryEntry({

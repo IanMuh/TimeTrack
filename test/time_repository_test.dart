@@ -9,6 +9,7 @@ import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/action_log.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
+import 'test_fixtures.dart';
 
 class RepositoryFixture {
   const RepositoryFixture({required this.repository, required this.database});
@@ -18,31 +19,12 @@ class RepositoryFixture {
 }
 
 Future<RepositoryFixture> buildRepositoryFixture() async {
-  sqfliteFfiInit();
-  final db = await databaseFactoryFfi.openDatabase(
-    inMemoryDatabasePath,
-    options: OpenDatabaseOptions(singleInstance: false),
+  final fixture = await buildTestRepositoryFixture();
+  addTearDown(fixture.close);
+  return RepositoryFixture(
+    repository: fixture.repository,
+    database: fixture.sqliteDatabase,
   );
-  await LocalDatabase.createSchema(db);
-  final database = LocalDatabase(database: db);
-  final activityRepository = ActivityRepository(database: database);
-  final settingsRepository = SettingsRepository(database: database);
-  final deviceIdStore = DeviceIdStore(database: database);
-  final timeEntryRepository = TimeEntryRepository(
-    database: database,
-    activityRepository: activityRepository,
-  );
-  final actionLogRepository = ActionLogRepository(database: database);
-  final repository = TimeRepository(
-    database: database,
-    activityRepository: activityRepository,
-    settingsRepository: settingsRepository,
-    deviceIdStore: deviceIdStore,
-    timeEntryRepository: timeEntryRepository,
-    actionLogRepository: actionLogRepository,
-  );
-  await repository.ensureSeedData();
-  return RepositoryFixture(repository: repository, database: db);
 }
 
 Future<TimeRepository> buildRepository() async {
@@ -141,7 +123,8 @@ void main() {
     expect(second.activityId, activities[1].id);
     expect(closed.endAt, secondStart);
     expect(await repository.runningEntry(), isNotNull);
-    expect(logs.map((log) => log.actionType), [ActionType.switch_, ActionType.switch_]);
+    expect(logs.map((log) => log.actionType),
+        [ActionType.switch_, ActionType.switch_]);
   });
 
   test('stopping while already unassigned does not split it', () async {
@@ -173,7 +156,8 @@ void main() {
     expect(runningAfter?.id, runningBefore?.id);
     expect(activeUnassigned, hasLength(1));
     expect(activeUnassigned.single.startAt, DateTime(2026, 1, 1, 10));
-    expect(logs.map((log) => log.actionType), [ActionType.switch_, ActionType.stop, ActionType.switch_]);
+    expect(logs.map((log) => log.actionType),
+        [ActionType.switch_, ActionType.stop, ActionType.switch_]);
   });
 
   test('switching to running unassigned does not split it', () async {

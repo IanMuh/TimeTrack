@@ -980,6 +980,12 @@ abstract class AppLocalizations {
   /// **'用轻提示确认长时间运行的事项。'**
   String get reminderSettingsHint;
 
+  /// No description provided for @reminderInAppNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前提醒是应用内提示；应用关闭、被系统挂起或后台受限时不保证触发。'**
+  String get reminderInAppNotice;
+
   /// No description provided for @triggerTime.
   ///
   /// In zh, this message translates to:
@@ -1058,6 +1064,60 @@ abstract class AppLocalizations {
   /// **'未配置 Supabase 时应用继续以本地模式运行。'**
   String get cloudSyncHint;
 
+  /// No description provided for @syncStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步状态'**
+  String get syncStatus;
+
+  /// No description provided for @syncTargetLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前目标：{target}'**
+  String syncTargetLabel(String target);
+
+  /// No description provided for @syncTargetNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'无'**
+  String get syncTargetNone;
+
+  /// No description provided for @syncTargetCloud.
+  ///
+  /// In zh, this message translates to:
+  /// **'云同步'**
+  String get syncTargetCloud;
+
+  /// No description provided for @syncTargetLan.
+  ///
+  /// In zh, this message translates to:
+  /// **'局域网'**
+  String get syncTargetLan;
+
+  /// No description provided for @syncTargetCloudLan.
+  ///
+  /// In zh, this message translates to:
+  /// **'云同步 + 局域网'**
+  String get syncTargetCloudLan;
+
+  /// No description provided for @lastSyncNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近成功：尚未同步'**
+  String get lastSyncNever;
+
+  /// No description provided for @lastSyncAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近成功：{time}'**
+  String lastSyncAt(String time);
+
+  /// No description provided for @lastSyncError.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近失败：{error}'**
+  String lastSyncError(String error);
+
   /// No description provided for @signOut.
   ///
   /// In zh, this message translates to:
@@ -1070,6 +1130,96 @@ abstract class AppLocalizations {
   /// **'立即同步'**
   String get syncNow;
 
+  /// No description provided for @versionUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本更新'**
+  String get versionUpdate;
+
+  /// No description provided for @versionUpdateHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查是否有新的 TimeTrack 版本，并打开对应下载页。'**
+  String get versionUpdateHint;
+
+  /// No description provided for @currentVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本'**
+  String get currentVersion;
+
+  /// No description provided for @latestVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新版本'**
+  String get latestVersion;
+
+  /// No description provided for @versionUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get versionUnknown;
+
+  /// No description provided for @updateStatusIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未检查'**
+  String get updateStatusIdle;
+
+  /// No description provided for @updateStatusChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在检查更新...'**
+  String get updateStatusChecking;
+
+  /// No description provided for @updateStatusUpToDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'已是最新版本'**
+  String get updateStatusUpToDate;
+
+  /// No description provided for @updateStatusAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'有可用更新'**
+  String get updateStatusAvailable;
+
+  /// No description provided for @updateStatusFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新检查失败'**
+  String get updateStatusFailed;
+
+  /// No description provided for @updateErrorLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'错误：{error}'**
+  String updateErrorLabel(String error);
+
+  /// No description provided for @checkUpdates.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新'**
+  String get checkUpdates;
+
+  /// No description provided for @openDownloadPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开下载页'**
+  String get openDownloadPage;
+
+  /// No description provided for @updateAvailablePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'TimeTrack {version} 已可用。'**
+  String updateAvailablePrompt(String version);
+
+  /// No description provided for @viewInSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get viewInSettings;
+
   /// No description provided for @deviceInterop.
   ///
   /// In zh, this message translates to:
@@ -1081,6 +1231,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'同一 Wi-Fi 下可通过局域网或文件互通数据。'**
   String get deviceInteropHint;
+
+  /// No description provided for @interopSecurityNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出的文件是明文 JSON；局域网同步请只在可信 Wi-Fi 使用，移除配对会清除此设备保存的主机令牌。'**
+  String get interopSecurityNotice;
 
   /// No description provided for @importFile.
   ///

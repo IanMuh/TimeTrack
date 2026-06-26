@@ -1,95 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
-import 'package:timetrack/data/activity_repository.dart';
-import 'package:timetrack/data/device_id_store.dart';
-import 'package:timetrack/data/file_interop_service.dart';
-import 'package:timetrack/data/lan_sync.dart';
-import 'package:timetrack/data/local_database.dart';
-import 'package:timetrack/data/settings_repository.dart';
-import 'package:timetrack/data/sync_peer_store.dart';
-import 'package:timetrack/data/sync_service.dart';
-import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/stats_page.dart';
+import 'test_fixtures.dart';
 
-class _StatsFixture {
-  const _StatsFixture({
-    required this.state,
-  });
-
-  final AppState state;
-}
-
-_StatsFixture _buildFixture() {
-  final database = LocalDatabase();
-  final activityRepository = ActivityRepository(database: database);
-  final settingsRepository = SettingsRepository(database: database);
-  final deviceIdStore = DeviceIdStore(database: database);
-  final timeEntryRepository = TimeEntryRepository(
-    database: database,
-    activityRepository: activityRepository,
+Future<TestAppFixture> _buildFixture() async {
+  final fixture = await buildTestAppFixture(
+    seedData: false,
+    refresh: false,
+    now: DateTime(2026, 1, 2, 12),
+    selectedDay: DateTime(2026, 1, 2),
   );
-  final actionLogRepository = ActionLogRepository(database: database);
-  final repository = TimeRepository(
-    database: database,
-    activityRepository: activityRepository,
-    settingsRepository: settingsRepository,
-    deviceIdStore: deviceIdStore,
-    timeEntryRepository: timeEntryRepository,
-    actionLogRepository: actionLogRepository,
-  );
-  final peerStore = SyncPeerStore(database: database);
-  final state = AppState(
-    repository: repository,
-    activityRepository: activityRepository,
-    entryRepository: timeEntryRepository,
-    syncService: SyncService(
-      repository: repository,
-      activityRepository: activityRepository,
-      settingsRepository: settingsRepository,
-      timeEntryRepository: timeEntryRepository,
-      actionLogRepository: actionLogRepository,
-      client: null,
+  fixture.state.activities = [
+    Activity(
+      id: 'work',
+      userId: null,
+      name: '工作',
+      color: 0xff2563eb,
+      isFavorite: true,
+      updatedAt: DateTime(2026, 1, 1),
+      isDeleted: false,
     ),
-    lanSyncServer: LanSyncServer(
-      repository: repository,
-      activityRepository: activityRepository,
-      deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
-      peerStore: peerStore,
-      portCandidates: const [0],
-    ),
-    lanSyncClient: LanSyncClient(
-      repository: repository,
-      activityRepository: activityRepository,
-      deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
-      peerStore: peerStore,
-    ),
-    fileInteropService: FileInteropService(
-      repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
-    ),
-  );
-  state
-    ..isLoading = false
-    ..activities = [
-      Activity(
-        id: 'work',
-        userId: null,
-        name: '工作',
-        color: 0xff2563eb,
-        isFavorite: true,
-        updatedAt: DateTime(2026, 1, 1),
-        isDeleted: false,
-      ),
-    ]
-    ..selectedDay = DateTime(2026, 1, 2)
-    ..now = DateTime(2026, 1, 2, 12);
-  return _StatsFixture(state: state);
+  ];
+  return fixture;
 }
 
 Future<void> _pumpStats(
@@ -98,7 +33,10 @@ Future<void> _pumpStats(
   required double width,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(locale: const Locale('zh'), localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales,
+    MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SizedBox(
           width: width,
@@ -111,11 +49,19 @@ Future<void> _pumpStats(
   await tester.pump();
 }
 
+Future<void> _disposeStatsFixture(
+  WidgetTester tester,
+  TestAppFixture fixture,
+) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.runAsync(fixture.dispose);
+}
+
 void main() {
   testWidgets('stats page shows all five range preset options', (tester) async {
-    final fixture = _buildFixture();
+    final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
 
     await _pumpStats(tester, state, width: 920);
 
@@ -128,9 +74,9 @@ void main() {
   });
 
   testWidgets('default preset shows today labels', (tester) async {
-    final fixture = _buildFixture();
+    final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
 
     await _pumpStats(tester, state, width: 920);
 
@@ -141,9 +87,9 @@ void main() {
 
   testWidgets('stats page keeps quiet metric and empty states on compact width',
       (tester) async {
-    final fixture = _buildFixture();
+    final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
 
     await _pumpStats(tester, state, width: 390);
 

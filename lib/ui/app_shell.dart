@@ -88,6 +88,28 @@ class _AppShellState extends State<AppShell> {
         _reminderVisible = false;
       });
     }
+    if (widget.state.shouldShowUpdatePrompt) {
+      final update = widget.state.availableUpdate!;
+      widget.state.markUpdatePromptShown();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!
+                  .updateAvailablePrompt(update.latestVersion.toString()),
+            ),
+            action: SnackBarAction(
+              label: AppLocalizations.of(context)!.viewInSettings,
+              onPressed: () => _selectDestination(3),
+            ),
+          ),
+        );
+      });
+    }
     if (widget.state.shouldShowReminderBanner && !_reminderBannerVisible) {
       _reminderBannerVisible = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -99,7 +121,8 @@ class _AppShellState extends State<AppShell> {
             .showSnackBar(
               SnackBar(
                 content: Text(
-                  AppLocalizations.of(context)!.activityRunningMinutes(widget.state.runningDuration().inMinutes),
+                  AppLocalizations.of(context)!.activityRunningMinutes(
+                      widget.state.runningDuration().inMinutes),
                 ),
                 action: SnackBarAction(
                   label: AppLocalizations.of(context)!.remindLater,
@@ -244,7 +267,8 @@ class _AppShellState extends State<AppShell> {
                           color: Theme.of(context).colorScheme.surface,
                           border: Border(
                             top: BorderSide(
-                              color: Theme.of(context).colorScheme.outlineVariant,
+                              color:
+                                  Theme.of(context).colorScheme.outlineVariant,
                             ),
                           ),
                         ),
@@ -259,7 +283,8 @@ class _AppShellState extends State<AppShell> {
                               selectedIndex: _index,
                               onDestinationSelected: _selectDestination,
                               destinations: [
-                                for (final destination in _buildDestinations(context))
+                                for (final destination
+                                    in _buildDestinations(context))
                                   NavigationDestination(
                                     icon: Icon(destination.icon),
                                     selectedIcon:
@@ -367,7 +392,9 @@ class UndoRedoControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton.filledTonal(
-              tooltip: undoLabel == null ? AppLocalizations.of(context)!.undoHint : AppLocalizations.of(context)!.undoWithLabel(undoLabel),
+              tooltip: undoLabel == null
+                  ? AppLocalizations.of(context)!.undoHint
+                  : AppLocalizations.of(context)!.undoWithLabel(undoLabel),
               onPressed: state.canUndo ? () => unawaited(state.undo()) : null,
               icon: const Icon(Icons.undo),
             ),
@@ -376,7 +403,9 @@ class UndoRedoControls extends StatelessWidget {
               height: axis == Axis.vertical ? 8 : 0,
             ),
             IconButton.filledTonal(
-              tooltip: redoLabel == null ? AppLocalizations.of(context)!.redoHint : AppLocalizations.of(context)!.redoWithLabel(redoLabel),
+              tooltip: redoLabel == null
+                  ? AppLocalizations.of(context)!.redoHint
+                  : AppLocalizations.of(context)!.redoWithLabel(redoLabel),
               onPressed: state.canRedo ? () => unawaited(state.redo()) : null,
               icon: const Icon(Icons.redo),
             ),
@@ -470,7 +499,8 @@ class ReminderDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(AppLocalizations.of(context)!.stillDoingThis),
-      content: Text(AppLocalizations.of(context)!.activityRunningMinutes(state.runningDuration().inMinutes)),
+      content: Text(AppLocalizations.of(context)!
+          .activityRunningMinutes(state.runningDuration().inMinutes)),
       actions: [
         TextButton.icon(
           onPressed: () async {
@@ -520,7 +550,8 @@ class SuspiciousEntryDialog extends StatelessWidget {
       content: Text(
         entry == null
             ? AppLocalizations.of(context)!.noRunningActivity
-            : AppLocalizations.of(context)!.suspiciousEntryContent(TimeOfDay.fromDateTime(entry.startAt).format(context)),
+            : AppLocalizations.of(context)!.suspiciousEntryContent(
+                TimeOfDay.fromDateTime(entry.startAt).format(context)),
       ),
       actions: [
         TextButton(
@@ -555,13 +586,17 @@ class LoginBanner extends StatelessWidget {
     if (state.isSignedIn) {
       return _StatusBanner(
         icon: state.isSyncing ? Icons.sync : Icons.cloud_done_outlined,
-        text: state.isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.cloudSyncActive,
+        text: state.isSyncing
+            ? AppLocalizations.of(context)!.syncing
+            : AppLocalizations.of(context)!.cloudSyncActive,
       );
     }
     if (state.hasLanPeer) {
       return _StatusBanner(
         icon: state.isSyncing ? Icons.sync : Icons.lan_outlined,
-        text: state.isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.lanPeerPaired,
+        text: state.isSyncing
+            ? AppLocalizations.of(context)!.syncing
+            : AppLocalizations.of(context)!.lanPeerPaired,
       );
     }
     if (!state.canCloudSync) {

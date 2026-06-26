@@ -1,96 +1,80 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:timetrack/app/app_state.dart';
-import 'package:timetrack/data/activity_repository.dart';
-import 'package:timetrack/data/device_id_store.dart';
-import 'package:timetrack/data/file_interop_service.dart';
-import 'package:timetrack/data/lan_sync.dart';
-import 'package:timetrack/data/local_database.dart';
-import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
-import 'package:timetrack/data/sync_service.dart';
-import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/stats_period.dart';
+import 'test_fixtures.dart';
 
-class _StateFixture {
-  const _StateFixture({
-    required this.state,
-    required this.repository,
-  });
-
-  final AppState state;
-  final TimeRepository repository;
-}
-
-Future<_StateFixture> _buildState() async {
-  sqfliteFfiInit();
-  final db = await databaseFactoryFfi.openDatabase(
-    inMemoryDatabasePath,
-    options: OpenDatabaseOptions(singleInstance: false),
-  );
-  await LocalDatabase.createSchema(db);
-  final database = LocalDatabase(database: db);
-  final activityRepository = ActivityRepository(database: database);
-  final settingsRepository = SettingsRepository(database: database);
-  final deviceIdStore = DeviceIdStore(database: database);
-  final timeEntryRepository = TimeEntryRepository(
-    database: database,
-    activityRepository: activityRepository,
-  );
-  final actionLogRepository = ActionLogRepository(database: database);
-  final repository = TimeRepository(
-    database: database,
-    activityRepository: activityRepository,
-    settingsRepository: settingsRepository,
-    deviceIdStore: deviceIdStore,
-    timeEntryRepository: timeEntryRepository,
-    actionLogRepository: actionLogRepository,
-  );
-  final peerStore = SyncPeerStore(database: database);
-  await repository.ensureSeedData();
-  final state = AppState(
-    repository: repository,
-    activityRepository: activityRepository,
-    entryRepository: timeEntryRepository,
-    syncService: SyncService(
-      repository: repository,
-      activityRepository: activityRepository,
-      settingsRepository: settingsRepository,
-      timeEntryRepository: timeEntryRepository,
-      actionLogRepository: actionLogRepository,
-      client: null,
-    ),
-    lanSyncServer: LanSyncServer(
-      repository: repository,
-      activityRepository: activityRepository,
-      deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
-      peerStore: peerStore,
-      portCandidates: const [0],
-    ),
-    lanSyncClient: LanSyncClient(
-      repository: repository,
-      activityRepository: activityRepository,
-      deviceIdStore: deviceIdStore,
-      timeEntryRepository: timeEntryRepository,
-      peerStore: peerStore,
-    ),
-    fileInteropService: FileInteropService(
-      repository: repository,
-      activityRepository: activityRepository,
-      timeEntryRepository: timeEntryRepository,
-    ),
-  );
-  await state.refresh();
-  return _StateFixture(state: state, repository: repository);
-}
+Future<TestAppFixture> _buildState() => buildTestAppFixture();
 
 void main() {
+  test('sync failure records an error without advancing last success',
+      () async {
+    final fixture = await _buildState();
+    final state = fixture.state;
+    addTearDown(fixture.dispose);
+    final successAt = DateTime.utc(2026, 6, 24, 8, 30);
+    state.syncStatus = await fixture.syncStatusStore.markSuccess(
+      at: successAt,
+      target: 'lan',
+    );
+    state.lanPeer = SyncPeer(
+      id: 'missing-host',
+      kind: SyncPeerKind.lanClient,
+      displayName: 'Missing Host',
+      baseUrl: 'http://127.0.0.1:9',
+      token: 'token',
+      updatedAt: DateTime(2026, 6, 24),
+    );
+
+    await state.sync();
+
+    expect(state.syncStatus.lastSuccessfulSyncAt?.toUtc(), successAt);
+    expect(state.syncStatus.lastError, contains('同步部分失败'));
+    expect(state.syncStatus.lastTarget, 'lan');
+  });
+
+  test('successful lan sync records last success and clears old error',
+      () async {
+    final host = await _buildState();
+    final client = await _buildState();
+    addTearDown(host.dispose);
+    addTearDown(client.dispose);
+    final previousSuccess = DateTime.utc(2020, 1, 1);
+    client.state.syncStatus = await client.syncStatusStore.markFailure(
+      error: 'old failure',
+      target: 'lan',
+    );
+    client.state.syncStatus = await client.syncStatusStore.markSuccess(
+      at: previousSuccess,
+      target: 'lan',
+    );
+    client.state.syncStatus = await client.syncStatusStore.markFailure(
+      error: 'old failure',
+      target: 'lan',
+    );
+
+    await host.lanSyncServer.start();
+    addTearDown(host.lanSyncServer.stop);
+    await client.state.pairLanPeer(
+      baseUrl: 'http://127.0.0.1:${host.state.lanSyncPortForTest}',
+      code: host.state.lanPairingCode!,
+    );
+
+    expect(client.state.syncStatus.lastSuccessfulSyncAt, isNotNull);
+    expect(
+      client.state.syncStatus.lastSuccessfulSyncAt!.toUtc().isAfter(
+            previousSuccess,
+          ),
+      isTrue,
+    );
+    expect(client.state.syncStatus.lastError, isNull);
+    expect(client.state.syncStatus.lastTarget, 'lan');
+  });
+
   test('reminder interval controls repeated reminder cadence', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
     final startedAt = DateTime(2026, 1, 1, 9);
 
@@ -116,7 +100,7 @@ void main() {
       () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final unassigned = state.activities.singleWhere(
       (activity) => activity.isUnassigned,
     );
@@ -137,7 +121,7 @@ void main() {
   test('todayTotals clips cross-day entries to the selected day', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.firstWhere(
       (activity) => !activity.isUnassigned,
     );
@@ -159,7 +143,7 @@ void main() {
   test('todayTotals assigns unrecorded time to unassigned activity', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.firstWhere(
       (activity) => !activity.isUnassigned,
     );
@@ -185,7 +169,7 @@ void main() {
       () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final unassigned = state.activities.singleWhere(
       (activity) => activity.isUnassigned,
     );
@@ -213,7 +197,7 @@ void main() {
   test('weekTotals clips entries to each day before summing', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     await fixture.repository.createManualEntry(
@@ -233,7 +217,7 @@ void main() {
   test('totalsForPeriod day matches todayTotals', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     await fixture.repository.createManualEntry(
@@ -252,7 +236,7 @@ void main() {
   test('totalsForPeriod week includes all 7 days', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     // Monday 9-10
@@ -279,7 +263,7 @@ void main() {
   test('totalsForPeriod month clips cross-month entry', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     await fixture.repository.createManualEntry(
@@ -298,7 +282,7 @@ void main() {
   test('totalsForPeriod year aggregates full year', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     await fixture.repository.createManualEntry(
@@ -316,7 +300,7 @@ void main() {
   test('totalsForPeriod all includes all non-deleted entries', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
     final unassigned = state.activities.singleWhere(
       (activity) => activity.isUnassigned,
@@ -349,7 +333,7 @@ void main() {
   test('totalsForPeriod uses state.now for running entry', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     // Create a running entry 30 minutes ago via repository
@@ -367,7 +351,7 @@ void main() {
   test('longestBlockForPeriod day finds longest clipped entry', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     await fixture.repository.createManualEntry(
@@ -392,7 +376,7 @@ void main() {
   test('longestBlockForPeriod month finds longest in window', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
 
     await fixture.repository.createManualEntry(
@@ -411,7 +395,7 @@ void main() {
   test('longestBlockForPeriod all uses day-local split duration', () async {
     final fixture = await _buildState();
     final state = fixture.state;
-    addTearDown(state.dispose);
+    addTearDown(fixture.dispose);
     final activity = state.activities.first;
     final unassigned = state.activities.singleWhere(
       (activity) => activity.isUnassigned,
