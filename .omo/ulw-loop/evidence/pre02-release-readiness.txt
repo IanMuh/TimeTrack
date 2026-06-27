@@ -1,0 +1,754 @@
+
+### flutter pub get
+Command: flutter pub get
+Resolving dependencies...
+Downloading packages...
+  fl_chart 0.68.0 (1.2.0 available)
+  flutter_lints 4.0.0 (6.0.0 available)
+  functions_client 2.6.0 (2.6.1 available)
+  gotrue 2.21.0 (2.22.0 available)
+  lints 4.0.0 (6.1.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.18.3 available)
+  package_config 2.2.0 (3.0.0 available)
+  package_info_plus 9.0.1 (10.1.0 available)
+  package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+  path_provider 2.1.5 (2.1.6 available)
+  path_provider_platform_interface 2.1.2 (2.1.3 available)
+  postgrest 2.7.1 (2.7.2 available)
+  realtime_client 2.7.4 (2.8.0 available)
+  sqlite3_flutter_libs 0.5.42 (0.6.0+eol available)
+  storage_client 2.5.6 (2.5.7 available)
+  supabase 2.12.2 (2.13.0 available)
+  supabase_flutter 2.14.2 (2.15.0 available)
+  test_api 0.7.11 (0.7.12 available)
+  vector_math 2.2.0 (2.4.0 available)
+  win32 5.15.0 (6.3.0 available)
+  yet_another_json_isolate 2.1.0 (2.1.1 available)
+Got dependencies!
+22 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Exit code: 0
+
+### flutter gen-l10n
+Command: flutter gen-l10n
+Because l10n.yaml exists, the options defined there will be used instead.
+To use the command line arguments, delete the l10n.yaml file in the Flutter project.
+
+
+Exit code: 0
+
+### flutter analyze
+Command: flutter analyze
+Analyzing TimeTrack...                                          
+No issues found! (ran in 9.4s)
+Exit code: 0
+
+### flutter test
+Command: flutter test
+00:00 +0: loading D:/MyAPP/TimeTrack/test/activity_colors_test.dart
+00:00 +0: D:/MyAPP/TimeTrack/test/activity_colors_test.dart: nextActivityColor chooses the first unused palette color
+00:00 +1: D:/MyAPP/TimeTrack/test/activity_colors_test.dart: nextActivityColor cycles after all palette colors are used
+00:00 +2: D:/MyAPP/TimeTrack/test/activity_switch_button_test.dart: activity button supports two tap confirmation flow
+00:00 +3: D:/MyAPP/TimeTrack/test/activity_switch_button_test.dart: activity button supports two tap confirmation flow
+00:01 +4: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +5: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +6: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +7: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +8: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +9: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +10: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:01 +11: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +12: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +13: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +14: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +15: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +16: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +17: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +18: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +19: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +20: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +21: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +22: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +23: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +24: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +25: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +26: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +27: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +28: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +29: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +30: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +31: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +32: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +33: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +34: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +35: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +36: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +37: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +38: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:03 +39: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:03 +40: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:03 +41: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +42: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +43: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +44: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +45: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +46: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +47: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +48: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +49: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +50: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +50: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on compact layout
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:04 +51: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +52: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +53: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +54: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +55: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +56: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +57: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +58: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +59: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +60: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +61: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +62: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +63: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +64: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +65: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +66: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +67: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +68: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +69: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+00:05 +70: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+00:05 +71: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+00:05 +72: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+00:05 +73: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+00:05 +74: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+00:05 +75: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:05 +76: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:05 +77: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +78: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +79: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +80: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +81: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +82: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +83: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +84: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +85: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +86: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +87: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +88: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +89: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +90: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +91: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +92: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +93: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on expanded width without overflow
+00:06 +94: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:06 +95: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:06 +96: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:06 +97: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:07 +98: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:07 +98: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo shortcut does not override focused text editing
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:07 +99: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:07 +100: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:07 +101: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:07 +102: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: destination and timeline shortcuts work
+00:07 +103: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: destination and timeline shortcuts work
+00:07 +104: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: destination and timeline shortcuts work
+00:08 +105: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: destination and timeline shortcuts work
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:08 +106: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: SettingsPage shows full exported path on compact width
+00:08 +107: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: SettingsPage shows full exported path on compact width
+00:08 +108: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:08 +109: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:08 +110: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:08 +111: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:08 +112: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:09 +113: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:09 +114: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:09 +115: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +116: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +117: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +118: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +119: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:11 +120: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor cannot delete a generated unassigned gap
+00:12 +121: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor updates an existing entry activity
+00:15 +122: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor splits an entry at the midpoint
+00:17 +123: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor extends an entry to now and removes covered rows
+00:20 +124: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor can choose a previous one-off activity
+00:24 +125: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor shows deleted activity snapshot until user selects
+00:27 +126: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an activity change after overlap warning
+00:30 +127: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor merges a short right neighbor directly
+00:32 +128: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor confirms before merging a longer neighbor
+00:35 +129: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor asks again when overlap candidate changes
+00:36 +130: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor validates activity after refresh while open
+00:39 +131: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor ignores delayed overlap after dialog closes
+00:39 +132: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor does not reuse note controller after closing during save
+00:40 +133: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: entry editor avoids overflow while editing current activity
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:40 +134: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves after renaming the current activity
+00:45 +135: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: date text shows calendar icon
+00:45 +136: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: future day shows banner when selectedDay is ahead of now
+00:45 +137: All tests passed!
+Exit code: 0
+
+### flutter build windows --release
+Command: flutter build windows --release
+Building with plugins requires symlink support.
+
+Please enable Developer Mode in your system settings. Run
+  start ms-settings:developers
+to open settings.
+Exit code: 1
+
+### flutter build apk --release
+Command: flutter build apk --release
+Running Gradle task 'assembleRelease'...                        
+WARNING: Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): package_info_plus
+Future versions of Flutter will fail to build if your app uses plugins that apply KGP.
+
+Please check the changelogs of these plugins and upgrade to a version that supports Built-in Kotlin.
+If no such version exists, report the issue to the plugin. If necessary, here is a guide on filing 
+an issue against a plugin: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers#report-incompatible-kotlin-gradle-plugin-usage-to-plugin-authors
+
+If you are a plugin author, please migrate your plugin to Built-in Kotlin using this guide: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-plugin-authors
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 13172 bytes (99.2% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+e: Incompatible classes were found in dependencies. Remove them from the classpath or use '-Xskip-metadata-version-check' to suppress errors
+e: file:///C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/META-INF/kotlin-stdlib-jdk7.kotlin_module Module was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.2.0, expected version is 2.0.0.
+e: file:///C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/META-INF/kotlin-stdlib-jdk8.kotlin_module Module was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.2.0, expected version is 2.0.0.
+e: file:///C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/META-INF/kotlin-stdlib.kotlin_module Module was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.2.0, expected version is 2.0.0.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:24:9 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:29:9 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:46:31 Unresolved reference 'HashMap'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:48:21 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:49:21 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:50:21 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:51:21 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:52:49 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:53:51 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:54:21 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:55:21 Unresolved reference 'put'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:56:26 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:57:21 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:60:17 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:63:13 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:77:14 Class 'kotlin.Suppress' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Suppress.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:82:6 Class 'kotlin.Suppress' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Suppress.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:91:6 Class 'kotlin.Suppress' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Suppress.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:102:70 Unresolved reference 'first'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:104:77 Unresolved reference 'first'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:113:32 Unresolved reference 'isNullOrEmpty'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:113:62 Unresolved reference 'first'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:116:50 Unresolved reference 'first'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:127:6 Class 'kotlin.jvm.Throws' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/jvm/Throws.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:130:9 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:142:19 For-loop range must have an 'iterator()' method.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:142:25 Unresolved reference 'indices'.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:144:13 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:145:13 Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin. The actual metadata version is 2.2.0, but the compiler version 2.0.0 can read versions up to 2.1.0.
+The class is loaded from C:/Users/user/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.2.0/fdfc65fbc42fda253a26f61dac3c0aca335fae96/kotlin-stdlib-2.2.0.jar!/kotlin/Unit.class
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:145:22 Argument type mismatch: actual type is 'kotlin.String', but 'kotlin.Int' was expected.
+e: file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.1/android/src/main/kotlin/dev/fluttercommunity/plus/packageinfo/PackageInfoPlugin.kt:147:23 Too many arguments for 'public constructor(): kotlin/String'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':package_info_plus:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to generate a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 44s
+Running Gradle task 'assembleRelease'...                          105.0s
+
+┌─ Flutter Fix ────────────────────────────────────────────────────────────────────────────────┐
+│ [!] Your project requires a newer version of the Kotlin Gradle plugin.                       │
+│ Find the latest version on https://kotlinlang.org/docs/releases.html#release-details, then   │
+│ update the                                                                                   │
+│ version number of the plugin with id "org.jetbrains.kotlin.android" in the plugins block of  │
+│ D:\MyAPP\TimeTrack\android\settings.gradle.                                                  │
+│                                                                                              │
+│ Alternatively (if your project was created before Flutter 3.19), update                      │
+│ D:\MyAPP\TimeTrack\android\build.gradle.kts                                                  │
+│ ext.kotlin_version = '<latest-version>'                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+Gradle task assembleRelease failed with exit code 1
+Exit code: 1
+
+### flutter build apk --release (after Kotlin plugin 2.2.0)
+Command: flutter build apk --release
+Running Gradle task 'assembleRelease'...                        
+WARNING: Your Android app project: app located at: D:\MyAPP\TimeTrack\android\app\build.gradle.kts
+applies the Kotlin Gradle Plugin, which will cause build failures in future versions of Flutter. 
+Please migrate your app to Built-in Kotlin using this guide: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers
+
+WARNING: Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): package_info_plus
+Future versions of Flutter will fail to build if your app uses plugins that apply KGP.
+
+Please check the changelogs of these plugins and upgrade to a version that supports Built-in Kotlin.
+If no such version exists, report the issue to the plugin. If necessary, here is a guide on filing 
+an issue against a plugin: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers#report-incompatible-kotlin-gradle-plugin-usage-to-plugin-authors
+
+If you are a plugin author, please migrate your plugin to Built-in Kotlin using this guide: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-plugin-authors
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 13172 bytes (99.2% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Running Gradle task 'assembleRelease'...                          146.3s
+√ Built build\app\outputs\flutter-apk\app-release.apk (61.2MB)
+Exit code: 0
+
+### flutter analyze (post Android Gradle fix)
+Command: flutter analyze
+Analyzing TimeTrack...                                          
+No issues found! (ran in 8.6s)
+Exit code: 0
+
+### flutter test (post Android Gradle fix)
+Command: flutter test
+00:00 +0: loading D:/MyAPP/TimeTrack/test/activity_colors_test.dart
+00:00 +0: D:/MyAPP/TimeTrack/test/activity_colors_test.dart: nextActivityColor chooses the first unused palette color
+00:00 +1: D:/MyAPP/TimeTrack/test/activity_colors_test.dart: nextActivityColor cycles after all palette colors are used
+00:00 +2: D:/MyAPP/TimeTrack/test/activity_switch_button_test.dart: activity button supports two tap confirmation flow
+00:00 +3: D:/MyAPP/TimeTrack/test/activity_switch_button_test.dart: activity button supports two tap confirmation flow
+00:01 +4: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +5: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:01 +6: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:02 +7: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:02 +8: D:/MyAPP/TimeTrack/test/adaptive_layout_test.dart: AdaptivePage lays out at compact and expanded widths
+00:02 +9: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +10: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +11: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +12: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +13: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +14: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +15: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +16: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +17: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +18: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +19: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +20: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +21: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +22: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +23: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +24: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +25: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +26: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +27: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +28: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +29: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +30: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +31: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +32: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +33: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +34: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:02 +35: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:03 +36: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:03 +37: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:03 +38: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:03 +39: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:03 +40: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:04 +41: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +42: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +43: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +44: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +45: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +46: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +47: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +48: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +49: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +50: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:04 +50: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on compact layout
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:04 +51: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +52: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +53: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +54: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +55: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +56: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +57: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +58: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +59: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +60: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +61: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:05 +62: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:06 +63: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:06 +64: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:06 +65: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:06 +66: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:06 +67: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:06 +68: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:06 +69: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:06 +70: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +71: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +72: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +73: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +74: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +75: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +76: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +77: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +78: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +79: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +80: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +81: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +82: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +83: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +84: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +85: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +86: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +87: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +88: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +89: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +90: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +91: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +92: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +93: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline defaults to today and shows timeline with list
+00:06 +94: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo shortcut does not override focused text editing
+00:07 +95: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo shortcut does not override focused text editing
+00:07 +96: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo shortcut does not override focused text editing
+00:07 +97: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo shortcut does not override focused text editing
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:07 +98: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:07 +99: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:08 +100: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:08 +101: D:/MyAPP/TimeTrack/test/ui_controls_test.dart: ActivityColorPicker updates preview from RGB input
+00:08 +102: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: destination and timeline shortcuts work
+00:08 +103: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: destination and timeline shortcuts work
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:08 +104: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: running entry editor can keep the entry running
+00:08 +105: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: running entry editor can keep the entry running
+00:08 +106: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:09 +107: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:09 +108: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:09 +109: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:09 +110: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+00:09 +111: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:09 +112: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +113: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +114: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +115: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:10 +116: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:11 +117: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:11 +118: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:11 +119: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an unassigned gap as a real activity
+00:12 +120: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor cannot delete a generated unassigned gap
+00:13 +121: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor updates an existing entry activity
+00:16 +122: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor splits an entry at the midpoint
+00:19 +123: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor extends an entry to now and removes covered rows
+00:21 +124: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor can choose a previous one-off activity
+00:25 +125: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor shows deleted activity snapshot until user selects
+00:28 +126: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves an activity change after overlap warning
+00:31 +127: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor merges a short right neighbor directly
+00:34 +128: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor confirms before merging a longer neighbor
+00:37 +129: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor asks again when overlap candidate changes
+00:37 +130: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor validates activity after refresh while open
+00:40 +131: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor ignores delayed overlap after dialog closes
+00:40 +132: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor does not reuse note controller after closing during save
+00:40 +133: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: entry editor avoids overflow while editing current activity
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:41 +134: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: timeline editor saves after renaming the current activity
+00:46 +135: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: date text shows calendar icon
+00:46 +136: D:/MyAPP/TimeTrack/test/timeline_page_test.dart: future day shows banner when selectedDay is ahead of now
+00:46 +137: All tests passed!
+Exit code: 0
+
+### release docs and config checks
+Command: rg -n "version: 0.2.0-pre\+2|UPDATE_RELEASES_URL|api.github.com/repos/IanMuh/TimeTrack/releases|GitHub Release|Release assets|flutter build windows --release|flutter build apk --release" pubspec.yaml lib/core/app_config.dart README.md
+pubspec.yaml:4:version: 0.2.0-pre+2
+lib/core/app_config.dart:5:    'UPDATE_RELEASES_URL',
+lib/core/app_config.dart:6:    defaultValue: 'https://api.github.com/repos/IanMuh/TimeTrack/releases',
+README.md:73:flutter build windows --release
+README.md:81:flutter build windows --release `
+README.md:86:若需要让内置更新检查读取其他 GitHub Releases API 地址，可额外传入 `UPDATE_RELEASES_URL`：
+README.md:89:flutter build windows --release `
+README.md:90:  --dart-define=UPDATE_RELEASES_URL=https://api.github.com/repos/your-org/TimeTrack/releases
+README.md:104:flutter build apk --release
+README.md:109:如需为 Android 构建嵌入同一个更新源，也可在构建命令中追加 `--dart-define=UPDATE_RELEASES_URL=...`。
+README.md:119:TimeTrack 的更新检查读取 GitHub Releases 列表。默认地址是 `https://api.github.com/repos/IanMuh/TimeTrack/releases`，可在运行或构建时通过 `--dart-define=UPDATE_RELEASES_URL=...` 覆盖。该值应指向 GitHub Releases API 的列表端点，而不是网页地址。
+README.md:123:Release assets 建议按平台命名，便于应用优先打开匹配平台的下载地址：
+README.md:137:flutter build windows --release
+README.md:138:flutter build apk --release
+README.md:144:- 如需自定义更新源，运行和发布构建命令必须携带正确的 `UPDATE_RELEASES_URL`。
+README.md:145:- GitHub Release 的版本号、tag 和应用版本保持一致，例如 `0.2.0-pre` 对应 `v0.2.0-pre` 或 `0.2.0-pre`。
+Exit code: 0
+
+### docs/architecture-audit.md untouched check
+Command: git diff -- docs/architecture-audit.md
+Exit code: 0
+
+### git status --short
+Command: git status --short
+ M README.md
+ M android/app/build.gradle.kts
+ M android/settings.gradle.kts
+ M lib/app/app_state.dart
+ M lib/core/app_config.dart
+ M lib/l10n/app_en.arb
+ M lib/l10n/app_localizations.dart
+ M lib/l10n/app_localizations_en.dart
+ M lib/l10n/app_localizations_zh.dart
+ M lib/l10n/app_zh.arb
+ M lib/main.dart
+ M lib/ui/app_shell.dart
+ M lib/ui/settings_page.dart
+ M pubspec.lock
+ M pubspec.yaml
+ M test/app_shell_shortcuts_test.dart
+ M test/test_fixtures.dart
+?? .omo/plans/pre02-update-check-remaining.md
+?? .omo/ulw-loop/
+?? docs/architecture-audit.md
+?? lib/core/app_version.dart
+?? lib/data/app_update_service.dart
+?? test/app_state_update_test.dart
+?? test/app_update_service_test.dart
+?? test/app_version_test.dart
+?? test/settings_update_card_test.dart
+Exit code: 0
+Cleanup: no spawned runtime state; build artifacts left under build/ by flutter build commands.

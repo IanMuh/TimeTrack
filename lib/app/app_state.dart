@@ -282,7 +282,7 @@ class AppState extends ChangeNotifier {
         unawaited(_rolloverRunningEntryIfNeeded());
       });
     } catch (error) {
-      errorMessage = error.toString();
+      errorMessage = _formatStartupError(error);
     } finally {
       isLoading = false;
       notifyListeners();
@@ -366,6 +366,14 @@ class AppState extends ChangeNotifier {
     }
     _startupUpdateCheckStarted = true;
     unawaited(checkForUpdates(silent: true));
+  }
+
+  String _formatStartupError(Object error) {
+    final message = error.toString();
+    if (message.toLowerCase().contains('databaseexception')) {
+      return '本地数据库启动失败。请关闭其他 TimeTrack 窗口后重试；如果仍然失败，请先备份数据库文件后再排查。';
+    }
+    return message;
   }
 
   Future<void> refresh() async {
