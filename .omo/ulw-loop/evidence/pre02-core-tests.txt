@@ -1,0 +1,16 @@
+COMMAND: flutter test test/app_version_test.dart test/app_update_service_test.dart test/app_state_update_test.dart
+START: 2026-06-25T07:31:51+08:00
+00:00 +0: loading D:/MyAPP/TimeTrack/test/app_version_test.dart
+00:00 +0: D:/MyAPP/TimeTrack/test/app_version_test.dart: AppVersion parses v prefix, prerelease, and build metadata
+00:00 +1: D:/MyAPP/TimeTrack/test/app_version_test.dart: AppVersion orders prerelease and stable semantic versions
+00:00 +2: D:/MyAPP/TimeTrack/test/app_version_test.dart: AppVersion rejects invalid versions
+00:00 +3: D:/MyAPP/TimeTrack/test/app_update_service_test.dart: AppUpdateService selects newer prerelease and preferred Android APK asset
+00:00 +4: D:/MyAPP/TimeTrack/test/app_update_service_test.dart: AppUpdateService ignores draft releases and stable current builds ignore prereleases
+00:00 +5: D:/MyAPP/TimeTrack/test/app_update_service_test.dart: AppUpdateService falls back to release page when no platform asset matches
+00:00 +6: D:/MyAPP/TimeTrack/test/app_update_service_test.dart: AppUpdateService returns failure for bad status and invalid payload
+00:00 +7: D:/MyAPP/TimeTrack/test/app_state_update_test.dart: initialize starts update check without blocking local startup
+00:00 +8: D:/MyAPP/TimeTrack/test/app_state_update_test.dart: manual check records available update and opens download
+00:00 +9: D:/MyAPP/TimeTrack/test/app_state_update_test.dart: failed manual check exposes error and clears stale update
+00:00 +10: All tests passed!
+EXIT_CODE: 0
+CLEANUP: no spawned runtime state

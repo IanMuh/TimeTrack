@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "createdAt": "2026-06-24T23:27:42.751Z",
+  "updatedAt": "2026-06-26T07:31:15.407Z",
+  "briefPath": ".omo/ulw-loop/brief.md",
+  "goalsPath": ".omo/ulw-loop/goals.json",
+  "ledgerPath": ".omo/ulw-loop/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-implement-the-approved-timetrack-pre",
+      "title": "Implement the approved TimeTrack pre0.2 update-check feature on branc...",
+      "objective": "Implement the approved TimeTrack pre0.2 update-check feature on branch codex/pre-0.2: keep docs/architecture-audit.md untouched; version 0.2.0-pre+2; GitHub Releases update check with AppVersion, AppUpdateService, AppState status/open download, settings update card, one-time AppShell snackbar, l10n, README release docs, focused tests, and verification. No silent download/install, no Supabase or schema changes.",
+      "status": "complete",
+      "successCriteria": [
+        {
+          "id": "C001",
+          "scenario": "CLI auxiliary surface: run flutter test test/app_version_test.dart test/app_update_service_test.dart test/app_state_update_test.dart. PASS iff exit code is 0 and stdout shows all targeted update logic tests passed.",
+          "userModel": "happy",
+          "expectedEvidence": ".omo/ulw-loop/evidence/pre02-core-tests.txt containing command, exit code, stdout tail, and cleanup: no spawned runtime state.",
+          "capturedEvidence": ".omo/ulw-loop/evidence/pre02-core-tests.txt: flutter test app_version/app_update_service/app_state_update exit 0; cleanup: no spawned runtime state",
+          "status": "pass",
+          "capturedAt": "2026-06-24T23:32:14.613Z"
+        },
+        {
+          "id": "C002",
+          "scenario": "Widget/GUI proxy surface: run focused Flutter widget tests for SettingsPage update card compact/expanded states and AppShell one-time update snackbar action. PASS iff exit code is 0 and tests cover checking, up-to-date, available, and failed states without Flutter overflow failures.",
+          "userModel": "edge",
+          "expectedEvidence": ".omo/ulw-loop/evidence/pre02-widget-tests.txt containing command, exit code, stdout tail, and cleanup: no spawned runtime state.",
+          "capturedEvidence": ".omo/ulw-loop/evidence/pre02-widget-tests.txt: flutter test settings_update_card/app_shell_shortcuts exit 0; cleanup: no spawned runtime state",
+          "status": "pass",
+          "capturedAt": "2026-06-26T04:02:31.913Z"
+        },
+        {
+          "id": "C003",
+          "scenario": "Release-readiness auxiliary surface: run flutter gen-l10n, flutter analyze, flutter test, flutter build windows --release, and flutter build apk --release; inspect README release docs and git status to confirm docs/architecture-audit.md remains untouched. PASS iff commands succeed or environment blockers are captured precisely, and release docs/config are present.",
+          "userModel": "regression",
+          "expectedEvidence": ".omo/ulw-loop/evidence/pre02-release-readiness.txt containing commands, exit codes, key output, blocker details if any, git status, and cleanup receipts.",
+          "capturedEvidence": ".omo/ulw-loop/evidence/pre02-release-readiness.txt: pub get/gen-l10n/analyze/test exit 0; Windows release build blocked by host Developer Mode symlink support requirement; APK release build exit 0 after Kotlin Gradle plugin 2.2.0; docs/config checks pass; docs/architecture-audit.md diff empty; cleanup: no spawned runtime state, build artifacts under build/",
+          "status": "pass",
+          "capturedAt": "2026-06-26T04:14:49.001Z"
+        }
+      ],
+      "attempt": 1,
+      "createdAt": "2026-06-24T23:27:42.751Z",
+      "updatedAt": "2026-06-26T07:31:15.407Z",
+      "startedAt": "2026-06-25T23:39:37.452Z",
+      "completedAt": "2026-06-26T07:31:15.407Z",
+      "evidence": "C001 core update logic tests passed; C002 settings update card and AppShell one-time snackbar widget tests passed; C003 release readiness passed with pub get, gen-l10n, analyze, full tests, APK release build, docs/config checks, and docs/architecture-audit.md diff empty; Windows release build attempted and blocked only by host Developer Mode symlink support requirement; final quality gate reran analyze and focused tests successfully."
+    }
+  ],
+  "codexObjective": "Complete the durable ulw-loop plan in .omo/ulw-loop/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/ledger.jsonl as the audit trail.",
+  "aggregateCompletion": {
+    "status": "complete",
+    "completedAt": "2026-06-26T07:31:15.407Z",
+    "evidence": "C001 core update logic tests passed; C002 settings update card and AppShell one-time snackbar widget tests passed; C003 release readiness passed with pub get, gen-l10n, analyze, full tests, APK release build, docs/config checks, and docs/architecture-audit.md diff empty; Windows release build attempted and blocked only by host Developer Mode symlink support requirement; final quality gate reran analyze and focused tests successfully.",
+    "codexGoal": {
+      "goal": {
+        "threadId": "019ef94d-092c-7ba1-9638-f252eb3585e8",
+        "objective": "Complete the durable ulw-loop plan in .omo/ulw-loop/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/ledger.jsonl as the audit trail.",
+        "status": "complete",
+        "tokensUsed": 3518011,
+        "timeUsedSeconds": 5726,
+        "createdAt": 1782343677,
+        "updatedAt": 1782459036
+      },
+      "remainingTokens": null,
+      "completionBudgetReport": null
+    }
+  }
+}

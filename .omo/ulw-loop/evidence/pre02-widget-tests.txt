@@ -1,0 +1,126 @@
+Command: flutter test test/settings_update_card_test.dart test/app_shell_shortcuts_test.dart
+00:00 +0: loading D:/MyAPP/TimeTrack/test/settings_update_card_test.dart
+00:00 +0: D:/MyAPP/TimeTrack/test/settings_update_card_test.dart: SettingsPage version update card renders update states on compact width without overflow
+00:01 +1: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+00:01 +2: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on expanded layout
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:01 +3: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: shell shows undo and redo controls on compact layout
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:02 +4: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo and redo keyboard shortcuts invoke state actions
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:02 +5: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: undo shortcut does not override focused text editing
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:03 +6: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: destination and timeline shortcuts work
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:03 +7: D:/MyAPP/TimeTrack/test/app_shell_shortcuts_test.dart: update snackbar appears once and action opens settings
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:04 +8: All tests passed!
+Exit code: 0
+Cleanup: no spawned runtime state
+[H[2J[3J
