@@ -5,9 +5,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class LocalDatabase {
-  LocalDatabase({Database? database}) : _database = database;
+  LocalDatabase({
+    Database? database,
+    String? databasePath,
+  })  : assert(database == null || databasePath == null),
+        _database = database,
+        _databasePath = databasePath;
 
   Database? _database;
+  final String? _databasePath;
 
   Future<Database> get db async {
     if (_database != null) {
@@ -19,18 +25,31 @@ class LocalDatabase {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final appDir = await getApplicationSupportDirectory();
-    final dbPath = p.join(appDir.path, 'timetrack.sqlite');
+    final dbPath = _databasePath ?? await _defaultDatabasePath();
     final db = await openDatabase(
       dbPath,
       version: 7,
+      onConfigure: _configure,
       onCreate: _create,
       onUpgrade: _upgrade,
+      onOpen: _open,
     );
     _database = db;
-    await db.execute('PRAGMA foreign_keys = ON');
-    await db.execute('PRAGMA journal_mode=WAL');
     return db;
+  }
+
+  Future<String> _defaultDatabasePath() async {
+    final appDir = await getApplicationSupportDirectory();
+    return p.join(appDir.path, 'timetrack.sqlite');
+  }
+
+  Future<void> _configure(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON');
+    await _tryEnableWal(db);
+  }
+
+  Future<void> _open(Database db) async {
+    await ensureSchema(db);
   }
 
   Future<void> _create(Database db, int version) async {
@@ -58,9 +77,16 @@ class LocalDatabase {
     }
   }
 
+  static Future<void> ensureSchema(Database db) async {
+    await createSchema(db);
+    await migrateProfileSettingsReminderSchema(db);
+    await migrateUnassignedActivitySchema(db);
+    await migrateEntrySnapshotsAndOneOffSchema(db);
+  }
+
   static Future<void> createSchema(Database db) async {
     await db.execute('''
-      create table activities (
+      create table if not exists activities (
         id text primary key,
         user_id text,
         name text not null,
@@ -74,7 +100,7 @@ class LocalDatabase {
     ''');
 
     await db.execute('''
-      create table time_entries (
+      create table if not exists time_entries (
         id text primary key,
         user_id text,
         activity_id text not null,
@@ -91,7 +117,7 @@ class LocalDatabase {
     ''');
 
     await db.execute('''
-      create table profile_settings (
+      create table if not exists profile_settings (
         id integer primary key check (id = 1),
         user_id text,
         reminder_minutes integer not null default 45,
@@ -105,16 +131,16 @@ class LocalDatabase {
     ''');
 
     await db.execute(
-      'create index idx_time_entries_start_at on time_entries(start_at)',
+      'create index if not exists idx_time_entries_start_at on time_entries(start_at)',
     );
     await db.execute(
-      'create index idx_time_entries_updated_at on time_entries(updated_at)',
+      'create index if not exists idx_time_entries_updated_at on time_entries(updated_at)',
     );
     await db.execute(
-      'create index idx_activities_updated_at on activities(updated_at)',
+      'create index if not exists idx_activities_updated_at on activities(updated_at)',
     );
     await db.execute(
-      'create index idx_time_entries_activity_id on time_entries(activity_id)',
+      'create index if not exists idx_time_entries_activity_id on time_entries(activity_id)',
     );
 
     await createActionLogsSchema(db);
@@ -239,6 +265,15 @@ class LocalDatabase {
     final exists = columns.any((row) => row['name'] == column);
     if (!exists) {
       await db.execute('alter table $table add column $column $definition');
+    }
+  }
+
+  static Future<void> _tryEnableWal(Database db) async {
+    try {
+      await db.rawQuery('PRAGMA journal_mode = WAL');
+    } on DatabaseException {
+      // WAL is an optimization. Keep local startup available when a platform
+      // SQLite build or transient lock cannot switch journal mode.
     }
   }
 }

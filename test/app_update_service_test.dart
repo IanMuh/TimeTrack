@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -294,6 +295,37 @@ void main() {
         ),
         contains('Invalid'),
       );
+    });
+
+    test('normalizes transport failures without exposing exception details',
+        () async {
+      final failures = <Object>[
+        const HandshakeException('CERTIFICATE_VERIFY_FAILED'),
+        const SocketException('offline'),
+        http.ClientException('connection closed'),
+      ];
+
+      for (final failure in failures) {
+        final service = AppUpdateService(
+          client: _FakeClient((request) async => throw failure),
+          releasesUri: Uri.parse('https://example.com/releases'),
+        );
+
+        final result = await service.checkForUpdate(
+          currentVersion: AppVersion.parse('0.1.0-pre'),
+          platform: TargetPlatform.android,
+        );
+
+        final message = result.fold(
+          onSuccess: (_) => fail('Expected update check to fail.'),
+          onFailure: (message) => message,
+        );
+        expect(message, contains('Unable to reach the update server'));
+        expect(message, isNot(contains(failure.runtimeType.toString())));
+        expect(message, isNot(contains('CERTIFICATE_VERIFY_FAILED')));
+        expect(message, isNot(contains('offline')));
+        expect(message, isNot(contains('connection closed')));
+      }
     });
   });
 }

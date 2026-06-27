@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -60,6 +61,8 @@ class AppUpdateService {
 
   static final defaultReleasesUri =
       Uri.parse('https://api.github.com/repos/IanMuh/TimeTrack/releases');
+  static const _networkFailureMessage =
+      'Unable to reach the update server. Check your network connection and system certificate settings.';
 
   final http.Client _client;
   final Uri _releasesUri;
@@ -83,6 +86,7 @@ class AppUpdateService {
         headers: const {
           'Accept': 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'TimeTrack',
         },
       ).timeout(_timeout);
       if (response.statusCode != 200) {
@@ -118,6 +122,14 @@ class AppUpdateService {
       return AppSuccess(candidates.first);
     } on TimeoutException {
       return const AppFailure('Update check timed out.');
+    } on HandshakeException {
+      return const AppFailure(_networkFailureMessage);
+    } on SocketException {
+      return const AppFailure(_networkFailureMessage);
+    } on http.ClientException {
+      return const AppFailure(_networkFailureMessage);
+    } on IOException {
+      return const AppFailure(_networkFailureMessage);
     } on FormatException catch (error) {
       return AppFailure('Invalid update response: ${error.message}.');
     } catch (error) {
