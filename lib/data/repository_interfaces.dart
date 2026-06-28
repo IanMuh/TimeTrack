@@ -1,6 +1,7 @@
 import '../core/result.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
+import '../domain/activity_category.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 
@@ -45,6 +46,56 @@ abstract class ISettingsRepository {
   Future<AppResult<void>> saveSettings(ProfileSettings settings);
 
   Future<AppResult<void>> replaceSettingsIfRemoteNewer(ProfileSettings remote);
+}
+
+abstract class IActivityCategoryRepository {
+  Future<AppResult<List<ActivityCategory>>> categories({
+    bool includeDeleted = false,
+  });
+
+  Future<AppResult<ActivityCategory>> createCategory({
+    required String name,
+    required int color,
+    String? userId,
+  });
+
+  Future<AppResult<ActivityCategory>> updateCategory({
+    required ActivityCategory category,
+    required String name,
+    required int color,
+  });
+
+  Future<AppResult<void>> deleteCategory(ActivityCategory category);
+
+  Future<AppResult<List<ActivityCategoryLink>>> activityCategoryLinks({
+    bool includeDeleted = false,
+  });
+
+  Future<AppResult<List<ActivityCategoryLink>>> linksForActivity(
+    String activityId, {
+    bool includeDeleted = false,
+  });
+
+  Future<AppResult<List<ActivityCategoryLink>>> setActivityCategories({
+    required String activityId,
+    required String? primaryCategoryId,
+    required List<String> secondaryCategoryIds,
+    String? userId,
+  });
+
+  Future<AppResult<List<ActivityCategory>>> categoriesSince(DateTime since);
+
+  Future<AppResult<List<ActivityCategoryLink>>> categoryLinksSince(
+    DateTime since,
+  );
+
+  Future<AppResult<void>> replaceCategoryIfRemoteNewer(
+    ActivityCategory remote,
+  );
+
+  Future<AppResult<void>> replaceCategoryLinkIfRemoteNewer(
+    ActivityCategoryLink remote,
+  );
 }
 
 abstract class IDeviceIdStore {

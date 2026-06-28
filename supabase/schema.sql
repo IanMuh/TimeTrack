@@ -17,6 +17,27 @@ alter table public.activities
 alter table public.activities
   add column if not exists is_one_off boolean not null default false;
 
+create table if not exists public.activity_categories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  color integer not null,
+  updated_at timestamptz not null default now(),
+  is_deleted boolean not null default false
+);
+
+create table if not exists public.activity_category_links (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  activity_id uuid not null references public.activities(id) on delete cascade,
+  category_id uuid not null references public.activity_categories(id)
+    on delete cascade,
+  is_primary boolean not null default false,
+  sort_order integer not null default 0,
+  updated_at timestamptz not null default now(),
+  is_deleted boolean not null default false
+);
+
 create table if not exists public.time_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -67,6 +88,18 @@ create table if not exists public.action_logs (
 create index if not exists activities_user_updated_idx
   on public.activities(user_id, updated_at);
 
+create index if not exists activity_categories_user_updated_idx
+  on public.activity_categories(user_id, updated_at);
+
+create index if not exists activity_category_links_user_updated_idx
+  on public.activity_category_links(user_id, updated_at);
+
+create index if not exists activity_category_links_activity_idx
+  on public.activity_category_links(activity_id);
+
+create index if not exists activity_category_links_category_idx
+  on public.activity_category_links(category_id);
+
 create index if not exists time_entries_user_start_idx
   on public.time_entries(user_id, start_at);
 
@@ -80,6 +113,8 @@ create index if not exists action_logs_user_updated_idx
   on public.action_logs(user_id, updated_at);
 
 alter table public.activities enable row level security;
+alter table public.activity_categories enable row level security;
+alter table public.activity_category_links enable row level security;
 alter table public.time_entries enable row level security;
 alter table public.profiles enable row level security;
 alter table public.action_logs enable row level security;
@@ -97,6 +132,44 @@ create policy "Users can insert own activities"
 drop policy if exists "Users can update own activities" on public.activities;
 create policy "Users can update own activities"
   on public.activities for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read own activity categories"
+  on public.activity_categories;
+create policy "Users can read own activity categories"
+  on public.activity_categories for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own activity categories"
+  on public.activity_categories;
+create policy "Users can insert own activity categories"
+  on public.activity_categories for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own activity categories"
+  on public.activity_categories;
+create policy "Users can update own activity categories"
+  on public.activity_categories for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read own activity category links"
+  on public.activity_category_links;
+create policy "Users can read own activity category links"
+  on public.activity_category_links for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own activity category links"
+  on public.activity_category_links;
+create policy "Users can insert own activity category links"
+  on public.activity_category_links for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own activity category links"
+  on public.activity_category_links;
+create policy "Users can update own activity category links"
+  on public.activity_category_links for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 

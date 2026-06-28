@@ -34,6 +34,8 @@ void main() {
       tables,
       containsAll(<String>{
         'activities',
+        'activity_categories',
+        'activity_category_links',
         'time_entries',
         'profile_settings',
         'action_logs',
@@ -77,7 +79,15 @@ void main() {
       whereArgs: const ['legacy-activity'],
     );
 
-    expect(tables, containsAll(<String>{'action_logs', 'sync_peers'}));
+    expect(
+      tables,
+      containsAll(<String>{
+        'action_logs',
+        'activity_categories',
+        'activity_category_links',
+        'sync_peers',
+      }),
+    );
     expect(tables, contains('app_metadata'));
     expect(
         activityColumns, containsAll(<String>['is_unassigned', 'is_one_off']));

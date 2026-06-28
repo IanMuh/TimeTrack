@@ -447,6 +447,141 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('single-line timeline restores horizontal zoom scrolling',
+      (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    state.dayEntries = [
+      _entry(
+        id: 'entry',
+        startAt: DateTime(2026, 1, 2, 9),
+        endAt: DateTime(2026, 1, 2, 10),
+      ),
+    ];
+
+    await _pumpTimeline(tester, state, width: 520);
+    await tester.drag(find.byType(Slider), const Offset(180, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('单行缩放'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable &&
+            axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('segmented timeline splits a day into custom segments',
+      (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    state.dayEntries = [
+      _entry(
+        id: 'entry',
+        startAt: DateTime(2026, 1, 2, 9),
+        endAt: DateTime(2026, 1, 2, 10),
+      ),
+    ];
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('分段显示'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('增加分段'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('每天 5 段'), findsOneWidget);
+    expect(find.textContaining('00:00 - 04:48'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable &&
+            axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
+      ),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('timeline sorts entry and action lists from controls',
+      (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    state
+      ..dayEntries = [
+        _entry(
+          id: 'short',
+          startAt: DateTime(2026, 1, 2, 8),
+          endAt: DateTime(2026, 1, 2, 8, 20),
+        ),
+        _entry(
+          id: 'long',
+          startAt: DateTime(2026, 1, 2, 9),
+          endAt: DateTime(2026, 1, 2, 11),
+        ),
+      ]
+      ..dayActionLogs = [
+        ActionLog(
+          id: 'late',
+          userId: null,
+          actionType: ActionType.stop,
+          activityId: 'work',
+          entryId: null,
+          message: '停止事项',
+          occurredAt: DateTime(2026, 1, 2, 11),
+          deviceId: 'z-device',
+          updatedAt: DateTime(2026, 1, 2, 11),
+          isDeleted: false,
+        ),
+        ActionLog(
+          id: 'early',
+          userId: null,
+          actionType: ActionType.switch_,
+          activityId: 'work',
+          entryId: null,
+          message: '切换事项',
+          occurredAt: DateTime(2026, 1, 2, 8),
+          deviceId: 'a-device',
+          updatedAt: DateTime(2026, 1, 2, 8),
+          isDeleted: false,
+        ),
+      ];
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(
+      find.byType(DropdownButtonFormField<TimelineEntrySortMetric>),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('时长').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('倒序'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('2 小时 0 分钟')).dy,
+      lessThan(tester.getTopLeft(find.text('20 分钟')).dy),
+    );
+
+    await tester.tap(find.text('指令'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<ActionLogSortMetric>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('设备').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.textContaining('a-device')).dy,
+      lessThan(tester.getTopLeft(find.textContaining('z-device')).dy),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('cross-day entries render the selected-day interval', (
     tester,
   ) async {

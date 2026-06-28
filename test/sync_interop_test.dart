@@ -6,6 +6,7 @@ import 'package:timetrack/data/sync_bundle.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/domain/activity_category.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
 import 'test_fixtures.dart';
@@ -84,6 +85,69 @@ void main() {
     expect(importedEntry.activityNameSnapshot, '一次性协助');
     expect(importedEntry.activityColorSnapshot, 0xffdb2777);
     expect(settings.mergeNeighborThresholdMinutes, 8);
+  });
+
+  test('bundle preserves activity categories and primary tag links', () async {
+    final source = await buildSyncRepo('source');
+    final activity = await source.repository.createActivity(
+      name: '深度工作',
+      color: 0xff2563eb,
+    );
+    final work = await source.repository.createCategory(
+      name: '工作',
+      color: 0xff0f766e,
+    );
+    final focus = await source.repository.createCategory(
+      name: '专注',
+      color: 0xff7c3aed,
+    );
+    await source.repository.setActivityCategories(
+      activityId: activity.id,
+      primaryCategoryId: work.id,
+      secondaryCategoryIds: [focus.id],
+    );
+
+    final target = await buildSyncRepo('target');
+    await target.repository.mergeBundle(await source.repository.exportBundle());
+
+    final categories = await target.repository.categories();
+    final links = await target.repository.activityCategoryLinks();
+
+    expect(categories.map((item) => item.name), containsAll(['工作', '专注']));
+    expect(
+      links,
+      containsAll(<Matcher>[
+        isA<ActivityCategoryLink>()
+            .having((link) => link.activityId, 'activityId', activity.id)
+            .having((link) => link.categoryId, 'categoryId', work.id)
+            .having((link) => link.isPrimary, 'isPrimary', isTrue),
+        isA<ActivityCategoryLink>()
+            .having((link) => link.activityId, 'activityId', activity.id)
+            .having((link) => link.categoryId, 'categoryId', focus.id)
+            .having((link) => link.isPrimary, 'isPrimary', isFalse),
+      ]),
+    );
+  });
+
+  test('v1 bundles decode with empty category collections', () {
+    final decoded = const SyncBundleCodec().fromJson({
+      'schema_version': 1,
+      'exported_at': DateTime(2026, 1, 1).toIso8601String(),
+      'source_device_id': 'legacy',
+      'activities': const [],
+      'time_entries': const [],
+      'action_logs': const [],
+      'profile_settings': {
+        'id': 1,
+        'user_id': null,
+        'reminder_minutes': 45,
+        'timezone': 'UTC',
+        'updated_at': DateTime(2026, 1, 1).toIso8601String(),
+      },
+    });
+
+    expect(decoded.categories, isEmpty);
+    expect(decoded.categoryLinks, isEmpty);
   });
 
   test('newer records win and older records do not overwrite local data',

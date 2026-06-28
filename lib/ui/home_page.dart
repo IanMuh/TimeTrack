@@ -8,7 +8,10 @@ import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'activity_colors.dart';
 import 'app_shell.dart';
+import 'sort_controls.dart';
 import 'ui_components.dart';
+
+enum ActivitySortMetric { name, color, primaryCategory, updatedAt }
 
 class HomePage extends StatefulWidget {
   const HomePage({required this.state, super.key});
@@ -21,6 +24,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String? _pendingActivityId;
+  ActivitySortMetric _activitySortMetric = ActivitySortMetric.name;
+  SortOrder _activitySortOrder = SortOrder.ascending;
 
   Future<void> _confirmOrSwitch(Activity activity) async {
     if (_pendingActivityId != activity.id) {
@@ -41,9 +46,7 @@ class _HomePageState extends State<HomePage> {
       animation: state,
       builder: (context, _) {
         final runningActivity = state.runningActivity;
-        final switchableActivities = state.activities.where(
-          (activity) => !activity.isUnassigned && !activity.isOneOff,
-        );
+        final switchableActivities = _sortedSwitchableActivities(state);
         final pendingActivity = _pendingActivityId == null
             ? null
             : state.activityById(_pendingActivityId!);
@@ -101,12 +104,24 @@ class _HomePageState extends State<HomePage> {
               subtitle: pendingActivity == null ||
                       pendingActivity.id == runningActivity?.id
                   ? AppLocalizations.of(context)!.quickSwitchHint
-                  : AppLocalizations.of(context)!.quickSwitchSelected(pendingActivity.name),
+                  : AppLocalizations.of(context)!
+                      .quickSwitchSelected(pendingActivity.name),
               trailing: IconButton.filledTonal(
                 tooltip: AppLocalizations.of(context)!.sync,
                 onPressed: state.hasSyncTarget ? state.sync : null,
                 icon: const Icon(Icons.sync),
               ),
+            ),
+            const SizedBox(height: 10),
+            _ActivitySortControls(
+              metric: _activitySortMetric,
+              order: _activitySortOrder,
+              onMetricChanged: (value) {
+                setState(() => _activitySortMetric = value);
+              },
+              onOrderChanged: (value) {
+                setState(() => _activitySortOrder = value);
+              },
             ),
             const SizedBox(height: 12),
             LayoutBuilder(
@@ -159,6 +174,94 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
+
+  List<Activity> _sortedSwitchableActivities(AppState state) {
+    final activities = [
+      for (final activity in state.activities)
+        if (!activity.isUnassigned && !activity.isOneOff) activity,
+    ];
+    activities.sort((a, b) {
+      final compare = switch (_activitySortMetric) {
+        ActivitySortMetric.name => a.name.compareTo(b.name),
+        ActivitySortMetric.color => a.color.compareTo(b.color),
+        ActivitySortMetric.primaryCategory =>
+          _categoryName(state, a).compareTo(_categoryName(state, b)),
+        ActivitySortMetric.updatedAt => a.updatedAt.compareTo(b.updatedAt),
+      };
+      final directed =
+          _activitySortOrder == SortOrder.ascending ? compare : -compare;
+      if (directed != 0) return directed;
+      return a.name.compareTo(b.name);
+    });
+    return activities;
+  }
+
+  String _categoryName(AppState state, Activity activity) {
+    return state.primaryCategoryForActivity(activity.id)?.name ?? '';
+  }
+}
+
+class _ActivitySortControls extends StatelessWidget {
+  const _ActivitySortControls({
+    required this.metric,
+    required this.order,
+    required this.onMetricChanged,
+    required this.onOrderChanged,
+  });
+
+  final ActivitySortMetric metric;
+  final SortOrder order;
+  final ValueChanged<ActivitySortMetric> onMetricChanged;
+  final ValueChanged<SortOrder> onOrderChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: compact ? double.infinity : 180,
+              child: DropdownButtonFormField<ActivitySortMetric>(
+                initialValue: metric,
+                decoration: const InputDecoration(
+                  labelText: '排序依据',
+                  prefixIcon: Icon(Icons.sort),
+                ),
+                items: [
+                  for (final value in ActivitySortMetric.values)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(_activitySortMetricLabel(value)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) onMetricChanged(value);
+                },
+              ),
+            ),
+            SortOrderSegmentedButton(
+              value: order,
+              onChanged: onOrderChanged,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _activitySortMetricLabel(ActivitySortMetric value) {
+    return switch (value) {
+      ActivitySortMetric.name => '名称',
+      ActivitySortMetric.color => '颜色',
+      ActivitySortMetric.primaryCategory => '主分类',
+      ActivitySortMetric.updatedAt => '最近更新',
+    };
+  }
 }
 
 class CurrentStatusCard extends StatelessWidget {
@@ -206,7 +309,9 @@ class CurrentStatusCard extends StatelessWidget {
                   ),
                 ),
                 StatusPill(
-                  label: runningActivity == null ? AppLocalizations.of(context)!.notStarted : AppLocalizations.of(context)!.recording,
+                  label: runningActivity == null
+                      ? AppLocalizations.of(context)!.notStarted
+                      : AppLocalizations.of(context)!.recording,
                   icon: runningActivity == null
                       ? Icons.pause_circle_outline
                       : Icons.radio_button_checked,
@@ -216,7 +321,8 @@ class CurrentStatusCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              runningActivity?.name ?? AppLocalizations.of(context)!.notStartedRecord,
+              runningActivity?.name ??
+                  AppLocalizations.of(context)!.notStartedRecord,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -237,7 +343,8 @@ class CurrentStatusCard extends StatelessWidget {
                 builder: (context, now, _) {
                   final duration = runningDurationAt(now);
                   return Text(
-                    AppLocalizations.of(context)!.elapsedDuration(formatDurationCompact(duration)),
+                    AppLocalizations.of(context)!
+                        .elapsedDuration(formatDurationCompact(duration)),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -313,10 +420,13 @@ class ActivitySwitchButton extends StatelessWidget {
             button: true,
             selected: selected,
             label: pending
-                ? AppLocalizations.of(context)!.confirmSwitchSemantics(activity.name)
+                ? AppLocalizations.of(context)!
+                    .confirmSwitchSemantics(activity.name)
                 : selected
-                    ? AppLocalizations.of(context)!.currentActivitySemantics(activity.name)
-                    : AppLocalizations.of(context)!.switchToSemantics(activity.name),
+                    ? AppLocalizations.of(context)!
+                        .currentActivitySemantics(activity.name)
+                    : AppLocalizations.of(context)!
+                        .switchToSemantics(activity.name),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
@@ -351,7 +461,8 @@ class ActivitySwitchButton extends StatelessWidget {
                     SizedBox.square(
                       dimension: 40,
                       child: Tooltip(
-                        message: AppLocalizations.of(context)!.systemActivityCannotEdit,
+                        message: AppLocalizations.of(context)!
+                            .systemActivityCannotEdit,
                         child: Icon(
                           Icons.lock_outline,
                           color: foreground.withValues(alpha: 0.72),
@@ -431,6 +542,16 @@ Future<Activity?> showActivityEditorDialog(
   final controller = TextEditingController(text: activity?.name ?? '');
   var selectedColor = activity?.color ??
       nextActivityColor(state.activities.map((activity) => activity.color));
+  var primaryCategoryId = activity == null
+      ? null
+      : state.primaryCategoryForActivity(activity.id)?.id;
+  final secondaryCategoryIds = activity == null
+      ? <String>{}
+      : {
+          for (final category
+              in state.secondaryCategoriesForActivity(activity.id))
+            category.id,
+        };
   Activity? saved;
   await showDialog<void>(
     context: context,
@@ -438,7 +559,9 @@ Future<Activity?> showActivityEditorDialog(
       return StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: Text(activity == null ? AppLocalizations.of(context)!.newActivity : AppLocalizations.of(context)!.editActivityTitle),
+            title: Text(activity == null
+                ? AppLocalizations.of(context)!.newActivity
+                : AppLocalizations.of(context)!.editActivityTitle),
             content: SizedBox(
               width: dialogContentWidth(context, maxWidth: 420),
               child: SingleChildScrollView(
@@ -454,6 +577,62 @@ Future<Activity?> showActivityEditorDialog(
                       ),
                       autofocus: true,
                     ),
+                    if (state.activityCategories.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String?>(
+                        initialValue: primaryCategoryId,
+                        decoration: const InputDecoration(
+                          labelText: '主分类',
+                          prefixIcon: Icon(Icons.category_outlined),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('未分类'),
+                          ),
+                          for (final category in state.activityCategories)
+                            DropdownMenuItem<String?>(
+                              value: category.id,
+                              child: Text(category.name),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            primaryCategoryId = value;
+                            secondaryCategoryIds.remove(value);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final category in state.activityCategories)
+                            FilterChip(
+                              label: Text(category.name),
+                              avatar: CircleAvatar(
+                                radius: 6,
+                                backgroundColor: Color(category.color),
+                              ),
+                              selected:
+                                  secondaryCategoryIds.contains(category.id),
+                              onSelected: category.id == primaryCategoryId
+                                  ? null
+                                  : (selected) {
+                                      setState(() {
+                                        if (selected) {
+                                          secondaryCategoryIds.add(category.id);
+                                        } else {
+                                          secondaryCategoryIds
+                                              .remove(category.id);
+                                        }
+                                      });
+                                    },
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     ActivityColorPicker(
                       selectedColor: selectedColor,
@@ -471,9 +650,11 @@ Future<Activity?> showActivityEditorDialog(
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: Text(AppLocalizations.of(context)!.deleteActivityTitle),
+                        title: Text(
+                            AppLocalizations.of(context)!.deleteActivityTitle),
                         content: Text(
-                          AppLocalizations.of(context)!.confirmDeleteActivity(activity.name),
+                          AppLocalizations.of(context)!
+                              .confirmDeleteActivity(activity.name),
                         ),
                         actions: [
                           TextButton(
@@ -513,18 +694,27 @@ Future<Activity?> showActivityEditorDialog(
                       ? await state.createActivity(
                           name,
                           selectedColor,
+                          primaryCategoryId: primaryCategoryId,
+                          secondaryCategoryIds:
+                              secondaryCategoryIds.toList(growable: false),
                         )
                       : await state.updateActivity(
                           activity,
                           name: name,
                           color: selectedColor,
+                          updateCategories: true,
+                          primaryCategoryId: primaryCategoryId,
+                          secondaryCategoryIds:
+                              secondaryCategoryIds.toList(growable: false),
                         );
                   if (context.mounted) {
                     Navigator.pop(context);
                   }
                 },
                 icon: Icon(activity == null ? Icons.add : Icons.save_outlined),
-                label: Text(activity == null ? AppLocalizations.of(context)!.create : AppLocalizations.of(context)!.save),
+                label: Text(activity == null
+                    ? AppLocalizations.of(context)!.create
+                    : AppLocalizations.of(context)!.save),
               ),
             ],
           );
@@ -718,7 +908,8 @@ class ActivityColorPicker extends StatelessWidget {
           children: [
             for (final colorValue in activityPalette)
               IconButton(
-                tooltip: AppLocalizations.of(context)!.selectColorTooltip(_formatHexColor(colorValue)),
+                tooltip: AppLocalizations.of(context)!
+                    .selectColorTooltip(_formatHexColor(colorValue)),
                 onPressed: () => onColorChanged(colorValue),
                 icon: Icon(
                   selectedColor == colorValue

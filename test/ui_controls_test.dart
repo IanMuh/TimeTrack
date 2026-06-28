@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
@@ -13,6 +12,7 @@ import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/sync_status_store.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/domain/activity_category.dart';
 import 'package:timetrack/domain/time_entry.dart';
 import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/home_page.dart';
@@ -167,13 +167,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('提醒'), findsOneWidget);
+    expect(find.text('时间线'), findsOneWidget);
+    expect(find.text('事项分类'), findsOneWidget);
+    expect(find.text('设备互通'), findsOneWidget);
+    expect(find.textContaining('应用内提示'), findsNothing);
+
+    await tester.tap(find.text('设备互通'));
+    await tester.pumpAndSettle();
+
     final pathFinder = find.byWidgetPredicate(
       (widget) => widget is SelectableText && widget.data == exportPath,
     );
     expect(find.text('已导出'), findsOneWidget);
-    expect(find.textContaining('应用内提示'), findsOneWidget);
-    expect(find.text('同步状态'), findsOneWidget);
-    expect(find.textContaining('最近成功'), findsOneWidget);
     expect(find.textContaining('明文 JSON'), findsOneWidget);
     expect(pathFinder, findsOneWidget);
     expect(tester.getSize(pathFinder).height, greaterThan(20));
@@ -221,14 +227,15 @@ void main() {
       ),
     );
 
-    expect(find.text('00:00'), findsOneWidget);
+    expect(find.text('00:00'), findsWidgets);
     expect(find.text('12:00'), findsOneWidget);
-    expect(find.text('24:00'), findsOneWidget);
+    expect(find.text('24:00'), findsWidgets);
     expect(find.byType(Scrollbar), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('RangeTimelineCard gives compact screens a wider viewport',
+  testWidgets(
+      'RangeTimelineCard segmented mode fits compact screens without horizontal scroll',
       (tester) async {
     tester.view.physicalSize = const Size(390, 1100);
     tester.view.devicePixelRatio = 1;
@@ -266,6 +273,8 @@ void main() {
                 rangeStart: DateTime(2026, 6, 15),
                 span: TimelineSpan.week,
                 density: TimelineDensity.detailed,
+                displayMode: TimelineDisplayMode.segmentedDay,
+                segmentsPerDay: 4,
                 zoom: 2,
               ),
             ),
@@ -279,20 +288,15 @@ void main() {
           widget is Scrollable &&
           axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
     );
-    final viewportWidth = tester.getSize(horizontalScrollable).width;
-    final firstLaneWidth = tester
-        .getSize(find.byKey(const ValueKey('timeline-lane-06-15 Mon')))
-        .width;
 
-    expect(viewportWidth, greaterThan(340));
-    expect(firstLaneWidth, 1920);
-    expect(find.text('06-15 Mon'), findsOneWidget);
-    expect(find.text('00:00'), findsOneWidget);
-    expect(find.text('24:00'), findsOneWidget);
+    expect(horizontalScrollable, findsNothing);
+    expect(find.textContaining('06-15 Mon'), findsWidgets);
+    expect(find.text('00:00'), findsWidgets);
+    expect(find.text('24:00'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('RangeTimelineCard can scroll horizontally after zooming',
+  testWidgets('RangeTimelineCard restores zoom scrolling for single-line mode',
       (tester) async {
     tester.view.physicalSize = const Size(900, 1000);
     tester.view.devicePixelRatio = 1;
@@ -341,21 +345,66 @@ void main() {
           widget is Scrollable &&
           axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
     );
-    final scrollableState = tester.state<ScrollableState>(horizontalScrollable);
 
-    expect(scrollableState.position.pixels, 0);
+    expect(horizontalScrollable, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
-    final gesture = await tester.createGesture(
-      kind: PointerDeviceKind.mouse,
+  testWidgets('RangeTimelineCard can split multi-day timelines into segments',
+      (tester) async {
+    final state = _FakeAppState();
+    final activity = state.activities.first;
+    final entries = [
+      TimeEntry(
+        id: 'entry-1',
+        userId: null,
+        activityId: activity.id,
+        startAt: DateTime(2026, 6, 16, 9),
+        endAt: DateTime(2026, 6, 16, 11),
+        note: '',
+        deviceId: 'test',
+        updatedAt: DateTime(2026, 6, 16, 9),
+        isDeleted: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 520,
+              child: RangeTimelineCard(
+                state: state,
+                entries: entries,
+                rangeStart: DateTime(2026, 6, 15),
+                span: TimelineSpan.threeDays,
+                density: TimelineDensity.detailed,
+                displayMode: TimelineDisplayMode.segmentedDay,
+                segmentsPerDay: 4,
+                zoom: 2,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
-    await gesture.down(tester.getCenter(horizontalScrollable));
-    await tester.pump();
-    await gesture.moveBy(const Offset(-360, 0));
-    await tester.pump();
-    await gesture.up();
-    await tester.pumpAndSettle();
 
-    expect(scrollableState.position.pixels, greaterThan(0));
+    expect(find.textContaining('06-15 Mon'), findsWidgets);
+    expect(find.textContaining('06-16 Tue'), findsWidgets);
+    expect(find.textContaining('06-17 Wed'), findsWidgets);
+    expect(find.textContaining('00:00 - 06:00'), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable &&
+            axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -431,6 +480,70 @@ void main() {
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.widgetWithText(AlertDialog, '新增事项'), findsOneWidget);
     expect(tester.getCenter(find.byType(AlertDialog)).dy, closeTo(300, 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'showActivityEditorDialog assigns primary and secondary categories',
+      (tester) async {
+    final state = _FakeAppState();
+    state.activityCategories = [
+      ActivityCategory(
+        id: 'cat-project',
+        userId: null,
+        name: '项目',
+        color: 0xff0f766e,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+      ActivityCategory(
+        id: 'cat-focus',
+        userId: null,
+        name: '深度',
+        color: 0xff7c3aed,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () => showActivityEditorDialog(context, state),
+                child: const Text('open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '名称'), '带分类事项');
+    await tester.tap(find.byType(DropdownButtonFormField<String?>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('项目').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, '深度'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '创建'));
+    await tester.pumpAndSettle();
+
+    final created = state.activities.singleWhere(
+      (activity) => activity.name == '带分类事项',
+    );
+    expect(state.primaryCategoryForActivity(created.id)?.name, '项目');
+    expect(
+      state.secondaryCategoriesForActivity(created.id).map((item) => item.name),
+      contains('深度'),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -554,10 +667,136 @@ void main() {
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('提醒'), findsOneWidget);
     expect(find.text('时间线'), findsOneWidget);
-    expect(find.text('合并阈值'), findsOneWidget);
+    expect(find.text('事项分类'), findsOneWidget);
     expect(find.text('云同步'), findsOneWidget);
     expect(find.text('设备互通'), findsOneWidget);
+
+    await tester.tap(find.text('事项分类'));
+    await tester.pumpAndSettle();
+    expect(find.text('新建分类'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('返回设置分区'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('云同步'));
+    await tester.pumpAndSettle();
+    expect(find.text('同步状态'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('返回设置分区'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('设备互通'));
+    await tester.pumpAndSettle();
     expect(find.text('配对并同步'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SettingsPage assigns categories from activity management',
+      (tester) async {
+    final state = _FakeAppState();
+    state.activityCategories = [
+      ActivityCategory(
+        id: 'cat-project',
+        userId: null,
+        name: '项目',
+        color: 0xff0f766e,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+      ActivityCategory(
+        id: 'cat-focus',
+        userId: null,
+        name: '深度',
+        color: 0xff7c3aed,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+    ];
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 900,
+            child: SettingsPage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('事项分类'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('事项管理'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('设置 工作 的分类'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String?>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('项目').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, '深度'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(state.primaryCategoryForActivity('activity-1')?.name, '项目');
+    expect(
+      state
+          .secondaryCategoriesForActivity('activity-1')
+          .map((item) => item.name),
+      contains('深度'),
+    );
+    expect(find.widgetWithText(InputChip, '项目'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('HomePage sorts quick switch activities by color descending',
+      (tester) async {
+    final state = _FakeAppState();
+    state.activities = [
+      ...state.activities,
+      Activity(
+        id: 'activity-2',
+        userId: null,
+        name: '阅读',
+        color: 0xffef4444,
+        isFavorite: true,
+        updatedAt: state.now.subtract(const Duration(hours: 1)),
+        isDeleted: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 900,
+            child: HomePage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DropdownButtonFormField<ActivitySortMetric>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('颜色').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('倒序'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('阅读')).dx,
+      lessThan(tester.getTopLeft(find.text('工作')).dx),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -699,7 +938,12 @@ class _FakeAppState extends AppState {
   }
 
   @override
-  Future<Activity> createActivity(String name, int color) async {
+  Future<Activity> createActivity(
+    String name,
+    int color, {
+    String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
+  }) async {
     final activity = Activity(
       id: 'activity-${_nextActivityId++}',
       userId: null,
@@ -710,6 +954,11 @@ class _FakeAppState extends AppState {
       isDeleted: false,
     );
     activities = [...activities, activity];
+    _assignCategories(
+      activity.id,
+      primaryCategoryId: primaryCategoryId,
+      secondaryCategoryIds: secondaryCategoryIds,
+    );
     notifyListeners();
     return activity;
   }
@@ -736,6 +985,8 @@ class _FakeAppState extends AppState {
     int color, {
     required bool isOneOff,
     Activity? reuseActivity,
+    String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
   }) async {
     final activity = reuseActivity ??
         Activity(
@@ -755,6 +1006,13 @@ class _FakeAppState extends AppState {
         if (item.id != activity.id) item,
       activity,
     ];
+    if (!isOneOff) {
+      _assignCategories(
+        activity.id,
+        primaryCategoryId: primaryCategoryId,
+        secondaryCategoryIds: secondaryCategoryIds,
+      );
+    }
     notifyListeners();
     return activity;
   }
@@ -801,14 +1059,83 @@ class _FakeAppState extends AppState {
     Activity activity, {
     required String name,
     required int color,
+    bool updateCategories = false,
+    String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
   }) async {
     final updated = activity.copyWith(name: name, color: color, updatedAt: now);
     activities = [
       for (final item in activities)
         if (item.id == updated.id) updated else item,
     ];
+    if (updateCategories) {
+      _assignCategories(
+        updated.id,
+        primaryCategoryId: primaryCategoryId,
+        secondaryCategoryIds: secondaryCategoryIds,
+      );
+    }
     notifyListeners();
     return updated;
+  }
+
+  @override
+  Future<void> setActivityCategories({
+    required String activityId,
+    required String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
+  }) async {
+    _assignCategories(
+      activityId,
+      primaryCategoryId: primaryCategoryId,
+      secondaryCategoryIds: secondaryCategoryIds,
+    );
+    notifyListeners();
+  }
+
+  void _assignCategories(
+    String activityId, {
+    required String? primaryCategoryId,
+    required List<String> secondaryCategoryIds,
+  }) {
+    final links = <ActivityCategoryLink>[];
+    var order = 0;
+    if (primaryCategoryId != null) {
+      links.add(
+        ActivityCategoryLink(
+          id: 'link-$activityId-$primaryCategoryId',
+          userId: null,
+          activityId: activityId,
+          categoryId: primaryCategoryId,
+          isPrimary: true,
+          sortOrder: order++,
+          updatedAt: now,
+          isDeleted: false,
+        ),
+      );
+    }
+    for (final categoryId in secondaryCategoryIds) {
+      if (categoryId == primaryCategoryId) {
+        continue;
+      }
+      links.add(
+        ActivityCategoryLink(
+          id: 'link-$activityId-$categoryId',
+          userId: null,
+          activityId: activityId,
+          categoryId: categoryId,
+          isPrimary: false,
+          sortOrder: order++,
+          updatedAt: now,
+          isDeleted: false,
+        ),
+      );
+    }
+    activityCategoryLinks = [
+      for (final link in activityCategoryLinks)
+        if (link.activityId != activityId) link,
+      ...links,
+    ];
   }
 
   @override

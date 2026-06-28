@@ -1,0 +1,463 @@
+00:00 +0: loading D:/MyAPP/TimeTrack/test/local_database_test.dart
+test/sync_interop_test.dart:9:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+import 'package:timetrack/domain/activity_category.dart';
+       ^
+test/sync_interop_test.dart:120:13: Error: 'ActivityCategoryLink' isn't a type.
+        isA<ActivityCategoryLink>()
+            ^^^^^^^^^^^^^^^^^^^^
+test/sync_interop_test.dart:124:13: Error: 'ActivityCategoryLink' isn't a type.
+        isA<ActivityCategoryLink>()
+            ^^^^^^^^^^^^^^^^^^^^
+test/sync_interop_test.dart:96:42: Error: The method 'createCategory' isn't defined for the type 'TimeRepository'.
+ - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'createCategory'.
+    final work = await source.repository.createCategory(
+                                         ^^^^^^^^^^^^^^
+test/sync_interop_test.dart:100:43: Error: The method 'createCategory' isn't defined for the type 'TimeRepository'.
+ - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'createCategory'.
+    final focus = await source.repository.createCategory(
+                                          ^^^^^^^^^^^^^^
+test/sync_interop_test.dart:104:29: Error: The method 'setActivityCategories' isn't defined for the type 'TimeRepository'.
+ - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'setActivityCategories'.
+    await source.repository.setActivityCategories(
+                            ^^^^^^^^^^^^^^^^^^^^^
+test/sync_interop_test.dart:113:48: Error: The method 'categories' isn't defined for the type 'TimeRepository'.
+ - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'categories'.
+    final categories = await target.repository.categories();
+                                               ^^^^^^^^^^
+test/sync_interop_test.dart:114:43: Error: The method 'activityCategoryLinks' isn't defined for the type 'TimeRepository'.
+ - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'activityCategoryLinks'.
+    final links = await target.repository.activityCategoryLinks();
+                                          ^^^^^^^^^^^^^^^^^^^^^
+test/sync_interop_test.dart:121:36: Error: The getter 'activityId' isn't defined for the type 'Object?'.
+ - 'Object' is from 'dart:core'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'activityId'.
+            .having((link) => link.activityId, 'activityId', activity.id)
+                                   ^^^^^^^^^^
+test/sync_interop_test.dart:122:36: Error: The getter 'categoryId' isn't defined for the type 'Object?'.
+ - 'Object' is from 'dart:core'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'categoryId'.
+            .having((link) => link.categoryId, 'categoryId', work.id)
+                                   ^^^^^^^^^^
+test/sync_interop_test.dart:123:36: Error: The getter 'isPrimary' isn't defined for the type 'Object?'.
+ - 'Object' is from 'dart:core'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'isPrimary'.
+            .having((link) => link.isPrimary, 'isPrimary', isTrue),
+                                   ^^^^^^^^^
+test/sync_interop_test.dart:125:36: Error: The getter 'activityId' isn't defined for the type 'Object?'.
+ - 'Object' is from 'dart:core'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'activityId'.
+            .having((link) => link.activityId, 'activityId', activity.id)
+                                   ^^^^^^^^^^
+test/sync_interop_test.dart:126:36: Error: The getter 'categoryId' isn't defined for the type 'Object?'.
+ - 'Object' is from 'dart:core'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'categoryId'.
+            .having((link) => link.categoryId, 'categoryId', focus.id)
+                                   ^^^^^^^^^^
+test/sync_interop_test.dart:127:36: Error: The getter 'isPrimary' isn't defined for the type 'Object?'.
+ - 'Object' is from 'dart:core'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'isPrimary'.
+            .having((link) => link.isPrimary, 'isPrimary', isFalse),
+                                   ^^^^^^^^^
+test/sync_interop_test.dart:149:20: Error: The getter 'categories' isn't defined for the type 'SyncBundle'.
+ - 'SyncBundle' is from 'package:timetrack/data/sync_bundle.dart' ('lib/data/sync_bundle.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'categories'.
+    expect(decoded.categories, isEmpty);
+                   ^^^^^^^^^^
+test/sync_interop_test.dart:150:20: Error: The getter 'categoryLinks' isn't defined for the type 'SyncBundle'.
+ - 'SyncBundle' is from 'package:timetrack/data/sync_bundle.dart' ('lib/data/sync_bundle.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'categoryLinks'.
+    expect(decoded.categoryLinks, isEmpty);
+                   ^^^^^^^^^^^^^
+00:00 +0 -1: loading D:/MyAPP/TimeTrack/test/sync_interop_test.dart [E]
+  Failed to load "D:/MyAPP/TimeTrack/test/sync_interop_test.dart":
+  Compilation failed for testPath=D:/MyAPP/TimeTrack/test/sync_interop_test.dart: test/sync_interop_test.dart:9:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+  import 'package:timetrack/domain/activity_category.dart';
+         ^
+  test/sync_interop_test.dart:120:13: Error: 'ActivityCategoryLink' isn't a type.
+          isA<ActivityCategoryLink>()
+              ^^^^^^^^^^^^^^^^^^^^
+  test/sync_interop_test.dart:124:13: Error: 'ActivityCategoryLink' isn't a type.
+          isA<ActivityCategoryLink>()
+              ^^^^^^^^^^^^^^^^^^^^
+  test/sync_interop_test.dart:96:42: Error: The method 'createCategory' isn't defined for the type 'TimeRepository'.
+   - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'createCategory'.
+      final work = await source.repository.createCategory(
+                                           ^^^^^^^^^^^^^^
+  test/sync_interop_test.dart:100:43: Error: The method 'createCategory' isn't defined for the type 'TimeRepository'.
+   - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'createCategory'.
+      final focus = await source.repository.createCategory(
+                                            ^^^^^^^^^^^^^^
+  test/sync_interop_test.dart:104:29: Error: The method 'setActivityCategories' isn't defined for the type 'TimeRepository'.
+   - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'setActivityCategories'.
+      await source.repository.setActivityCategories(
+                              ^^^^^^^^^^^^^^^^^^^^^
+  test/sync_interop_test.dart:113:48: Error: The method 'categories' isn't defined for the type 'TimeRepository'.
+   - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'categories'.
+      final categories = await target.repository.categories();
+                                                 ^^^^^^^^^^
+  test/sync_interop_test.dart:114:43: Error: The method 'activityCategoryLinks' isn't defined for the type 'TimeRepository'.
+   - 'TimeRepository' is from 'package:timetrack/data/time_repository.dart' ('lib/data/time_repository.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'activityCategoryLinks'.
+      final links = await target.repository.activityCategoryLinks();
+                                            ^^^^^^^^^^^^^^^^^^^^^
+  test/sync_interop_test.dart:121:36: Error: The getter 'activityId' isn't defined for the type 'Object?'.
+   - 'Object' is from 'dart:core'.
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'activityId'.
+              .having((link) => link.activityId, 'activityId', activity.id)
+                                     ^^^^^^^^^^
+  test/sync_interop_test.dart:122:36: Error: The getter 'categoryId' isn't defined for the type 'Object?'.
+   - 'Object' is from 'dart:core'.
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'categoryId'.
+              .having((link) => link.categoryId, 'categoryId', work.id)
+                                     ^^^^^^^^^^
+  test/sync_interop_test.dart:123:36: Error: The getter 'isPrimary' isn't defined for the type 'Object?'.
+   - 'Object' is from 'dart:core'.
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'isPrimary'.
+              .having((link) => link.isPrimary, 'isPrimary', isTrue),
+                                     ^^^^^^^^^
+  test/sync_interop_test.dart:125:36: Error: The getter 'activityId' isn't defined for the type 'Object?'.
+   - 'Object' is from 'dart:core'.
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'activityId'.
+              .having((link) => link.activityId, 'activityId', activity.id)
+                                     ^^^^^^^^^^
+  test/sync_interop_test.dart:126:36: Error: The getter 'categoryId' isn't defined for the type 'Object?'.
+   - 'Object' is from 'dart:core'.
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'categoryId'.
+              .having((link) => link.categoryId, 'categoryId', focus.id)
+                                     ^^^^^^^^^^
+  test/sync_interop_test.dart:127:36: Error: The getter 'isPrimary' isn't defined for the type 'Object?'.
+   - 'Object' is from 'dart:core'.
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'isPrimary'.
+              .having((link) => link.isPrimary, 'isPrimary', isFalse),
+                                     ^^^^^^^^^
+  test/sync_interop_test.dart:149:20: Error: The getter 'categories' isn't defined for the type 'SyncBundle'.
+   - 'SyncBundle' is from 'package:timetrack/data/sync_bundle.dart' ('lib/data/sync_bundle.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'categories'.
+      expect(decoded.categories, isEmpty);
+                     ^^^^^^^^^^
+  test/sync_interop_test.dart:150:20: Error: The getter 'categoryLinks' isn't defined for the type 'SyncBundle'.
+   - 'SyncBundle' is from 'package:timetrack/data/sync_bundle.dart' ('lib/data/sync_bundle.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'categoryLinks'.
+      expect(decoded.categoryLinks, isEmpty);
+                     ^^^^^^^^^^^^^
+  .
+00:00 +0 -2: loading D:/MyAPP/TimeTrack/test/local_database_test.dart [E]
+  Error: The Dart compiler exited unexpectedly.
+  package:flutter_tools/src/base/common.dart 34:3  throwToolExit
+  package:flutter_tools/src/compile.dart 1009:11   DefaultResidentCompiler._compile.<fn>
+  dart:async/zone_root.dart 48:47                  _rootRunUnary
+  dart:async/zone.dart 733:19                      _CustomZone.runUnary
+  dart:async/future_impl.dart 948:45               Future._propagateToListeners.handleValueCallback
+  dart:async/future_impl.dart 977:13               Future._propagateToListeners
+  dart:async/future_impl.dart 862:9                Future._propagateToListeners
+  dart:async/future_impl.dart 720:5                Future._completeWithValue
+  dart:async/future_impl.dart 804:7                Future._asyncCompleteWithValue.<fn>
+  dart:async/zone_root.dart 35:13                  _rootRun
+  dart:async/zone.dart 726:19                      _CustomZone.run
+  dart:async/zone.dart 625:7                       _CustomZone.runGuarded
+  dart:async/zone.dart 666:23                      _CustomZone.bindCallbackGuarded.<fn>
+  dart:async/schedule_microtask.dart 40:35         _microtaskLoop
+  dart:async/schedule_microtask.dart 49:5          _startMicrotaskLoop
+  dart:isolate-patch/isolate_patch.dart 127:13     _runPendingImmediateCallback
+  dart:isolate-patch/isolate_patch.dart 193:5      _RawReceivePort._handleMessage
+  
+00:00 +0 -2: D:/MyAPP/TimeTrack/test/local_database_test.dart: (setUpAll)
+00:00 +0 -2: D:/MyAPP/TimeTrack/test/local_database_test.dart: file database startup config does not fail on wal setup
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:00 +0 -3: D:/MyAPP/TimeTrack/test/local_database_test.dart: file database startup config does not fail on wal setup [E]
+  Expected: contains all of Set:[
+              'activities',
+              'activity_categories',
+              'activity_category_links',
+              'time_entries',
+              'profile_settings',
+              'action_logs',
+              'sync_peers',
+              'app_metadata'
+            ]
+    Actual: Set:[
+              'activities',
+              'time_entries',
+              'profile_settings',
+              'action_logs',
+              'sync_peers',
+              'app_metadata'
+            ]
+     Which: has too few elements (6 < 8)
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\local_database_test.dart 33:5                  main.<fn>
+  
+00:00 +0 -3: D:/MyAPP/TimeTrack/test/local_database_test.dart: opening version 7 drifted database repairs schema without data loss
+*** sqflite warning ***
+
+You are changing sqflite default factory.
+Be aware of the potential side effects. Any library using sqflite
+will have this factory as the default for all operations.
+
+*** sqflite warning ***
+
+00:00 +0 -4: D:/MyAPP/TimeTrack/test/local_database_test.dart: opening version 7 drifted database repairs schema without data loss [E]
+  Expected: contains all of Set:[
+              'action_logs',
+              'activity_categories',
+              'activity_category_links',
+              'sync_peers'
+            ]
+    Actual: Set:[
+              'activities',
+              'time_entries',
+              'profile_settings',
+              'action_logs',
+              'sync_peers',
+              'app_metadata'
+            ]
+     Which: has no match for 'activity_categories' at index 1 along with 1 other unmatched
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\local_database_test.dart 82:5                  main.<fn>
+  
+00:00 +0 -4: D:/MyAPP/TimeTrack/test/local_database_test.dart: (tearDownAll)
+test/time_repository_test.dart:11:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+import 'package:timetrack/domain/activity_category.dart';
+       ^
+test/time_repository_test.dart:645:26: Error: Method not found: 'ActivityCategory'.
+    final workCategory = ActivityCategory(
+                         ^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:653:27: Error: Method not found: 'ActivityCategory'.
+    final focusCategory = ActivityCategory(
+                          ^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:692:9: Error: Method not found: 'ActivityCategoryLink'.
+        ActivityCategoryLink(
+        ^^^^^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:702:9: Error: Method not found: 'ActivityCategoryLink'.
+        ActivityCategoryLink(
+        ^^^^^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:689:7: Error: No named parameter with the name 'activities'.
+      activities: [work, study],
+      ^^^^^^^^^^
+lib/app/app_state.dart:1220:25: Context: Found this candidate, but the arguments don't match.
+  static TimeRangeStats fromEntries({
+                        ^^^^^^^^^^^
+test/time_repository_test.dart:716:18: Error: Undefined name 'StatsDimension'.
+      dimension: StatsDimension.primaryCategory,
+                 ^^^^^^^^^^^^^^
+test/time_repository_test.dart:717:19: Error: Undefined name 'StatsSortMetric'.
+      sortMetric: StatsSortMetric.duration,
+                  ^^^^^^^^^^^^^^^
+test/time_repository_test.dart:718:22: Error: Undefined name 'StatsSortDirection'.
+      sortDirection: StatsSortDirection.descending,
+                     ^^^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:748:22: Error: Method not found: 'ActivityCategory'.
+    final category = ActivityCategory(
+                     ^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:787:9: Error: Method not found: 'ActivityCategoryLink'.
+        ActivityCategoryLink(
+        ^^^^^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:784:7: Error: No named parameter with the name 'activities'.
+      activities: [work, admin],
+      ^^^^^^^^^^
+lib/app/app_state.dart:1220:25: Context: Found this candidate, but the arguments don't match.
+  static TimeRangeStats fromEntries({
+                        ^^^^^^^^^^^
+test/time_repository_test.dart:801:18: Error: Undefined name 'StatsDimension'.
+      dimension: StatsDimension.durationBucket,
+                 ^^^^^^^^^^^^^^
+test/time_repository_test.dart:802:19: Error: Undefined name 'StatsSortMetric'.
+      sortMetric: StatsSortMetric.duration,
+                  ^^^^^^^^^^^^^^^
+test/time_repository_test.dart:803:22: Error: Undefined name 'StatsSortDirection'.
+      sortDirection: StatsSortDirection.descending,
+                     ^^^^^^^^^^^^^^^^^^
+test/time_repository_test.dart:808:18: Error: Undefined name 'StatsDimension'.
+      dimension: StatsDimension.primaryCategoryAndDurationBucket,
+                 ^^^^^^^^^^^^^^
+test/time_repository_test.dart:809:19: Error: Undefined name 'StatsSortMetric'.
+      sortMetric: StatsSortMetric.color,
+                  ^^^^^^^^^^^^^^^
+test/time_repository_test.dart:810:22: Error: Undefined name 'StatsSortDirection'.
+      sortDirection: StatsSortDirection.ascending,
+                     ^^^^^^^^^^^^^^^^^^
+00:01 +0 -5: loading D:/MyAPP/TimeTrack/test/time_repository_test.dart [E]
+  Failed to load "D:/MyAPP/TimeTrack/test/time_repository_test.dart":
+  Compilation failed for testPath=D:/MyAPP/TimeTrack/test/time_repository_test.dart: test/time_repository_test.dart:11:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+  import 'package:timetrack/domain/activity_category.dart';
+         ^
+  test/time_repository_test.dart:645:26: Error: Method not found: 'ActivityCategory'.
+      final workCategory = ActivityCategory(
+                           ^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:653:27: Error: Method not found: 'ActivityCategory'.
+      final focusCategory = ActivityCategory(
+                            ^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:692:9: Error: Method not found: 'ActivityCategoryLink'.
+          ActivityCategoryLink(
+          ^^^^^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:702:9: Error: Method not found: 'ActivityCategoryLink'.
+          ActivityCategoryLink(
+          ^^^^^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:689:7: Error: No named parameter with the name 'activities'.
+        activities: [work, study],
+        ^^^^^^^^^^
+  lib/app/app_state.dart:1220:25: Context: Found this candidate, but the arguments don't match.
+    static TimeRangeStats fromEntries({
+                          ^^^^^^^^^^^
+  test/time_repository_test.dart:716:18: Error: Undefined name 'StatsDimension'.
+        dimension: StatsDimension.primaryCategory,
+                   ^^^^^^^^^^^^^^
+  test/time_repository_test.dart:717:19: Error: Undefined name 'StatsSortMetric'.
+        sortMetric: StatsSortMetric.duration,
+                    ^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:718:22: Error: Undefined name 'StatsSortDirection'.
+        sortDirection: StatsSortDirection.descending,
+                       ^^^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:748:22: Error: Method not found: 'ActivityCategory'.
+      final category = ActivityCategory(
+                       ^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:787:9: Error: Method not found: 'ActivityCategoryLink'.
+          ActivityCategoryLink(
+          ^^^^^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:784:7: Error: No named parameter with the name 'activities'.
+        activities: [work, admin],
+        ^^^^^^^^^^
+  lib/app/app_state.dart:1220:25: Context: Found this candidate, but the arguments don't match.
+    static TimeRangeStats fromEntries({
+                          ^^^^^^^^^^^
+  test/time_repository_test.dart:801:18: Error: Undefined name 'StatsDimension'.
+        dimension: StatsDimension.durationBucket,
+                   ^^^^^^^^^^^^^^
+  test/time_repository_test.dart:802:19: Error: Undefined name 'StatsSortMetric'.
+        sortMetric: StatsSortMetric.duration,
+                    ^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:803:22: Error: Undefined name 'StatsSortDirection'.
+        sortDirection: StatsSortDirection.descending,
+                       ^^^^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:808:18: Error: Undefined name 'StatsDimension'.
+        dimension: StatsDimension.primaryCategoryAndDurationBucket,
+                   ^^^^^^^^^^^^^^
+  test/time_repository_test.dart:809:19: Error: Undefined name 'StatsSortMetric'.
+        sortMetric: StatsSortMetric.color,
+                    ^^^^^^^^^^^^^^^
+  test/time_repository_test.dart:810:22: Error: Undefined name 'StatsSortDirection'.
+        sortDirection: StatsSortDirection.ascending,
+                       ^^^^^^^^^^^^^^^^^^
+  .
+test/stats_page_test.dart:5:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+import 'package:timetrack/domain/activity_category.dart';
+       ^
+test/stats_page_test.dart:29:5: Error: Method not found: 'ActivityCategory'.
+    ActivityCategory(
+    ^^^^^^^^^^^^^^^^
+test/stats_page_test.dart:28:17: Error: The setter 'activityCategories' isn't defined for the type 'AppState'.
+ - 'AppState' is from 'package:timetrack/app/app_state.dart' ('lib/app/app_state.dart').
+Try correcting the name to the name of an existing setter, or defining a setter or field named 'activityCategories'.
+  fixture.state.activityCategories = [
+                ^^^^^^^^^^^^^^^^^^
+00:03 +0 -6: loading D:/MyAPP/TimeTrack/test/stats_page_test.dart [E]
+  Failed to load "D:/MyAPP/TimeTrack/test/stats_page_test.dart":
+  Compilation failed for testPath=D:/MyAPP/TimeTrack/test/stats_page_test.dart: test/stats_page_test.dart:5:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+  import 'package:timetrack/domain/activity_category.dart';
+         ^
+  test/stats_page_test.dart:29:5: Error: Method not found: 'ActivityCategory'.
+      ActivityCategory(
+      ^^^^^^^^^^^^^^^^
+  test/stats_page_test.dart:28:17: Error: The setter 'activityCategories' isn't defined for the type 'AppState'.
+   - 'AppState' is from 'package:timetrack/app/app_state.dart' ('lib/app/app_state.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'activityCategories'.
+    fixture.state.activityCategories = [
+                  ^^^^^^^^^^^^^^^^^^
+  .
+test/ui_controls_test.dart:15:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+import 'package:timetrack/domain/activity_category.dart';
+       ^
+test/ui_controls_test.dart:386:28: Error: Undefined name 'TimelineDisplayMode'.
+              displayMode: TimelineDisplayMode.splitByDay,
+                           ^^^^^^^^^^^^^^^^^^^
+test/ui_controls_test.dart:386:15: Error: No named parameter with the name 'displayMode'.
+              displayMode: TimelineDisplayMode.splitByDay,
+              ^^^^^^^^^^^
+lib/ui/timeline_canvas.dart:133:9: Context: Found this candidate, but the arguments don't match.
+  const RangeTimelineCard({
+        ^^^^^^^^^^^^^^^^^
+test/ui_controls_test.dart:487:7: Error: Method not found: 'ActivityCategory'.
+      ActivityCategory(
+      ^^^^^^^^^^^^^^^^
+test/ui_controls_test.dart:495:7: Error: Method not found: 'ActivityCategory'.
+      ActivityCategory(
+      ^^^^^^^^^^^^^^^^
+test/ui_controls_test.dart:486:11: Error: The setter 'activityCategories' isn't defined for the type '_FakeAppState'.
+ - '_FakeAppState' is from 'test/ui_controls_test.dart'.
+Try correcting the name to the name of an existing setter, or defining a setter or field named 'activityCategories'.
+    state.activityCategories = [
+          ^^^^^^^^^^^^^^^^^^
+test/ui_controls_test.dart:538:18: Error: The method 'primaryCategoryForActivity' isn't defined for the type '_FakeAppState'.
+ - '_FakeAppState' is from 'test/ui_controls_test.dart'.
+Try correcting the name to the name of an existing method, or defining a method named 'primaryCategoryForActivity'.
+    expect(state.primaryCategoryForActivity(created.id)?.name, '项目');
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+test/ui_controls_test.dart:540:13: Error: The method 'secondaryCategoriesForActivity' isn't defined for the type '_FakeAppState'.
+ - '_FakeAppState' is from 'test/ui_controls_test.dart'.
+Try correcting the name to the name of an existing method, or defining a method named 'secondaryCategoriesForActivity'.
+      state.secondaryCategoriesForActivity(created.id).map((item) => item.name),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+00:05 +0 -7: loading D:/MyAPP/TimeTrack/test/ui_controls_test.dart [E]
+  Failed to load "D:/MyAPP/TimeTrack/test/ui_controls_test.dart":
+  Compilation failed for testPath=D:/MyAPP/TimeTrack/test/ui_controls_test.dart: test/ui_controls_test.dart:15:8: Error: Error when reading 'lib/domain/activity_category.dart': 系统找不到指定的文件。
+  import 'package:timetrack/domain/activity_category.dart';
+         ^
+  test/ui_controls_test.dart:386:28: Error: Undefined name 'TimelineDisplayMode'.
+                displayMode: TimelineDisplayMode.splitByDay,
+                             ^^^^^^^^^^^^^^^^^^^
+  test/ui_controls_test.dart:386:15: Error: No named parameter with the name 'displayMode'.
+                displayMode: TimelineDisplayMode.splitByDay,
+                ^^^^^^^^^^^
+  lib/ui/timeline_canvas.dart:133:9: Context: Found this candidate, but the arguments don't match.
+    const RangeTimelineCard({
+          ^^^^^^^^^^^^^^^^^
+  test/ui_controls_test.dart:487:7: Error: Method not found: 'ActivityCategory'.
+        ActivityCategory(
+        ^^^^^^^^^^^^^^^^
+  test/ui_controls_test.dart:495:7: Error: Method not found: 'ActivityCategory'.
+        ActivityCategory(
+        ^^^^^^^^^^^^^^^^
+  test/ui_controls_test.dart:486:11: Error: The setter 'activityCategories' isn't defined for the type '_FakeAppState'.
+   - '_FakeAppState' is from 'test/ui_controls_test.dart'.
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'activityCategories'.
+      state.activityCategories = [
+            ^^^^^^^^^^^^^^^^^^
+  test/ui_controls_test.dart:538:18: Error: The method 'primaryCategoryForActivity' isn't defined for the type '_FakeAppState'.
+   - '_FakeAppState' is from 'test/ui_controls_test.dart'.
+  Try correcting the name to the name of an existing method, or defining a method named 'primaryCategoryForActivity'.
+      expect(state.primaryCategoryForActivity(created.id)?.name, '项目');
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  test/ui_controls_test.dart:540:13: Error: The method 'secondaryCategoriesForActivity' isn't defined for the type '_FakeAppState'.
+   - '_FakeAppState' is from 'test/ui_controls_test.dart'.
+  Try correcting the name to the name of an existing method, or defining a method named 'secondaryCategoriesForActivity'.
+        state.secondaryCategoriesForActivity(created.id).map((item) => item.name),
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  .
+00:05 +0 -7: Some tests failed.
+
+Failing tests:
+  D:/MyAPP/TimeTrack/test/local_database_test.dart: file database startup config does not fail on wal setup
+  D:/MyAPP/TimeTrack/test/local_database_test.dart: loading D:/MyAPP/TimeTrack/test/local_database_test.dart
+  D:/MyAPP/TimeTrack/test/local_database_test.dart: opening version 7 drifted database repairs schema without data loss
+  D:/MyAPP/TimeTrack/test/stats_page_test.dart: loading D:/MyAPP/TimeTrack/test/stats_page_test.dart
+  ... and 3 more

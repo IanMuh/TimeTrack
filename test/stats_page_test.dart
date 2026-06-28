@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
 import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/domain/activity_category.dart';
 import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/stats_page.dart';
 import 'test_fixtures.dart';
@@ -20,6 +21,16 @@ Future<TestAppFixture> _buildFixture() async {
       name: '工作',
       color: 0xff2563eb,
       isFavorite: true,
+      updatedAt: DateTime(2026, 1, 1),
+      isDeleted: false,
+    ),
+  ];
+  fixture.state.activityCategories = [
+    ActivityCategory(
+      id: 'cat-work',
+      userId: null,
+      name: '工作',
+      color: 0xff0f766e,
       updatedAt: DateTime(2026, 1, 1),
       isDeleted: false,
     ),
@@ -96,6 +107,27 @@ void main() {
     expect(find.text('统计'), findsOneWidget);
     expect(find.text('暂无数据'), findsWidgets);
     expect(find.text('每日累计'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('stats page exposes dimension filters without sort controls',
+      (tester) async {
+    final fixture = (await tester.runAsync(_buildFixture))!;
+    final state = fixture.state;
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
+
+    await _pumpStats(tester, state, width: 920);
+
+    expect(find.text('统计维度'), findsOneWidget);
+    expect(find.text('事项'), findsWidgets);
+    expect(find.text('主分类'), findsOneWidget);
+    expect(find.text('单条时长'), findsOneWidget);
+    expect(find.text('分类+时长'), findsOneWidget);
+    expect(find.text('排序'), findsNothing);
+    expect(find.text('排序依据'), findsNothing);
+    expect(find.text('顺序'), findsNothing);
+    expect(find.text('倒序'), findsNothing);
+    expect(find.text('工作'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

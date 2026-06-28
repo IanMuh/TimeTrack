@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "createdAt": "2026-06-27T07:48:22.885Z",
+  "updatedAt": "2026-06-28T00:29:17.556Z",
+  "briefPath": ".omo/ulw-loop/routing-ui-analytics/brief.md",
+  "goalsPath": ".omo/ulw-loop/routing-ui-analytics/goals.json",
+  "ledgerPath": ".omo/ulw-loop/routing-ui-analytics/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-implement-timetrack-routing-and-ui-o",
+      "title": "Implement TimeTrack routing and UI optimization: create branch, split...",
+      "objective": "Implement TimeTrack routing and UI optimization: create branch, split settings into layered sections, add timeline fit/split display controls to avoid horizontal scrolling, add multi-tag activity categories with primary category counted in stats and secondary tags for filtering, add stats dimension switching for activity/category/duration/category+duration, add sort controls for duration/count/color asc/desc, preserve offline-first SQLite/Supabase/LAN/file interop behavior, update tests and verify Flutter UI.",
+      "status": "complete",
+      "successCriteria": [
+        {
+          "id": "C001",
+          "scenario": "Browser/Flutter widget real-surface: render StatsPage and SettingsPage at compact and expanded widths after implementation; drive category assignment controls, settings section navigation, stats dimension/sort controls, and timeline display-mode controls through widget tests plus captured Flutter test stdout.",
+          "userModel": "happy",
+          "expectedEvidence": ".omo/ulw-loop/routing-ui-analytics/evidence/C001-ui-happy.txt",
+          "capturedEvidence": ".omo/ulw-loop/routing-ui-analytics/evidence/C001-ui-happy.txt: focused UI/widget tests exit 0, 63/63 passed; cleanup: no spawned runtime state",
+          "status": "pass",
+          "capturedAt": "2026-06-28T00:25:33.652Z"
+        },
+        {
+          "id": "C002",
+          "scenario": "Data auxiliary surface: run focused repository/model tests proving SQLite v8 category/link migration, v1/v2 sync bundle compatibility, primary category counted while secondary tags only filter, unclassified fallback, duration buckets, and stats sort asc/desc by duration/count/color.",
+          "userModel": "edge",
+          "expectedEvidence": ".omo/ulw-loop/routing-ui-analytics/evidence/C002-data-edge.txt",
+          "capturedEvidence": ".omo/ulw-loop/routing-ui-analytics/evidence/C002-data-edge.txt: focused repository/model tests exit 0, category migration/sync/stats edge cases covered; cleanup: no spawned runtime state",
+          "status": "pass",
+          "capturedAt": "2026-06-28T00:25:46.318Z"
+        },
+        {
+          "id": "C003",
+          "scenario": "Regression auxiliary/UI surface: run flutter analyze and focused regression widget/tests for existing timeline entry editing, settings update card, adaptive layout, app shell shortcuts, and sync interop to prove neighboring behavior still works.",
+          "userModel": "regression",
+          "expectedEvidence": ".omo/ulw-loop/routing-ui-analytics/evidence/C003-regression.txt",
+          "capturedEvidence": ".omo/ulw-loop/routing-ui-analytics/evidence/C003-regression.txt: requested regression tests exit 0 (41/41), flutter analyze exit 0, full flutter test exit 0 (151/151); cleanup: no spawned runtime state",
+          "status": "pass",
+          "capturedAt": "2026-06-28T00:25:47.040Z"
+        }
+      ],
+      "attempt": 1,
+      "createdAt": "2026-06-27T07:48:22.885Z",
+      "updatedAt": "2026-06-28T00:29:17.556Z",
+      "startedAt": "2026-06-27T07:48:40.824Z",
+      "completedAt": "2026-06-28T00:29:17.556Z",
+      "evidence": "C001 focused UI/widget tests passed 63/63; C002 category data/model edge cases passed in focused tests; C003 requested regression tests passed 41/41, flutter analyze passed, full flutter test passed 151/151."
+    }
+  ],
+  "codexObjective": "Complete the durable ulw-loop plan in .omo/ulw-loop/routing-ui-analytics/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/routing-ui-analytics/ledger.jsonl as the audit trail.",
+  "aggregateCompletion": {
+    "status": "complete",
+    "completedAt": "2026-06-28T00:29:17.556Z",
+    "evidence": "C001 focused UI/widget tests passed 63/63; C002 category data/model edge cases passed in focused tests; C003 requested regression tests passed 41/41, flutter analyze passed, full flutter test passed 151/151.",
+    "codexGoal": {
+      "goal": {
+        "threadId": "019f0802-da0b-7c91-9f7d-c39ec88261a1",
+        "objective": "Complete the durable ulw-loop plan in .omo/ulw-loop/routing-ui-analytics/goals.json for TimeTrack routing/UI/category/statistics optimization; use .omo/ulw-loop/routing-ui-analytics/ledger.jsonl as the audit trail.",
+        "status": "complete",
+        "tokensUsed": 0,
+        "timeUsedSeconds": 11,
+        "createdAt": 1782606387,
+        "updatedAt": 1782606399
+      }
+    }
+  }
+}

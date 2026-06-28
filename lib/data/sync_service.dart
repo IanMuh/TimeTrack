@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
+import '../domain/activity_category.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 import 'repository_interfaces.dart';
@@ -101,11 +102,13 @@ class SyncService {
     required ISettingsRepository settingsRepository,
     required ITimeEntryRepository timeEntryRepository,
     required IActionLogRepository actionLogRepository,
+    IActivityCategoryRepository? activityCategoryRepository,
     required SupabaseClient? client,
   }) : _cloudBackend = client == null
             ? null
             : SupabaseSyncBackend(
                 activityRepository: activityRepository,
+                activityCategoryRepository: activityCategoryRepository,
                 settingsRepository: settingsRepository,
                 timeEntryRepository: timeEntryRepository,
                 actionLogRepository: actionLogRepository,
@@ -156,17 +159,20 @@ class SyncService {
 class SupabaseSyncBackend implements SyncBackend {
   SupabaseSyncBackend({
     required IActivityRepository activityRepository,
+    IActivityCategoryRepository? activityCategoryRepository,
     required ISettingsRepository settingsRepository,
     required ITimeEntryRepository timeEntryRepository,
     required IActionLogRepository actionLogRepository,
     required SupabaseClient client,
   })  : _activityRepository = activityRepository,
+        _activityCategoryRepository = activityCategoryRepository,
         _settingsRepository = settingsRepository,
         _timeEntryRepository = timeEntryRepository,
         _actionLogRepository = actionLogRepository,
         _client = client;
 
   final IActivityRepository _activityRepository;
+  final IActivityCategoryRepository? _activityCategoryRepository;
   final ISettingsRepository _settingsRepository;
   final ITimeEntryRepository _timeEntryRepository;
   final IActionLogRepository _actionLogRepository;
@@ -223,6 +229,50 @@ class SupabaseSyncBackend implements SyncBackend {
         onFailure: (msg) =>
             throw StateError('replaceActivityIfRemoteNewer failed: $msg'),
       );
+    }
+
+    final categoryRepository = _activityCategoryRepository;
+    if (categoryRepository != null) {
+      final remoteCategoryRows = await fetchAllPaginated(
+        pageSize: 1000,
+        fetchPage: (offset, limit) => _client
+            .from('activity_categories')
+            .select()
+            .eq('user_id', user.id)
+            .gte('updated_at', floorIso)
+            .range(offset, offset + limit - 1),
+      );
+      for (final row in remoteCategoryRows) {
+        final result = await categoryRepository
+            .replaceCategoryIfRemoteNewer(ActivityCategory.fromMap(row));
+        result.fold(
+          onSuccess: (_) {},
+          onFailure: (msg) =>
+              throw StateError('replaceCategoryIfRemoteNewer failed: $msg'),
+        );
+      }
+
+      final remoteCategoryLinkRows = await fetchAllPaginated(
+        pageSize: 1000,
+        fetchPage: (offset, limit) => _client
+            .from('activity_category_links')
+            .select()
+            .eq('user_id', user.id)
+            .gte('updated_at', floorIso)
+            .range(offset, offset + limit - 1),
+      );
+      for (final row in remoteCategoryLinkRows) {
+        final result =
+            await categoryRepository.replaceCategoryLinkIfRemoteNewer(
+          ActivityCategoryLink.fromMap(row),
+        );
+        result.fold(
+          onSuccess: (_) {},
+          onFailure: (msg) => throw StateError(
+            'replaceCategoryLinkIfRemoteNewer failed: $msg',
+          ),
+        );
+      }
     }
 
     final remoteEntryRows = await fetchAllPaginated(
@@ -288,6 +338,40 @@ class SupabaseSyncBackend implements SyncBackend {
         userId: user.id,
         valuesList: localActivities.map((a) => a.toRemoteMap(user.id)).toList(),
       );
+    }
+
+    if (categoryRepository != null) {
+      final localCategoriesResult =
+          await categoryRepository.categoriesSince(floor);
+      final localCategories = localCategoriesResult.fold(
+        onSuccess: (list) => list,
+        onFailure: (_) => <ActivityCategory>[],
+      );
+      if (localCategories.isNotEmpty) {
+        await _batchUploadIfNotStale(
+          table: 'activity_categories',
+          idColumn: 'id',
+          userId: user.id,
+          valuesList:
+              localCategories.map((c) => c.toRemoteMap(user.id)).toList(),
+        );
+      }
+
+      final localCategoryLinksResult =
+          await categoryRepository.categoryLinksSince(floor);
+      final localCategoryLinks = localCategoryLinksResult.fold(
+        onSuccess: (list) => list,
+        onFailure: (_) => <ActivityCategoryLink>[],
+      );
+      if (localCategoryLinks.isNotEmpty) {
+        await _batchUploadIfNotStale(
+          table: 'activity_category_links',
+          idColumn: 'id',
+          userId: user.id,
+          valuesList:
+              localCategoryLinks.map((l) => l.toRemoteMap(user.id)).toList(),
+        );
+      }
     }
 
     final localEntriesResult = await _timeEntryRepository.entriesSince(floor);

@@ -1,5 +1,6 @@
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
+import '../domain/activity_category.dart';
 import '../domain/time_entry.dart';
 
 enum RepositoryUndoDirection { undo, redo }
@@ -16,11 +17,15 @@ class RepositoryUndoConflictException implements Exception {
 class RepositoryUndoSnapshot {
   const RepositoryUndoSnapshot({
     required this.activities,
+    required this.categories,
+    required this.categoryLinks,
     required this.timeEntries,
     required this.actionLogs,
   });
 
   final Map<String, Activity> activities;
+  final Map<String, ActivityCategory> categories;
+  final Map<String, ActivityCategoryLink> categoryLinks;
   final Map<String, TimeEntry> timeEntries;
   final Map<String, ActionLog> actionLogs;
 
@@ -33,6 +38,16 @@ class RepositoryUndoSnapshot {
       activities: _diffRows<Activity>(
         before: activities,
         after: after.activities,
+        toMap: (value) => value.toLocalMap(),
+      ),
+      categories: _diffRows<ActivityCategory>(
+        before: categories,
+        after: after.categories,
+        toMap: (value) => value.toLocalMap(),
+      ),
+      categoryLinks: _diffRows<ActivityCategoryLink>(
+        before: categoryLinks,
+        after: after.categoryLinks,
         toMap: (value) => value.toLocalMap(),
       ),
       timeEntries: _diffRows<TimeEntry>(
@@ -53,17 +68,25 @@ class RepositoryUndoChangeSet {
   const RepositoryUndoChangeSet({
     required this.label,
     required this.activities,
+    required this.categories,
+    required this.categoryLinks,
     required this.timeEntries,
     required this.actionLogs,
   });
 
   final String label;
   final List<RepositoryUndoRowChange<Activity>> activities;
+  final List<RepositoryUndoRowChange<ActivityCategory>> categories;
+  final List<RepositoryUndoRowChange<ActivityCategoryLink>> categoryLinks;
   final List<RepositoryUndoRowChange<TimeEntry>> timeEntries;
   final List<RepositoryUndoRowChange<ActionLog>> actionLogs;
 
   bool get isEmpty =>
-      activities.isEmpty && timeEntries.isEmpty && actionLogs.isEmpty;
+      activities.isEmpty &&
+      categories.isEmpty &&
+      categoryLinks.isEmpty &&
+      timeEntries.isEmpty &&
+      actionLogs.isEmpty;
 }
 
 class RepositoryUndoRowChange<T> {

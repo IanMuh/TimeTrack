@@ -1,0 +1,17 @@
+Regression and quality-gate evidence for routing-ui-analytics C003.
+
+Commands:
+C:/Users/user/.local/bin/omo.cmd sparkshell flutter test test/adaptive_layout_test.dart test/settings_update_card_test.dart test/timeline_page_test.dart test/app_shell_shortcuts_test.dart test/undo_redo_test.dart
+C:/Users/user/.local/bin/omo.cmd sparkshell flutter analyze
+C:/Users/user/.local/bin/omo.cmd sparkshell flutter test
+
+Results:
+- Requested regression tests exited 0: 41/41 passed.
+- flutter analyze exited 0: No issues found.
+- Full flutter test exited 0: 151/151 passed.
+
+Notes:
+Visual UI verification was exercised through Flutter widget tests at compact and expanded widths. Subagent-based visual/review oracle passes were not spawned because the available multi_agent tool policy allows spawning only when the user explicitly asks for subagents or parallel agent work.
+
+Cleanup:
+No spawned runtime state.
