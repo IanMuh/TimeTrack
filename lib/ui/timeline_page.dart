@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +26,8 @@ part 'timeline_entry_editor.dart';
 enum TimelineViewMode { entries, actions }
 
 enum TimelineDensity { compact, detailed }
+
+enum TimelineDisplayMode { fitSingleLine, splitByDay }
 
 enum TimelineSpan {
   day(1),
@@ -124,6 +125,7 @@ class TimelinePage extends StatefulWidget {
 class _TimelinePageState extends State<TimelinePage> {
   TimelineViewMode _mode = TimelineViewMode.entries;
   TimelineDensity _density = TimelineDensity.detailed;
+  TimelineDisplayMode _displayMode = TimelineDisplayMode.fitSingleLine;
   TimelineSpan _span = TimelineSpan.day;
   double _zoom = 1;
 
@@ -204,6 +206,7 @@ class _TimelinePageState extends State<TimelinePage> {
               selectedDay: state.selectedDay,
               mode: _mode,
               density: _density,
+              displayMode: _displayMode,
               span: _span,
               zoom: _zoom,
               onPreviousRange: selectPreviousRange,
@@ -211,6 +214,8 @@ class _TimelinePageState extends State<TimelinePage> {
               onDateTap: _pickDate,
               onModeChanged: (value) => setState(() => _mode = value),
               onDensityChanged: (value) => setState(() => _density = value),
+              onDisplayModeChanged: (value) =>
+                  setState(() => _displayMode = value),
               onSpanChanged: (value) => setState(() => _span = value),
               onZoomChanged: (value) => setState(() => _zoom = value),
               onAddEntry: openEntryEditor,
@@ -228,6 +233,7 @@ class _TimelinePageState extends State<TimelinePage> {
                       rangeStart: rangeStart,
                       span: _span,
                       density: _density,
+                      displayMode: _displayMode,
                       zoom: _zoom,
                       emptyText: _span == TimelineSpan.day
                           ? AppLocalizations.of(context)!.emptyDayEntries
@@ -293,12 +299,15 @@ class TimelineHeader extends StatelessWidget {
     required this.onSpanChanged,
     required this.onZoomChanged,
     required this.onAddEntry,
+    this.displayMode = TimelineDisplayMode.fitSingleLine,
+    this.onDisplayModeChanged,
     super.key,
   });
 
   final DateTime selectedDay;
   final TimelineViewMode mode;
   final TimelineDensity density;
+  final TimelineDisplayMode displayMode;
   final TimelineSpan span;
   final double zoom;
   final VoidCallback onPreviousRange;
@@ -306,6 +315,7 @@ class TimelineHeader extends StatelessWidget {
   final VoidCallback onDateTap;
   final ValueChanged<TimelineViewMode> onModeChanged;
   final ValueChanged<TimelineDensity> onDensityChanged;
+  final ValueChanged<TimelineDisplayMode>? onDisplayModeChanged;
   final ValueChanged<TimelineSpan> onSpanChanged;
   final ValueChanged<double> onZoomChanged;
   final VoidCallback onAddEntry;
@@ -370,6 +380,23 @@ class TimelineHeader extends StatelessWidget {
           selected: {span},
           onSelectionChanged: (value) => onSpanChanged(value.first),
         );
+        final displaySelector = SegmentedButton<TimelineDisplayMode>(
+          segments: const [
+            ButtonSegment(
+              value: TimelineDisplayMode.fitSingleLine,
+              icon: Icon(Icons.compress),
+              label: Text('单行适配'),
+            ),
+            ButtonSegment(
+              value: TimelineDisplayMode.splitByDay,
+              icon: Icon(Icons.view_day_outlined),
+              label: Text('按天拆分'),
+            ),
+          ],
+          selected: {displayMode},
+          onSelectionChanged: (value) =>
+              onDisplayModeChanged?.call(value.first),
+        );
         final zoomControl = _TimelineZoomControl(
           zoom: zoom,
           onZoomChanged: onZoomChanged,
@@ -390,6 +417,8 @@ class TimelineHeader extends StatelessWidget {
               const SizedBox(height: 10),
               spanSelector,
               if (showRecordControls) ...[
+                const SizedBox(height: 10),
+                displaySelector,
                 const SizedBox(height: 10),
                 zoomControl,
               ],
@@ -431,6 +460,8 @@ class TimelineHeader extends StatelessWidget {
               children: [
                 spanSelector,
                 if (showRecordControls) ...[
+                  const SizedBox(width: 16),
+                  displaySelector,
                   const SizedBox(width: 16),
                   Expanded(child: zoomControl),
                 ],

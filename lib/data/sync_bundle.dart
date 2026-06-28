@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
+import '../domain/activity_category.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 
@@ -11,17 +12,21 @@ class SyncBundle {
     required this.exportedAt,
     required this.sourceDeviceId,
     required this.activities,
+    this.categories = const [],
+    this.categoryLinks = const [],
     required this.timeEntries,
     required this.actionLogs,
     required this.profileSettings,
   });
 
-  static const currentSchemaVersion = 1;
+  static const currentSchemaVersion = 2;
 
   final int schemaVersion;
   final DateTime exportedAt;
   final String sourceDeviceId;
   final List<Activity> activities;
+  final List<ActivityCategory> categories;
+  final List<ActivityCategoryLink> categoryLinks;
   final List<TimeEntry> timeEntries;
   final List<ActionLog> actionLogs;
   final ProfileSettings profileSettings;
@@ -33,6 +38,12 @@ class SyncBundle {
       'source_device_id': sourceDeviceId,
       'activities': [
         for (final activity in activities) activity.toLocalMap(),
+      ],
+      'categories': [
+        for (final category in categories) category.toLocalMap(),
+      ],
+      'category_links': [
+        for (final link in categoryLinks) link.toLocalMap(),
       ],
       'time_entries': [
         for (final entry in timeEntries) entry.toLocalMap(),
@@ -63,7 +74,7 @@ class SyncBundleCodec {
 
   SyncBundle fromJson(Map<String, Object?> json) {
     final schemaVersion = _requiredInt(json, 'schema_version');
-    if (schemaVersion != SyncBundle.currentSchemaVersion) {
+    if (schemaVersion < 1 || schemaVersion > SyncBundle.currentSchemaVersion) {
       throw FormatException(
         'Unsupported TimeTrack sync schema version: $schemaVersion.',
       );
@@ -76,6 +87,16 @@ class SyncBundleCodec {
       activities: [
         for (final item in _requiredList(json, 'activities'))
           Activity.fromMap(_requiredMap(item, 'activities item')),
+      ],
+      categories: [
+        for (final item in _optionalList(json, 'categories'))
+          ActivityCategory.fromMap(_requiredMap(item, 'categories item')),
+      ],
+      categoryLinks: [
+        for (final item in _optionalList(json, 'category_links'))
+          ActivityCategoryLink.fromMap(
+            _requiredMap(item, 'category_links item'),
+          ),
       ],
       timeEntries: [
         for (final item in _requiredList(json, 'time_entries'))
@@ -116,6 +137,20 @@ class SyncBundleCodec {
       return value.cast<Object?>();
     }
     throw FormatException('Missing or invalid list field: $key.');
+  }
+
+  List<Object?> _optionalList(Map<String, Object?> json, String key) {
+    final value = json[key];
+    if (value == null) {
+      return const [];
+    }
+    if (value is List<Object?>) {
+      return value;
+    }
+    if (value is List) {
+      return value.cast<Object?>();
+    }
+    throw FormatException('Invalid list field: $key.');
   }
 
   Map<String, Object?> _requiredMap(Object? value, String label) {

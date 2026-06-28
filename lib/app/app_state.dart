@@ -19,6 +19,7 @@ import '../data/sync_status_store.dart';
 import '../data/time_repository.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
+import '../domain/activity_category.dart';
 import '../domain/profile_settings.dart';
 import '../domain/stats_period.dart';
 import '../domain/time_entry.dart';
@@ -134,6 +135,51 @@ class AppState extends ChangeNotifier {
 
   bool _entryIsUnassigned(TimeEntry entry) =>
       _activityState.entryIsUnassigned(entry);
+
+  List<ActivityCategory> activityCategories = [];
+  List<ActivityCategoryLink> activityCategoryLinks = [];
+
+  ActivityCategory? categoryById(String id) {
+    for (final category in activityCategories) {
+      if (category.id == id && !category.isDeleted) {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  ActivityCategory? primaryCategoryForActivity(String activityId) {
+    for (final link in activityCategoryLinks) {
+      if (link.activityId == activityId && link.isPrimary && !link.isDeleted) {
+        return categoryById(link.categoryId);
+      }
+    }
+    return null;
+  }
+
+  List<ActivityCategory> secondaryCategoriesForActivity(String activityId) {
+    final pairs = [
+      for (final link in activityCategoryLinks)
+        if (link.activityId == activityId && !link.isPrimary && !link.isDeleted)
+          (link: link, category: categoryById(link.categoryId)),
+    ]..sort((a, b) => a.link.sortOrder.compareTo(b.link.sortOrder));
+    return [
+      for (final pair in pairs)
+        if (pair.category != null) pair.category!,
+    ];
+  }
+
+  List<ActivityCategoryLink> categoryLinksForActivity(String activityId) {
+    return [
+      for (final link in activityCategoryLinks)
+        if (link.activityId == activityId && !link.isDeleted) link,
+    ]..sort((a, b) {
+        final primaryCompare =
+            (b.isPrimary ? 1 : 0).compareTo(a.isPrimary ? 1 : 0);
+        if (primaryCompare != 0) return primaryCompare;
+        return a.sortOrder.compareTo(b.sortOrder);
+      });
+  }
 
   // ---------------------------------------------------------------------------
   // Forwarded fields (entry)
@@ -379,6 +425,8 @@ class AppState extends ChangeNotifier {
   Future<void> refresh() async {
     await _repository.rolloverRunningEntriesIfNeeded(at: now);
     await _activityState.refresh();
+    activityCategories = await _repository.categories();
+    activityCategoryLinks = await _repository.activityCategoryLinks();
     settings = await _repository.settings();
     lanPeer = await _lanSyncClient.currentPeer();
     syncStatus = await _syncStatusStore.load();
@@ -435,9 +483,22 @@ class AppState extends ChangeNotifier {
     await continueCurrent();
   }
 
-  Future<Activity> createActivity(String name, int color) async {
+  Future<Activity> createActivity(
+    String name,
+    int color, {
+    String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
+  }) async {
     return _recordUndoable('新增事项', () async {
-      return _activityState.createActivity(name, color);
+      final activity = await _activityState.createActivity(name, color);
+      if (primaryCategoryId != null || secondaryCategoryIds.isNotEmpty) {
+        await _setActivityCategoriesRaw(
+          activityId: activity.id,
+          primaryCategoryId: primaryCategoryId,
+          secondaryCategoryIds: secondaryCategoryIds,
+        );
+      }
+      return activity;
     });
   }
 
@@ -464,14 +525,25 @@ class AppState extends ChangeNotifier {
     int color, {
     required bool isOneOff,
     Activity? reuseActivity,
+    String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
   }) async {
     return _recordUndoable('新增事项', () async {
-      return _activityState.createEntryActivity(
+      final activity = await _activityState.createEntryActivity(
         name,
         color,
         isOneOff: isOneOff,
         reuseActivity: reuseActivity,
       );
+      if (!isOneOff &&
+          (primaryCategoryId != null || secondaryCategoryIds.isNotEmpty)) {
+        await _setActivityCategoriesRaw(
+          activityId: activity.id,
+          primaryCategoryId: primaryCategoryId,
+          secondaryCategoryIds: secondaryCategoryIds,
+        );
+      }
+      return activity;
     });
   }
 
@@ -479,13 +551,24 @@ class AppState extends ChangeNotifier {
     Activity activity, {
     required String name,
     required int color,
+    bool updateCategories = false,
+    String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
   }) async {
     return _recordUndoable('编辑事项', () async {
-      return _activityState.updateActivity(
+      final updated = await _activityState.updateActivity(
         activity,
         name: name,
         color: color,
       );
+      if (updateCategories) {
+        await _setActivityCategoriesRaw(
+          activityId: updated.id,
+          primaryCategoryId: primaryCategoryId,
+          secondaryCategoryIds: secondaryCategoryIds,
+        );
+      }
+      return updated;
     });
   }
 
@@ -497,6 +580,80 @@ class AppState extends ChangeNotifier {
 
   Future<List<Activity>> entryActivityChoices() async {
     return _activityState.entryActivityChoices();
+  }
+
+  Future<ActivityCategory> createCategory(String name, int color) async {
+    return _recordUndoable('新增分类', () async {
+      final category = await _repository.createCategory(
+        name: name,
+        color: color,
+      );
+      await _refreshCategoryCache();
+      notifyListeners();
+      unawaited(sync());
+      return category;
+    });
+  }
+
+  Future<ActivityCategory> updateCategory(
+    ActivityCategory category, {
+    required String name,
+    required int color,
+  }) async {
+    return _recordUndoable('编辑分类', () async {
+      final updated = await _repository.updateCategory(
+        category: category,
+        name: name,
+        color: color,
+      );
+      await _refreshCategoryCache();
+      notifyListeners();
+      unawaited(sync());
+      return updated;
+    });
+  }
+
+  Future<void> deleteCategory(ActivityCategory category) async {
+    await _recordUndoable('删除分类', () async {
+      await _repository.deleteCategory(category);
+      await _refreshCategoryCache();
+      notifyListeners();
+      unawaited(sync());
+    });
+  }
+
+  Future<void> setActivityCategories({
+    required String activityId,
+    required String? primaryCategoryId,
+    required List<String> secondaryCategoryIds,
+  }) async {
+    await _recordUndoable('编辑事项分类', () async {
+      await _setActivityCategoriesRaw(
+        activityId: activityId,
+        primaryCategoryId: primaryCategoryId,
+        secondaryCategoryIds: secondaryCategoryIds,
+      );
+      notifyListeners();
+      unawaited(sync());
+    });
+  }
+
+  Future<void> _setActivityCategoriesRaw({
+    required String activityId,
+    required String? primaryCategoryId,
+    required List<String> secondaryCategoryIds,
+  }) async {
+    await _repository.setActivityCategories(
+      activityId: activityId,
+      primaryCategoryId: primaryCategoryId,
+      secondaryCategoryIds: secondaryCategoryIds,
+    );
+    await _refreshCategoryCache();
+  }
+
+  Future<void> _refreshCategoryCache() async {
+    activityCategories = await _repository.categories();
+    activityCategoryLinks = await _repository.activityCategoryLinks();
   }
 
   // ---------------------------------------------------------------------------
@@ -745,6 +902,9 @@ class AppState extends ChangeNotifier {
       start: start,
       end: end,
       effectiveNow: now,
+      activities: activities,
+      categories: activityCategories,
+      categoryLinks: activityCategoryLinks,
     );
   }
 
@@ -1202,6 +1362,33 @@ class _UndoHistoryEntry {
   final RepositoryUndoChangeSet changeSet;
 }
 
+enum StatsDimension {
+  activity,
+  primaryCategory,
+  durationBucket,
+  primaryCategoryAndDurationBucket,
+}
+
+enum StatsSortMetric { duration, count, color }
+
+enum StatsSortDirection { ascending, descending }
+
+class StatsGroupRow {
+  const StatsGroupRow({
+    required this.id,
+    required this.label,
+    required this.totalDuration,
+    required this.count,
+    required this.color,
+  });
+
+  final String id;
+  final String label;
+  final Duration totalDuration;
+  final int count;
+  final int color;
+}
+
 class TimeRangeStats {
   const TimeRangeStats({
     required this.totalsByActivity,
@@ -1209,6 +1396,7 @@ class TimeRangeStats {
     required this.totalDuration,
     required this.longestBlock,
     this.activitySnapshots = const {},
+    this.groupSlices = const [],
   });
 
   final Map<String, Duration> totalsByActivity;
@@ -1216,12 +1404,16 @@ class TimeRangeStats {
   final Duration totalDuration;
   final Duration longestBlock;
   final Map<String, ActivityStatsSnapshot> activitySnapshots;
+  final List<StatsEntrySlice> groupSlices;
 
   static TimeRangeStats fromEntries({
     required List<TimeEntry> entries,
     required DateTime start,
     required DateTime end,
     required DateTime effectiveNow,
+    List<Activity> activities = const [],
+    List<ActivityCategory> categories = const [],
+    List<ActivityCategoryLink> categoryLinks = const [],
   }) {
     if (end.isBefore(start)) {
       return const TimeRangeStats(
@@ -1235,6 +1427,37 @@ class TimeRangeStats {
     final totalsByActivity = <String, Duration>{};
     final totalsByDay = <DateTime, Duration>{};
     final activitySnapshots = <String, ActivityStatsSnapshot>{};
+    final activityById = {
+      for (final activity in activities)
+        if (!activity.isDeleted) activity.id: activity,
+    };
+    final categoryById = {
+      for (final category in categories)
+        if (!category.isDeleted) category.id: category,
+    };
+    final linksByActivity = <String, List<ActivityCategoryLink>>{};
+    for (final link in categoryLinks) {
+      if (link.isDeleted || !categoryById.containsKey(link.categoryId)) {
+        continue;
+      }
+      linksByActivity.putIfAbsent(link.activityId, () => []).add(link);
+    }
+    for (final links in linksByActivity.values) {
+      links.sort((a, b) {
+        final primaryCompare =
+            (b.isPrimary ? 1 : 0).compareTo(a.isPrimary ? 1 : 0);
+        if (primaryCompare != 0) return primaryCompare;
+        return a.sortOrder.compareTo(b.sortOrder);
+      });
+    }
+    for (final activity in activities) {
+      if (activity.isDeleted) continue;
+      activitySnapshots[activity.id] = ActivityStatsSnapshot(
+        name: activity.name,
+        color: activity.color,
+      );
+    }
+    final groupSlices = <StatsEntrySlice>[];
     var totalDuration = Duration.zero;
     var longestBlock = Duration.zero;
 
@@ -1246,6 +1469,33 @@ class TimeRangeStats {
       }
 
       final clippedDuration = clippedEnd.difference(clippedStart);
+      final activity = activityById[entry.activityId];
+      final links = linksByActivity[entry.activityId] ?? const [];
+      ActivityCategory? primaryCategory;
+      for (final link in links) {
+        if (link.isPrimary) {
+          primaryCategory = categoryById[link.categoryId];
+          break;
+        }
+      }
+      groupSlices.add(
+        StatsEntrySlice(
+          activityId: entry.activityId,
+          activityLabel: activity?.name ??
+              _snapshotName(entry) ??
+              entry.activityNameSnapshot.trim(),
+          activityColor: activity?.color ??
+              entry.activityColorSnapshot ??
+              AppConstants.defaultActivityColor,
+          primaryCategoryId: primaryCategory?.id,
+          primaryCategoryLabel: primaryCategory?.name,
+          primaryCategoryColor: primaryCategory?.color,
+          linkedCategoryIds: {
+            for (final link in links) link.categoryId,
+          },
+          duration: clippedDuration,
+        ),
+      );
       totalsByActivity[entry.activityId] =
           (totalsByActivity[entry.activityId] ?? Duration.zero) +
               clippedDuration;
@@ -1278,7 +1528,91 @@ class TimeRangeStats {
       totalDuration: totalDuration,
       longestBlock: longestBlock,
       activitySnapshots: activitySnapshots,
+      groupSlices: groupSlices,
     );
+  }
+
+  List<StatsGroupRow> groupRows({
+    StatsDimension dimension = StatsDimension.activity,
+    StatsSortMetric sortMetric = StatsSortMetric.duration,
+    StatsSortDirection sortDirection = StatsSortDirection.descending,
+    Set<String> selectedCategoryIds = const {},
+  }) {
+    final builders = <String, _StatsGroupBuilder>{};
+    for (final slice in groupSlices) {
+      if (selectedCategoryIds.isNotEmpty &&
+          !slice.linkedCategoryIds.any(selectedCategoryIds.contains)) {
+        continue;
+      }
+      final key = _groupKey(slice, dimension);
+      final builder = builders.putIfAbsent(
+        key.id,
+        () => _StatsGroupBuilder(
+          id: key.id,
+          label: key.label,
+          color: key.color,
+        ),
+      );
+      builder.add(slice.duration);
+    }
+
+    final rows = [
+      for (final builder in builders.values) builder.toRow(),
+    ];
+    rows.sort((a, b) {
+      final base = switch (sortMetric) {
+        StatsSortMetric.duration => a.totalDuration.compareTo(b.totalDuration),
+        StatsSortMetric.count => a.count.compareTo(b.count),
+        StatsSortMetric.color => a.color.compareTo(b.color),
+      };
+      final directed =
+          sortDirection == StatsSortDirection.ascending ? base : -base;
+      if (directed != 0) return directed;
+      return a.label.compareTo(b.label);
+    });
+    return rows;
+  }
+
+  static _StatsGroupKey _groupKey(
+    StatsEntrySlice slice,
+    StatsDimension dimension,
+  ) {
+    return switch (dimension) {
+      StatsDimension.activity => _StatsGroupKey(
+          id: 'activity:${slice.activityId}',
+          label: slice.activityLabel.trim().isEmpty
+              ? '未知事项'
+              : slice.activityLabel.trim(),
+          color: slice.activityColor,
+        ),
+      StatsDimension.primaryCategory => _categoryGroupKey(slice),
+      StatsDimension.durationBucket => _StatsGroupKey(
+          id: 'bucket:${slice.durationBucketLabel}',
+          label: slice.durationBucketLabel,
+          color: slice.durationBucketColor,
+        ),
+      StatsDimension.primaryCategoryAndDurationBucket => _StatsGroupKey(
+          id: 'category:${slice.primaryCategoryId ?? 'none'}'
+              ':bucket:${slice.durationBucketLabel}',
+          label: '${slice.primaryCategoryLabel ?? '未分类'} / '
+              '${slice.durationBucketLabel}',
+          color:
+              slice.primaryCategoryColor ?? AppConstants.defaultActivityColor,
+        ),
+    };
+  }
+
+  static _StatsGroupKey _categoryGroupKey(StatsEntrySlice slice) {
+    return _StatsGroupKey(
+      id: 'category:${slice.primaryCategoryId ?? 'none'}',
+      label: slice.primaryCategoryLabel ?? '未分类',
+      color: slice.primaryCategoryColor ?? AppConstants.defaultActivityColor,
+    );
+  }
+
+  static String? _snapshotName(TimeEntry entry) {
+    final name = entry.activityNameSnapshot.trim();
+    return name.isEmpty ? null : name;
   }
 
   static DateTime _later(DateTime first, DateTime second) {
@@ -1298,4 +1632,89 @@ class ActivityStatsSnapshot {
 
   final String name;
   final int? color;
+}
+
+class StatsEntrySlice {
+  const StatsEntrySlice({
+    required this.activityId,
+    required this.activityLabel,
+    required this.activityColor,
+    required this.primaryCategoryId,
+    required this.primaryCategoryLabel,
+    required this.primaryCategoryColor,
+    required this.linkedCategoryIds,
+    required this.duration,
+  });
+
+  final String activityId;
+  final String activityLabel;
+  final int activityColor;
+  final String? primaryCategoryId;
+  final String? primaryCategoryLabel;
+  final int? primaryCategoryColor;
+  final Set<String> linkedCategoryIds;
+  final Duration duration;
+
+  String get durationBucketLabel {
+    if (duration < const Duration(minutes: 30)) {
+      return '<30m';
+    }
+    if (duration < const Duration(hours: 1)) {
+      return '30m-1h';
+    }
+    if (duration < const Duration(hours: 3)) {
+      return '1-3h';
+    }
+    return '3h+';
+  }
+
+  int get durationBucketColor {
+    return switch (durationBucketLabel) {
+      '<30m' => 0xff94a3b8,
+      '30m-1h' => 0xff0ea5e9,
+      '1-3h' => 0xff7c3aed,
+      _ => 0xffdc2626,
+    };
+  }
+}
+
+class _StatsGroupKey {
+  const _StatsGroupKey({
+    required this.id,
+    required this.label,
+    required this.color,
+  });
+
+  final String id;
+  final String label;
+  final int color;
+}
+
+class _StatsGroupBuilder {
+  _StatsGroupBuilder({
+    required this.id,
+    required this.label,
+    required this.color,
+  });
+
+  final String id;
+  final String label;
+  final int color;
+  var totalDuration = Duration.zero;
+  var count = 0;
+
+  void add(Duration duration) {
+    totalDuration += duration;
+    count += 1;
+  }
+
+  StatsGroupRow toRow() {
+    return StatsGroupRow(
+      id: id,
+      label: label,
+      totalDuration: totalDuration,
+      count: count,
+      color: color,
+    );
+  }
 }

@@ -138,6 +138,7 @@ class RangeTimelineCard extends StatefulWidget {
     required this.density,
     required this.zoom,
     this.showEmptyState = true,
+    this.displayMode = TimelineDisplayMode.fitSingleLine,
     super.key,
   });
 
@@ -146,6 +147,7 @@ class RangeTimelineCard extends StatefulWidget {
   final DateTime rangeStart;
   final TimelineSpan span;
   final TimelineDensity density;
+  final TimelineDisplayMode displayMode;
   final double zoom;
   final bool showEmptyState;
 
@@ -154,14 +156,6 @@ class RangeTimelineCard extends StatefulWidget {
 }
 
 class _RangeTimelineCardState extends State<RangeTimelineCard> {
-  final ScrollController _horizontalController = ScrollController();
-
-  @override
-  void dispose() {
-    _horizontalController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -171,6 +165,9 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
           compact: compact,
           density: widget.density,
           zoom: widget.zoom,
+          fitWidth:
+              constraints.maxWidth - metricsHorizontalInsets(compact: compact),
+          displayMode: widget.displayMode,
         );
         final canvasHeight =
             metrics.timeScaleHeight + metrics.laneHeight * widget.span.days;
@@ -185,9 +182,18 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
                 icon: Icons.timeline,
               ),
               const SizedBox(height: 14),
-              if (compact)
-                _ScrollableTimelineCanvas(
-                  controller: _horizontalController,
+              if (widget.displayMode == TimelineDisplayMode.splitByDay)
+                _SplitTimelineCanvas(
+                  state: widget.state,
+                  entries: widget.entries,
+                  rangeStart: widget.rangeStart,
+                  span: widget.span,
+                  density: widget.density,
+                  metrics: metrics,
+                  showInlineDayLabels: true,
+                )
+              else if (compact)
+                SizedBox(
                   width: metrics.dayWidth,
                   height: canvasHeight,
                   child: _TimelineCanvas(
@@ -213,9 +219,7 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
                     ),
                     SizedBox(width: metrics.dateColumnGap),
                     Expanded(
-                      child: _ScrollableTimelineCanvas(
-                        controller: _horizontalController,
-                        width: metrics.dayWidth,
+                      child: SizedBox(
                         height: canvasHeight,
                         child: _TimelineCanvas(
                           state: widget.state,
@@ -258,14 +262,20 @@ class _TimelineLayoutMetrics {
     required bool compact,
     required TimelineDensity density,
     required double zoom,
+    required double fitWidth,
+    required TimelineDisplayMode displayMode,
   }) {
     final laneHeight = density == TimelineDensity.compact
         ? (compact ? 78.0 : 72.0)
         : (compact ? 106.0 : 104.0);
     final blockHeight = density == TimelineDensity.compact ? 38.0 : 64.0;
+    final usableFitWidth = math.max(240.0, fitWidth);
     return _TimelineLayoutMetrics(
       cardPadding: compact ? 10.0 : 16.0,
-      dayWidth: 960.0 * zoom,
+      dayWidth: displayMode == TimelineDisplayMode.fitSingleLine ||
+              displayMode == TimelineDisplayMode.splitByDay
+          ? usableFitWidth
+          : 960.0 * zoom,
       laneHeight: laneHeight,
       timeScaleHeight: density == TimelineDensity.compact ? 24.0 : 32.0,
       blockHeight: blockHeight,
@@ -281,6 +291,12 @@ class _TimelineLayoutMetrics {
   final double blockHeight;
   final double blockTopInset;
   final double dateColumnGap;
+}
+
+double metricsHorizontalInsets({required bool compact}) {
+  final padding = compact ? 10.0 : 16.0;
+  final dateColumn = compact ? 0.0 : 92.0 + 12.0;
+  return padding * 2 + dateColumn;
 }
 
 class _TimelineDateColumn extends StatelessWidget {
@@ -328,43 +344,45 @@ class _TimelineDateColumn extends StatelessWidget {
   }
 }
 
-class _ScrollableTimelineCanvas extends StatelessWidget {
-  const _ScrollableTimelineCanvas({
-    required this.controller,
-    required this.width,
-    required this.height,
-    required this.child,
+class _SplitTimelineCanvas extends StatelessWidget {
+  const _SplitTimelineCanvas({
+    required this.state,
+    required this.entries,
+    required this.rangeStart,
+    required this.span,
+    required this.density,
+    required this.metrics,
+    required this.showInlineDayLabels,
   });
 
-  final ScrollController controller;
-  final double width;
-  final double height;
-  final Widget child;
+  final AppState state;
+  final List<TimeEntry> entries;
+  final DateTime rangeStart;
+  final TimelineSpan span;
+  final TimelineDensity density;
+  final _TimelineLayoutMetrics metrics;
+  final bool showInlineDayLabels;
 
   @override
   Widget build(BuildContext context) {
-    return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(
-        dragDevices: {
-          PointerDeviceKind.touch,
-          PointerDeviceKind.mouse,
-          PointerDeviceKind.stylus,
-          PointerDeviceKind.invertedStylus,
-        },
-      ),
-      child: Scrollbar(
-        controller: controller,
-        thumbVisibility: true,
-        child: SingleChildScrollView(
-          controller: controller,
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: child,
+    return Column(
+      children: [
+        for (var index = 0; index < span.days; index += 1) ...[
+          SizedBox(
+            height: metrics.timeScaleHeight + metrics.laneHeight,
+            child: _TimelineCanvas(
+              state: state,
+              entries: entries,
+              rangeStart: rangeStart.add(Duration(days: index)),
+              span: TimelineSpan.day,
+              density: density,
+              metrics: metrics,
+              showInlineDayLabels: showInlineDayLabels,
+            ),
           ),
-        ),
-      ),
+          if (index != span.days - 1) const SizedBox(height: 8),
+        ],
+      ],
     );
   }
 }
@@ -635,6 +653,7 @@ class _EntriesTimelineView extends StatelessWidget {
     required this.rangeStart,
     required this.span,
     required this.density,
+    required this.displayMode,
     required this.zoom,
     required this.emptyText,
   });
@@ -644,6 +663,7 @@ class _EntriesTimelineView extends StatelessWidget {
   final DateTime rangeStart;
   final TimelineSpan span;
   final TimelineDensity density;
+  final TimelineDisplayMode displayMode;
   final double zoom;
   final String emptyText;
 
@@ -655,6 +675,7 @@ class _EntriesTimelineView extends StatelessWidget {
       rangeStart: rangeStart,
       span: span,
       density: density,
+      displayMode: displayMode,
       zoom: zoom,
       showEmptyState: false,
     );

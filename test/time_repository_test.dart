@@ -7,6 +7,8 @@ import 'package:timetrack/data/local_database.dart';
 import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/action_log.dart';
+import 'package:timetrack/domain/activity.dart';
+import 'package:timetrack/domain/activity_category.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/time_entry.dart';
 import 'test_fixtures.dart';
@@ -618,6 +620,197 @@ void main() {
     );
 
     expect(stats.totalDuration, const Duration(hours: 1, minutes: 30));
+  });
+
+  test('TimeRangeStats groups by primary category and filters by any tag', () {
+    final now = DateTime(2026, 1, 2, 12);
+    final work = Activity(
+      id: 'work',
+      userId: null,
+      name: '深度工作',
+      color: 0xff2563eb,
+      isFavorite: true,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    final study = Activity(
+      id: 'study',
+      userId: null,
+      name: '阅读',
+      color: 0xff059669,
+      isFavorite: true,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    final workCategory = ActivityCategory(
+      id: 'cat-work',
+      userId: null,
+      name: '工作',
+      color: 0xff0f766e,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    final focusCategory = ActivityCategory(
+      id: 'cat-focus',
+      userId: null,
+      name: '专注',
+      color: 0xff7c3aed,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    final stats = TimeRangeStats.fromEntries(
+      entries: [
+        TimeEntry(
+          id: 'entry-work',
+          userId: null,
+          activityId: work.id,
+          startAt: DateTime(2026, 1, 2, 9),
+          endAt: DateTime(2026, 1, 2, 9, 45),
+          note: '',
+          deviceId: 'test',
+          updatedAt: now,
+          isDeleted: false,
+        ),
+        TimeEntry(
+          id: 'entry-study',
+          userId: null,
+          activityId: study.id,
+          startAt: DateTime(2026, 1, 2, 10),
+          endAt: DateTime(2026, 1, 2, 11),
+          note: '',
+          deviceId: 'test',
+          updatedAt: now,
+          isDeleted: false,
+        ),
+      ],
+      start: DateTime(2026, 1, 2),
+      end: DateTime(2026, 1, 3),
+      effectiveNow: now,
+      activities: [work, study],
+      categories: [workCategory, focusCategory],
+      categoryLinks: [
+        ActivityCategoryLink(
+          id: 'link-work-primary',
+          userId: null,
+          activityId: work.id,
+          categoryId: workCategory.id,
+          isPrimary: true,
+          sortOrder: 0,
+          updatedAt: now,
+          isDeleted: false,
+        ),
+        ActivityCategoryLink(
+          id: 'link-work-focus',
+          userId: null,
+          activityId: work.id,
+          categoryId: focusCategory.id,
+          isPrimary: false,
+          sortOrder: 1,
+          updatedAt: now,
+          isDeleted: false,
+        ),
+      ],
+    );
+
+    final rows = stats.groupRows(
+      dimension: StatsDimension.primaryCategory,
+      sortMetric: StatsSortMetric.duration,
+      sortDirection: StatsSortDirection.descending,
+      selectedCategoryIds: {focusCategory.id},
+    );
+
+    expect(rows, hasLength(1));
+    expect(rows.single.label, '工作');
+    expect(rows.single.count, 1);
+    expect(rows.single.totalDuration, const Duration(minutes: 45));
+  });
+
+  test('TimeRangeStats supports duration buckets and color sorting', () {
+    final now = DateTime(2026, 1, 2, 12);
+    final work = Activity(
+      id: 'work',
+      userId: null,
+      name: '深度工作',
+      color: 0xff2563eb,
+      isFavorite: true,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    final admin = Activity(
+      id: 'admin',
+      userId: null,
+      name: '行政',
+      color: 0xffd97706,
+      isFavorite: true,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    final category = ActivityCategory(
+      id: 'cat-work',
+      userId: null,
+      name: '工作',
+      color: 0xff0f766e,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    final stats = TimeRangeStats.fromEntries(
+      entries: [
+        TimeEntry(
+          id: 'short',
+          userId: null,
+          activityId: admin.id,
+          startAt: DateTime(2026, 1, 2, 8),
+          endAt: DateTime(2026, 1, 2, 8, 20),
+          note: '',
+          deviceId: 'test',
+          updatedAt: now,
+          isDeleted: false,
+        ),
+        TimeEntry(
+          id: 'medium',
+          userId: null,
+          activityId: work.id,
+          startAt: DateTime(2026, 1, 2, 9),
+          endAt: DateTime(2026, 1, 2, 9, 45),
+          note: '',
+          deviceId: 'test',
+          updatedAt: now,
+          isDeleted: false,
+        ),
+      ],
+      start: DateTime(2026, 1, 2),
+      end: DateTime(2026, 1, 3),
+      effectiveNow: now,
+      activities: [work, admin],
+      categories: [category],
+      categoryLinks: [
+        ActivityCategoryLink(
+          id: 'link-work-primary',
+          userId: null,
+          activityId: work.id,
+          categoryId: category.id,
+          isPrimary: true,
+          sortOrder: 0,
+          updatedAt: now,
+          isDeleted: false,
+        ),
+      ],
+    );
+
+    final bucketRows = stats.groupRows(
+      dimension: StatsDimension.durationBucket,
+      sortMetric: StatsSortMetric.duration,
+      sortDirection: StatsSortDirection.descending,
+    );
+    expect(bucketRows.map((row) => row.label), ['30m-1h', '<30m']);
+
+    final mixedRows = stats.groupRows(
+      dimension: StatsDimension.primaryCategoryAndDurationBucket,
+      sortMetric: StatsSortMetric.color,
+      sortDirection: StatsSortDirection.ascending,
+    );
+    expect(mixedRows.map((row) => row.label), contains('工作 / 30m-1h'));
+    expect(mixedRows.map((row) => row.label), contains('未分类 / <30m'));
   });
 
   test('entries keep activity snapshot after activity is deleted', () async {

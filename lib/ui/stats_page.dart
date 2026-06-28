@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../app/app_state.dart';
-import '../core/app_constants.dart';
 import '../core/date_time_ext.dart';
 import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
@@ -35,6 +34,10 @@ class StatsPage extends StatefulWidget {
 class _StatsPageState extends State<StatsPage> {
   StatsPreset _preset = StatsPreset.today;
   DateTime _customDay = DateTime.now();
+  StatsDimension _dimension = StatsDimension.activity;
+  StatsSortMetric _sortMetric = StatsSortMetric.duration;
+  StatsSortDirection _sortDirection = StatsSortDirection.descending;
+  final Set<String> _selectedCategoryIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +83,20 @@ class _StatsPageState extends State<StatsPage> {
                       state: state,
                       range: range,
                       stats: stats,
+                      dimension: _dimension,
+                      sortMetric: _sortMetric,
+                      sortDirection: _sortDirection,
+                      selectedCategoryIds: _selectedCategoryIds,
+                      onDimensionChanged: (value) {
+                        setState(() => _dimension = value);
+                      },
+                      onSortMetricChanged: (value) {
+                        setState(() => _sortMetric = value);
+                      },
+                      onSortDirectionChanged: (value) {
+                        setState(() => _sortDirection = value);
+                      },
+                      onCategoryFilterToggled: _toggleCategoryFilter,
                       totalMinutes: totalMinutes,
                     ),
                   ],
@@ -105,7 +122,8 @@ class _StatsPageState extends State<StatsPage> {
           end: today,
           label: AppLocalizations.of(context)!.yesterday,
         ),
-      StatsPreset.thisWeek => _weekRange(today, AppLocalizations.of(context)!.thisWeek),
+      StatsPreset.thisWeek =>
+        _weekRange(today, AppLocalizations.of(context)!.thisWeek),
       StatsPreset.lastWeek => _weekRange(
           today.subtract(const Duration(days: 7)),
           AppLocalizations.of(context)!.lastWeek,
@@ -150,6 +168,14 @@ class _StatsPageState extends State<StatsPage> {
           : _rangeFor(widget.state.now).start;
       _preset = StatsPreset.customDay;
       _customDay = anchor.add(Duration(days: days));
+    });
+  }
+
+  void _toggleCategoryFilter(String categoryId) {
+    setState(() {
+      if (!_selectedCategoryIds.add(categoryId)) {
+        _selectedCategoryIds.remove(categoryId);
+      }
     });
   }
 }
@@ -351,24 +377,57 @@ class _StatsCharts extends StatelessWidget {
     required this.state,
     required this.range,
     required this.stats,
+    required this.dimension,
+    required this.sortMetric,
+    required this.sortDirection,
+    required this.selectedCategoryIds,
+    required this.onDimensionChanged,
+    required this.onSortMetricChanged,
+    required this.onSortDirectionChanged,
+    required this.onCategoryFilterToggled,
     required this.totalMinutes,
   });
 
   final AppState state;
   final StatsRange range;
   final TimeRangeStats stats;
+  final StatsDimension dimension;
+  final StatsSortMetric sortMetric;
+  final StatsSortDirection sortDirection;
+  final Set<String> selectedCategoryIds;
+  final ValueChanged<StatsDimension> onDimensionChanged;
+  final ValueChanged<StatsSortMetric> onSortMetricChanged;
+  final ValueChanged<StatsSortDirection> onSortDirectionChanged;
+  final ValueChanged<String> onCategoryFilterToggled;
   final int totalMinutes;
 
   @override
   Widget build(BuildContext context) {
+    final rows = stats.groupRows(
+      dimension: dimension,
+      sortMetric: sortMetric,
+      sortDirection: sortDirection,
+      selectedCategoryIds: selectedCategoryIds,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final expanded = constraints.maxWidth >= expandedBreakpoint;
+        final controls = _StatsControls(
+          state: state,
+          dimension: dimension,
+          sortMetric: sortMetric,
+          sortDirection: sortDirection,
+          selectedCategoryIds: selectedCategoryIds,
+          onDimensionChanged: onDimensionChanged,
+          onSortMetricChanged: onSortMetricChanged,
+          onSortDirectionChanged: onSortDirectionChanged,
+          onCategoryFilterToggled: onCategoryFilterToggled,
+        );
         final distributionCard = RangeDistributionCard(
           state: state,
-          title: AppLocalizations.of(context)!.distributionChartTitle(range.label),
-          totals: stats.totalsByActivity,
-          activitySnapshots: stats.activitySnapshots,
+          title:
+              AppLocalizations.of(context)!.distributionChartTitle(range.label),
+          rows: rows,
           totalMinutes: totalMinutes,
         );
         final dayTotalsCard = DayTotalsCard(dayTotals: stats.totalsByDay);
@@ -376,6 +435,8 @@ class _StatsCharts extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              controls,
+              const SectionGap(),
               distributionCard,
               const SectionGap(),
               dayTotalsCard,
@@ -385,7 +446,17 @@ class _StatsCharts extends StatelessWidget {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 7, child: distributionCard),
+            Expanded(
+              flex: 7,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  controls,
+                  const SectionGap(),
+                  distributionCard,
+                ],
+              ),
+            ),
             const SizedBox(width: 16),
             Expanded(flex: 5, child: dayTotalsCard),
           ],
@@ -395,20 +466,180 @@ class _StatsCharts extends StatelessWidget {
   }
 }
 
+class _StatsControls extends StatelessWidget {
+  const _StatsControls({
+    required this.state,
+    required this.dimension,
+    required this.sortMetric,
+    required this.sortDirection,
+    required this.selectedCategoryIds,
+    required this.onDimensionChanged,
+    required this.onSortMetricChanged,
+    required this.onSortDirectionChanged,
+    required this.onCategoryFilterToggled,
+  });
+
+  final AppState state;
+  final StatsDimension dimension;
+  final StatsSortMetric sortMetric;
+  final StatsSortDirection sortDirection;
+  final Set<String> selectedCategoryIds;
+  final ValueChanged<StatsDimension> onDimensionChanged;
+  final ValueChanged<StatsSortMetric> onSortMetricChanged;
+  final ValueChanged<StatsSortDirection> onSortDirectionChanged;
+  final ValueChanged<String> onCategoryFilterToggled;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < compactBreakpoint;
+    final dimensions = compact
+        ? DropdownButtonFormField<StatsDimension>(
+            initialValue: dimension,
+            decoration: const InputDecoration(
+              labelText: '统计维度',
+              prefixIcon: Icon(Icons.query_stats),
+            ),
+            items: [
+              for (final value in StatsDimension.values)
+                DropdownMenuItem(
+                    value: value, child: Text(_dimensionLabel(value))),
+            ],
+            onChanged: (value) {
+              if (value != null) onDimensionChanged(value);
+            },
+          )
+        : SegmentedButton<StatsDimension>(
+            segments: [
+              for (final value in StatsDimension.values)
+                ButtonSegment(
+                  value: value,
+                  label: Text(_dimensionLabel(value)),
+                ),
+            ],
+            selected: {dimension},
+            onSelectionChanged: (value) => onDimensionChanged(value.first),
+          );
+    return QuietPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '统计维度',
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          dimensions,
+          if (state.activityCategories.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final category in state.activityCategories)
+                  FilterChip(
+                    label: Text(category.name),
+                    selected: selectedCategoryIds.contains(category.id),
+                    avatar: CircleAvatar(
+                      radius: 6,
+                      backgroundColor: Color(category.color),
+                    ),
+                    onSelected: (_) => onCategoryFilterToggled(category.id),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            '排序',
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: compact ? double.infinity : 180,
+                child: DropdownButtonFormField<StatsSortMetric>(
+                  initialValue: sortMetric,
+                  decoration: const InputDecoration(
+                    labelText: '排序依据',
+                    prefixIcon: Icon(Icons.sort),
+                  ),
+                  items: [
+                    for (final value in StatsSortMetric.values)
+                      DropdownMenuItem(
+                        value: value,
+                        child: Text(_sortMetricLabel(value)),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) onSortMetricChanged(value);
+                  },
+                ),
+              ),
+              SegmentedButton<StatsSortDirection>(
+                segments: const [
+                  ButtonSegment(
+                    value: StatsSortDirection.descending,
+                    icon: Icon(Icons.south),
+                    label: Text('倒序'),
+                  ),
+                  ButtonSegment(
+                    value: StatsSortDirection.ascending,
+                    icon: Icon(Icons.north),
+                    label: Text('顺序'),
+                  ),
+                ],
+                selected: {sortDirection},
+                onSelectionChanged: (value) =>
+                    onSortDirectionChanged(value.first),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _dimensionLabel(StatsDimension value) {
+    return switch (value) {
+      StatsDimension.activity => '事项',
+      StatsDimension.primaryCategory => '主分类',
+      StatsDimension.durationBucket => '单条时长',
+      StatsDimension.primaryCategoryAndDurationBucket => '分类+时长',
+    };
+  }
+
+  String _sortMetricLabel(StatsSortMetric value) {
+    return switch (value) {
+      StatsSortMetric.duration => '时长',
+      StatsSortMetric.count => '次数',
+      StatsSortMetric.color => '颜色',
+    };
+  }
+}
+
 class RangeDistributionCard extends StatelessWidget {
   const RangeDistributionCard({
     required this.state,
     required this.title,
-    required this.totals,
-    required this.activitySnapshots,
+    required this.rows,
     required this.totalMinutes,
     super.key,
   });
 
   final AppState state;
   final String title;
-  final Map<String, Duration> totals;
-  final Map<String, ActivityStatsSnapshot> activitySnapshots;
+  final List<StatsGroupRow> rows;
   final int totalMinutes;
 
   @override
@@ -420,7 +651,9 @@ class RangeDistributionCard extends StatelessWidget {
         children: [
           SectionTitle(
             title: title,
-            subtitle: totals.isEmpty ? AppLocalizations.of(context)!.noDataToVisualize : AppLocalizations.of(context)!.activityColorLegend,
+            subtitle: rows.isEmpty
+                ? AppLocalizations.of(context)!.noDataToVisualize
+                : AppLocalizations.of(context)!.activityColorLegend,
             icon: Icons.pie_chart_outline,
           ),
           const SizedBox(height: 16),
@@ -429,30 +662,31 @@ class RangeDistributionCard extends StatelessWidget {
               final compact = constraints.maxWidth < 520;
               final chart = SizedBox(
                 height: compact ? 220 : 260,
-                child: totals.isEmpty
+                child: rows.isEmpty
                     ? EmptyState(
                         icon: Icons.pie_chart_outline,
                         title: AppLocalizations.of(context)!.noData,
-                        message: AppLocalizations.of(context)!.startRecordingHint,
+                        message:
+                            AppLocalizations.of(context)!.startRecordingHint,
                       )
                     : PieChart(
                         PieChartData(
                           sectionsSpace: 2,
                           centerSpaceRadius: compact ? 44 : 54,
                           sections: [
-                            for (final item in totals.entries)
+                            for (final row in rows)
                               PieChartSectionData(
-                                value: item.value.inMinutes
+                                value: row.totalDuration.inMinutes
                                     .clamp(1, 1 << 31)
                                     .toDouble(),
                                 title:
-                                    '${(item.value.inMinutes / totalMinutes * 100).round()}%',
+                                    '${(row.totalDuration.inMinutes / totalMinutes * 100).round()}%',
                                 radius: compact ? 74 : 88,
                                 titleStyle: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
                                 ),
-                                color: Color(_activityColor(item.key)),
+                                color: Color(row.color),
                               ),
                           ],
                         ),
@@ -460,11 +694,12 @@ class RangeDistributionCard extends StatelessWidget {
               );
               final legend = Column(
                 children: [
-                  for (final item in totals.entries)
+                  for (final item in rows)
                     _LegendRow(
-                      color: Color(_activityColor(item.key)),
-                      label: _activityName(item.key, AppLocalizations.of(context)!.unknownActivity),
-                      value: formatDurationCompact(item.value),
+                      color: Color(item.color),
+                      label: item.label,
+                      value: '${formatDurationCompact(item.totalDuration)}'
+                          ' · ${item.count}次',
                     ),
                 ],
               );
@@ -492,23 +727,8 @@ class RangeDistributionCard extends StatelessWidget {
     );
   }
 
-  String _activityName(String activityId, String fallbackName) {
-    final activity = state.activityById(activityId);
-    if (activity != null) {
-      return activity.name;
-    }
-    final snapshot = activitySnapshots[activityId]?.name.trim();
-    if (snapshot != null && snapshot.isNotEmpty) {
-      return snapshot;
-    }
-    return fallbackName;
-  }
-
-  int _activityColor(String activityId) {
-    return state.activityById(activityId)?.color ??
-        activitySnapshots[activityId]?.color ??
-        AppConstants.defaultActivityColor;
-  }
+  // State is retained for constructor compatibility in widget tests and future
+  // drill-down actions.
 }
 
 class DayTotalsCard extends StatelessWidget {

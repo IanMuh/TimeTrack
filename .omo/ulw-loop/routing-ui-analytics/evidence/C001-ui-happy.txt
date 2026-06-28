@@ -1,0 +1,16 @@
+Focused UI/widget evidence for routing-ui-analytics C001.
+
+Command:
+C:/Users/user/.local/bin/omo.cmd sparkshell flutter test test/local_database_test.dart test/sync_interop_test.dart test/time_repository_test.dart test/stats_page_test.dart test/ui_controls_test.dart
+
+Result:
+Exit code 0. Flutter widget and repository tests passed: 63/63.
+
+Covered UI surfaces:
+- SettingsPage compact section list, section drill-in, return tooltip, category section, interop detail, and update-state default detail.
+- Activity editor primary category dropdown and secondary FilterChip assignment.
+- StatsPage dimension, category filter, sort metric, sort direction controls.
+- RangeTimelineCard fit/split modes with no horizontal Scrollable in compact/split paths.
+
+Cleanup:
+No spawned runtime state.

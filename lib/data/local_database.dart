@@ -28,7 +28,7 @@ class LocalDatabase {
     final dbPath = _databasePath ?? await _defaultDatabasePath();
     final db = await openDatabase(
       dbPath,
-      version: 7,
+      version: 8,
       onConfigure: _configure,
       onCreate: _create,
       onUpgrade: _upgrade,
@@ -75,6 +75,9 @@ class LocalDatabase {
     if (oldVersion < 7) {
       await migrateEntrySnapshotsAndOneOffSchema(db);
     }
+    if (oldVersion < 8) {
+      await createActivityCategorySchema(db);
+    }
   }
 
   static Future<void> ensureSchema(Database db) async {
@@ -82,6 +85,7 @@ class LocalDatabase {
     await migrateProfileSettingsReminderSchema(db);
     await migrateUnassignedActivitySchema(db);
     await migrateEntrySnapshotsAndOneOffSchema(db);
+    await createActivityCategorySchema(db);
   }
 
   static Future<void> createSchema(Database db) async {
@@ -146,6 +150,7 @@ class LocalDatabase {
     await createActionLogsSchema(db);
     await createSyncPeerSchema(db);
     await createAppMetadataSchema(db);
+    await createActivityCategorySchema(db);
   }
 
   static Future<void> createActionLogsSchema(Database db) async {
@@ -196,6 +201,51 @@ class LocalDatabase {
         value text not null
       )
     ''');
+  }
+
+  static Future<void> createActivityCategorySchema(Database db) async {
+    await db.execute('''
+      create table if not exists activity_categories (
+        id text primary key,
+        user_id text,
+        name text not null,
+        color integer not null,
+        updated_at text not null,
+        is_deleted integer not null default 0
+      )
+    ''');
+
+    await db.execute('''
+      create table if not exists activity_category_links (
+        id text primary key,
+        user_id text,
+        activity_id text not null,
+        category_id text not null,
+        is_primary integer not null default 0,
+        sort_order integer not null default 0,
+        updated_at text not null,
+        is_deleted integer not null default 0,
+        foreign key (activity_id) references activities(id),
+        foreign key (category_id) references activity_categories(id)
+      )
+    ''');
+
+    await db.execute(
+      'create index if not exists idx_activity_categories_updated_at '
+      'on activity_categories(updated_at)',
+    );
+    await db.execute(
+      'create index if not exists idx_activity_category_links_activity_id '
+      'on activity_category_links(activity_id)',
+    );
+    await db.execute(
+      'create index if not exists idx_activity_category_links_category_id '
+      'on activity_category_links(category_id)',
+    );
+    await db.execute(
+      'create index if not exists idx_activity_category_links_updated_at '
+      'on activity_category_links(updated_at)',
+    );
   }
 
   static Future<void> migrateProfileSettingsReminderSchema(Database db) async {

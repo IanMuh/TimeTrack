@@ -2,9 +2,11 @@ import 'package:sqflite/sqflite.dart';
 
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
+import '../domain/activity_category.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 import 'action_log_repository.dart';
+import 'activity_category_repository.dart';
 import 'activity_repository.dart';
 import 'device_id_store.dart';
 import 'local_database.dart';
@@ -15,7 +17,8 @@ import 'sync_bundle.dart';
 import 'time_entry_repository.dart';
 
 // Re-export types that were previously defined here
-export 'repository_interfaces.dart' show EntryMergeDirection, EntryMergeCandidate;
+export 'repository_interfaces.dart'
+    show EntryMergeDirection, EntryMergeCandidate;
 export 'time_entry_repository.dart' show TimeEntryRepository;
 export 'action_log_repository.dart' show ActionLogRepository;
 
@@ -27,12 +30,15 @@ class TimeRepository {
     required DeviceIdStore deviceIdStore,
     required TimeEntryRepository timeEntryRepository,
     required ActionLogRepository actionLogRepository,
+    ActivityCategoryRepository? activityCategoryRepository,
   })  : _database = database,
         _activityRepo = activityRepository,
         _settingsRepo = settingsRepository,
         _deviceIdStore = deviceIdStore,
         _entryRepo = timeEntryRepository,
-        _logRepo = actionLogRepository;
+        _logRepo = actionLogRepository,
+        _categoryRepo = activityCategoryRepository ??
+            ActivityCategoryRepository(database: database);
 
   final LocalDatabase _database;
   final ActivityRepository _activityRepo;
@@ -40,6 +46,7 @@ class TimeRepository {
   final DeviceIdStore _deviceIdStore;
   final TimeEntryRepository _entryRepo;
   final ActionLogRepository _logRepo;
+  final ActivityCategoryRepository _categoryRepo;
 
   // -------------------------------------------------------------------------
   // Seed & bundle orchestration
@@ -83,6 +90,8 @@ class TimeRepository {
       exportedAt: DateTime.now(),
       sourceDeviceId: deviceId,
       activities: await activities(includeDeleted: true),
+      categories: await categories(includeDeleted: true),
+      categoryLinks: await activityCategoryLinks(includeDeleted: true),
       timeEntries: await allEntries(),
       actionLogs: await allActionLogs(),
       profileSettings: await settings(),
@@ -90,7 +99,8 @@ class TimeRepository {
   }
 
   Future<void> mergeBundle(SyncBundle bundle) async {
-    if (bundle.schemaVersion != SyncBundle.currentSchemaVersion) {
+    if (bundle.schemaVersion < 1 ||
+        bundle.schemaVersion > SyncBundle.currentSchemaVersion) {
       throw FormatException(
         'Unsupported TimeTrack sync schema version: ${bundle.schemaVersion}.',
       );
@@ -109,6 +119,46 @@ class TimeRepository {
           await txn.insert(
             'activities',
             activity.toLocalMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+
+      for (final category in bundle.categories) {
+        final localRows = await txn.query(
+          'activity_categories',
+          where: 'id = ?',
+          whereArgs: [category.id],
+          limit: 1,
+        );
+        if (_shouldReplace(
+          localRows,
+          ActivityCategory.fromMap,
+          category.updatedAt,
+        )) {
+          await txn.insert(
+            'activity_categories',
+            category.toLocalMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+
+      for (final link in bundle.categoryLinks) {
+        final localRows = await txn.query(
+          'activity_category_links',
+          where: 'id = ?',
+          whereArgs: [link.id],
+          limit: 1,
+        );
+        if (_shouldReplace(
+          localRows,
+          ActivityCategoryLink.fromMap,
+          link.updatedAt,
+        )) {
+          await txn.insert(
+            'activity_category_links',
+            link.toLocalMap(),
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
@@ -294,6 +344,139 @@ class TimeRepository {
 
   Future<void> replaceActivityIfRemoteNewer(Activity remote) async {
     final result = await _activityRepo.replaceActivityIfRemoteNewer(remote);
+    result.fold(
+      onSuccess: (_) {},
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Activity category delegation (unwrap AppResult)
+  // -------------------------------------------------------------------------
+
+  Future<List<ActivityCategory>> categories({
+    bool includeDeleted = false,
+  }) async {
+    final result =
+        await _categoryRepo.categories(includeDeleted: includeDeleted);
+    return result.fold(
+      onSuccess: (list) => list,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<ActivityCategory> createCategory({
+    required String name,
+    required int color,
+    String? userId,
+  }) async {
+    final result = await _categoryRepo.createCategory(
+      name: name,
+      color: color,
+      userId: userId,
+    );
+    return result.fold(
+      onSuccess: (category) => category,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<ActivityCategory> updateCategory({
+    required ActivityCategory category,
+    required String name,
+    required int color,
+  }) async {
+    final result = await _categoryRepo.updateCategory(
+      category: category,
+      name: name,
+      color: color,
+    );
+    return result.fold(
+      onSuccess: (updated) => updated,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<void> deleteCategory(ActivityCategory category) async {
+    final result = await _categoryRepo.deleteCategory(category);
+    result.fold(
+      onSuccess: (_) {},
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<List<ActivityCategoryLink>> activityCategoryLinks({
+    bool includeDeleted = false,
+  }) async {
+    final result = await _categoryRepo.activityCategoryLinks(
+      includeDeleted: includeDeleted,
+    );
+    return result.fold(
+      onSuccess: (list) => list,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<List<ActivityCategoryLink>> linksForActivity(
+    String activityId, {
+    bool includeDeleted = false,
+  }) async {
+    final result = await _categoryRepo.linksForActivity(
+      activityId,
+      includeDeleted: includeDeleted,
+    );
+    return result.fold(
+      onSuccess: (list) => list,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<List<ActivityCategoryLink>> setActivityCategories({
+    required String activityId,
+    required String? primaryCategoryId,
+    required List<String> secondaryCategoryIds,
+    String? userId,
+  }) async {
+    final result = await _categoryRepo.setActivityCategories(
+      activityId: activityId,
+      primaryCategoryId: primaryCategoryId,
+      secondaryCategoryIds: secondaryCategoryIds,
+      userId: userId,
+    );
+    return result.fold(
+      onSuccess: (list) => list,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<List<ActivityCategory>> categoriesSince(DateTime since) async {
+    final result = await _categoryRepo.categoriesSince(since);
+    return result.fold(
+      onSuccess: (list) => list,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<List<ActivityCategoryLink>> categoryLinksSince(DateTime since) async {
+    final result = await _categoryRepo.categoryLinksSince(since);
+    return result.fold(
+      onSuccess: (list) => list,
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<void> replaceCategoryIfRemoteNewer(ActivityCategory remote) async {
+    final result = await _categoryRepo.replaceCategoryIfRemoteNewer(remote);
+    result.fold(
+      onSuccess: (_) {},
+      onFailure: (msg) => throw StateError(msg),
+    );
+  }
+
+  Future<void> replaceCategoryLinkIfRemoteNewer(
+    ActivityCategoryLink remote,
+  ) async {
+    final result = await _categoryRepo.replaceCategoryLinkIfRemoteNewer(remote);
     result.fold(
       onSuccess: (_) {},
       onFailure: (msg) => throw StateError(msg),
@@ -553,11 +736,19 @@ class TimeRepository {
 
   Future<RepositoryUndoSnapshot> undoSnapshot() async {
     final activityRows = await activities(includeDeleted: true);
+    final categoryRows = await categories(includeDeleted: true);
+    final categoryLinkRows = await activityCategoryLinks(includeDeleted: true);
     final entryRows = await allEntries();
     final logRows = await allActionLogs();
     return RepositoryUndoSnapshot(
       activities: {
         for (final activity in activityRows) activity.id: activity,
+      },
+      categories: {
+        for (final category in categoryRows) category.id: category,
+      },
+      categoryLinks: {
+        for (final link in categoryLinkRows) link.id: link,
       },
       timeEntries: {
         for (final entry in entryRows) entry.id: entry,
@@ -582,6 +773,12 @@ class TimeRepository {
       for (final change in changeSet.activities) {
         await _applyActivityUndoChange(txn, change, direction, updatedAt);
       }
+      for (final change in changeSet.categories) {
+        await _applyCategoryUndoChange(txn, change, direction, updatedAt);
+      }
+      for (final change in changeSet.categoryLinks) {
+        await _applyCategoryLinkUndoChange(txn, change, direction, updatedAt);
+      }
       for (final change in changeSet.timeEntries) {
         await _applyEntryUndoChange(txn, change, direction, updatedAt);
       }
@@ -591,7 +788,9 @@ class TimeRepository {
     });
     final actionLabel = direction == RepositoryUndoDirection.undo ? '撤销' : '重做';
     await addActionLog(
-      actionType: direction == RepositoryUndoDirection.undo ? ActionType.undo : ActionType.redo,
+      actionType: direction == RepositoryUndoDirection.undo
+          ? ActionType.undo
+          : ActionType.redo,
       activityId: null,
       entryId: null,
       occurredAt: updatedAt,
@@ -655,6 +854,28 @@ class TimeRepository {
         throw _undoConflict(direction);
       }
     }
+    for (final change in changeSet.categories) {
+      final current = await _categoryRepo.categoryById(change.id, executor);
+      if (!_rowMatchesExpected<ActivityCategory>(
+        current: current,
+        expected: change.expectedFor(direction),
+        toMap: (value) => value.toLocalMap(),
+        isDeleted: (value) => value.isDeleted,
+      )) {
+        throw _undoConflict(direction);
+      }
+    }
+    for (final change in changeSet.categoryLinks) {
+      final current = await _categoryRepo.categoryLinkById(change.id, executor);
+      if (!_rowMatchesExpected<ActivityCategoryLink>(
+        current: current,
+        expected: change.expectedFor(direction),
+        toMap: (value) => value.toLocalMap(),
+        isDeleted: (value) => value.isDeleted,
+      )) {
+        throw _undoConflict(direction);
+      }
+    }
     for (final change in changeSet.timeEntries) {
       final current = await _entryRepo.entryByIdWithExecutor(
         change.id,
@@ -704,6 +925,46 @@ class TimeRepository {
     }
     await executor.insert(
       'activities',
+      value.toLocalMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _applyCategoryUndoChange(
+    DatabaseExecutor executor,
+    RepositoryUndoRowChange<ActivityCategory> change,
+    RepositoryUndoDirection direction,
+    DateTime updatedAt,
+  ) async {
+    final target = change.targetFor(direction);
+    final fallback = change.fallbackFor(direction);
+    final value = target?.copyWith(updatedAt: updatedAt) ??
+        fallback?.copyWith(isDeleted: true, updatedAt: updatedAt);
+    if (value == null) {
+      return;
+    }
+    await executor.insert(
+      'activity_categories',
+      value.toLocalMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _applyCategoryLinkUndoChange(
+    DatabaseExecutor executor,
+    RepositoryUndoRowChange<ActivityCategoryLink> change,
+    RepositoryUndoDirection direction,
+    DateTime updatedAt,
+  ) async {
+    final target = change.targetFor(direction);
+    final fallback = change.fallbackFor(direction);
+    final value = target?.copyWith(updatedAt: updatedAt) ??
+        fallback?.copyWith(isDeleted: true, updatedAt: updatedAt);
+    if (value == null) {
+      return;
+    }
+    await executor.insert(
+      'activity_category_links',
       value.toLocalMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );

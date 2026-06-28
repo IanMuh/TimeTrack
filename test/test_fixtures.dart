@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
 import 'package:timetrack/data/activity_repository.dart';
+import 'package:timetrack/data/activity_category_repository.dart';
 import 'package:timetrack/data/app_update_service.dart';
 import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/file_interop_service.dart';
@@ -19,6 +20,7 @@ class TestRepositoryFixture {
     required this.database,
     required this.sqliteDatabase,
     required this.activityRepository,
+    required this.activityCategoryRepository,
     required this.settingsRepository,
     required this.deviceIdStore,
     required this.timeEntryRepository,
@@ -31,6 +33,7 @@ class TestRepositoryFixture {
   final LocalDatabase database;
   final Database sqliteDatabase;
   final ActivityRepository activityRepository;
+  final ActivityCategoryRepository activityCategoryRepository;
   final SettingsRepository settingsRepository;
   final DeviceIdStore deviceIdStore;
   final TimeEntryRepository timeEntryRepository;
@@ -42,6 +45,7 @@ class TestRepositoryFixture {
   SyncService createSyncService() {
     return SyncService(
       activityRepository: activityRepository,
+      activityCategoryRepository: activityCategoryRepository,
       settingsRepository: settingsRepository,
       timeEntryRepository: timeEntryRepository,
       actionLogRepository: actionLogRepository,
@@ -143,6 +147,9 @@ class TestAppFixture {
 
   ActivityRepository get activityRepository => repositories.activityRepository;
 
+  ActivityCategoryRepository get activityCategoryRepository =>
+      repositories.activityCategoryRepository;
+
   TimeEntryRepository get timeEntryRepository =>
       repositories.timeEntryRepository;
 
@@ -169,6 +176,8 @@ Future<TestRepositoryFixture> buildTestRepositoryFixture({
   await LocalDatabase.createSchema(sqliteDatabase);
   final database = LocalDatabase(database: sqliteDatabase);
   final activityRepository = ActivityRepository(database: database);
+  final activityCategoryRepository =
+      ActivityCategoryRepository(database: database);
   final settingsRepository = SettingsRepository(database: database);
   final deviceIdStore = DeviceIdStore(
     database: database,
@@ -186,6 +195,7 @@ Future<TestRepositoryFixture> buildTestRepositoryFixture({
     deviceIdStore: deviceIdStore,
     timeEntryRepository: timeEntryRepository,
     actionLogRepository: actionLogRepository,
+    activityCategoryRepository: activityCategoryRepository,
   );
   if (seedData) {
     await repository.ensureSeedData();
@@ -194,6 +204,7 @@ Future<TestRepositoryFixture> buildTestRepositoryFixture({
     database: database,
     sqliteDatabase: sqliteDatabase,
     activityRepository: activityRepository,
+    activityCategoryRepository: activityCategoryRepository,
     settingsRepository: settingsRepository,
     deviceIdStore: deviceIdStore,
     timeEntryRepository: timeEntryRepository,
