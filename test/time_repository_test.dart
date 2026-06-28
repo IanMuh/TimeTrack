@@ -714,8 +714,6 @@ void main() {
 
     final rows = stats.groupRows(
       dimension: StatsDimension.primaryCategory,
-      sortMetric: StatsSortMetric.duration,
-      sortDirection: StatsSortDirection.descending,
       selectedCategoryIds: {focusCategory.id},
     );
 
@@ -725,7 +723,7 @@ void main() {
     expect(rows.single.totalDuration, const Duration(minutes: 45));
   });
 
-  test('TimeRangeStats supports duration buckets and color sorting', () {
+  test('TimeRangeStats supports duration buckets and mixed dimensions', () {
     final now = DateTime(2026, 1, 2, 12);
     final work = Activity(
       id: 'work',
@@ -799,15 +797,11 @@ void main() {
 
     final bucketRows = stats.groupRows(
       dimension: StatsDimension.durationBucket,
-      sortMetric: StatsSortMetric.duration,
-      sortDirection: StatsSortDirection.descending,
     );
     expect(bucketRows.map((row) => row.label), ['30m-1h', '<30m']);
 
     final mixedRows = stats.groupRows(
       dimension: StatsDimension.primaryCategoryAndDurationBucket,
-      sortMetric: StatsSortMetric.color,
-      sortDirection: StatsSortDirection.ascending,
     );
     expect(mixedRows.map((row) => row.label), contains('工作 / 30m-1h'));
     expect(mixedRows.map((row) => row.label), contains('未分类 / <30m'));

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
 import '../data/app_update_service.dart';
+import '../domain/activity.dart';
 import '../domain/profile_settings.dart';
 import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
@@ -233,6 +234,7 @@ class ActivityCategorySettingsCard extends StatefulWidget {
 class _ActivityCategorySettingsCardState
     extends State<ActivityCategorySettingsCard> {
   final _controller = TextEditingController();
+  var _mode = _ActivityCategorySettingsMode.categories;
 
   @override
   void dispose() {
@@ -250,42 +252,35 @@ class _ActivityCategorySettingsCardState
         children: [
           const SectionTitle(
             title: '事项分类',
-            subtitle: '用主分类归组统计，用次级分类做筛选标签。',
+            subtitle: '管理分类，并为每个事项分配主分类和次级分类。',
             icon: Icons.category_outlined,
           ),
           const SizedBox(height: 14),
-          TextField(
-            controller: _controller,
-            decoration: const InputDecoration(
-              labelText: '分类名称',
-              prefixIcon: Icon(Icons.add_circle_outline),
-            ),
-            onSubmitted: (_) => _createCategory(),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: _createCategory,
-            icon: const Icon(Icons.add),
-            label: const Text('新建分类'),
+          SegmentedButton<_ActivityCategorySettingsMode>(
+            segments: const [
+              ButtonSegment(
+                value: _ActivityCategorySettingsMode.categories,
+                icon: Icon(Icons.category_outlined),
+                label: Text('分类管理'),
+              ),
+              ButtonSegment(
+                value: _ActivityCategorySettingsMode.activities,
+                icon: Icon(Icons.label_outline),
+                label: Text('事项管理'),
+              ),
+            ],
+            selected: {_mode},
+            onSelectionChanged: (value) => setState(() => _mode = value.first),
           ),
           const SizedBox(height: 14),
-          if (state.activityCategories.isEmpty)
-            const Text('暂无分类')
+          if (_mode == _ActivityCategorySettingsMode.categories)
+            _ActivityCategoryManager(
+              state: state,
+              controller: _controller,
+              onCreateCategory: _createCategory,
+            )
           else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final category in state.activityCategories)
-                  InputChip(
-                    avatar: CircleAvatar(
-                      backgroundColor: Color(category.color),
-                    ),
-                    label: Text(category.name),
-                    onDeleted: () => state.deleteCategory(category),
-                  ),
-              ],
-            ),
+            _ActivityCategoryAssignmentList(state: state),
         ],
       ),
     );
@@ -299,6 +294,267 @@ class _ActivityCategorySettingsCardState
     await widget.state.createCategory(name, 0xff0f766e);
     _controller.clear();
   }
+}
+
+enum _ActivityCategorySettingsMode { categories, activities }
+
+class _ActivityCategoryManager extends StatelessWidget {
+  const _ActivityCategoryManager({
+    required this.state,
+    required this.controller,
+    required this.onCreateCategory,
+  });
+
+  final AppState state;
+  final TextEditingController controller;
+  final VoidCallback onCreateCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '分类名称',
+            prefixIcon: Icon(Icons.add_circle_outline),
+          ),
+          onSubmitted: (_) => onCreateCategory(),
+        ),
+        const SizedBox(height: 10),
+        FilledButton.icon(
+          onPressed: onCreateCategory,
+          icon: const Icon(Icons.add),
+          label: const Text('新建分类'),
+        ),
+        const SizedBox(height: 14),
+        if (state.activityCategories.isEmpty)
+          const Text('暂无分类')
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final category in state.activityCategories)
+                InputChip(
+                  avatar: CircleAvatar(
+                    backgroundColor: Color(category.color),
+                  ),
+                  label: Text(category.name),
+                  onDeleted: () => state.deleteCategory(category),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _ActivityCategoryAssignmentList extends StatelessWidget {
+  const _ActivityCategoryAssignmentList({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final activities = [
+      for (final activity in state.activities)
+        if (!activity.isUnassigned && !activity.isDeleted) activity,
+    ];
+    if (activities.isEmpty) {
+      return const Text('暂无可设置分类的事项');
+    }
+    return Column(
+      children: [
+        for (final activity in activities)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _ActivityCategoryAssignmentRow(
+              state: state,
+              activity: activity,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ActivityCategoryAssignmentRow extends StatelessWidget {
+  const _ActivityCategoryAssignmentRow({
+    required this.state,
+    required this.activity,
+  });
+
+  final AppState state;
+  final Activity activity;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = state.primaryCategoryForActivity(activity.id);
+    final secondary = state.secondaryCategoriesForActivity(activity.id);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(radius: 8, backgroundColor: Color(activity.color)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    activity.name,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      InputChip(
+                        avatar: CircleAvatar(
+                          backgroundColor: Color(primary?.color ?? 0xff94a3b8),
+                        ),
+                        label: Text(primary?.name ?? '未分类'),
+                      ),
+                      for (final category in secondary)
+                        InputChip(
+                          avatar: CircleAvatar(
+                            backgroundColor: Color(category.color),
+                          ),
+                          label: Text(category.name),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton.filledTonal(
+              tooltip: '设置 ${activity.name} 的分类',
+              onPressed: state.activityCategories.isEmpty
+                  ? null
+                  : () => _showActivityCategoryDialog(context, state, activity),
+              icon: const Icon(Icons.tune),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showActivityCategoryDialog(
+  BuildContext context,
+  AppState state,
+  Activity activity,
+) async {
+  var primaryCategoryId = state.primaryCategoryForActivity(activity.id)?.id;
+  final secondaryCategoryIds = {
+    for (final category in state.secondaryCategoriesForActivity(activity.id))
+      category.id,
+  };
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text('设置 ${activity.name} 的分类'),
+            content: SizedBox(
+              width: dialogContentWidth(context, maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<String?>(
+                    initialValue: primaryCategoryId,
+                    decoration: const InputDecoration(
+                      labelText: '主分类',
+                      prefixIcon: Icon(Icons.category_outlined),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('未分类'),
+                      ),
+                      for (final category in state.activityCategories)
+                        DropdownMenuItem<String?>(
+                          value: category.id,
+                          child: Text(category.name),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setDialogState(() {
+                        primaryCategoryId = value;
+                        secondaryCategoryIds.remove(value);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final category in state.activityCategories)
+                        FilterChip(
+                          label: Text(category.name),
+                          avatar: CircleAvatar(
+                            radius: 6,
+                            backgroundColor: Color(category.color),
+                          ),
+                          selected: secondaryCategoryIds.contains(category.id),
+                          onSelected: category.id == primaryCategoryId
+                              ? null
+                              : (selected) {
+                                  setDialogState(() {
+                                    if (selected) {
+                                      secondaryCategoryIds.add(category.id);
+                                    } else {
+                                      secondaryCategoryIds.remove(category.id);
+                                    }
+                                  });
+                                },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  await state.setActivityCategories(
+                    activityId: activity.id,
+                    primaryCategoryId: primaryCategoryId,
+                    secondaryCategoryIds:
+                        secondaryCategoryIds.toList(growable: false),
+                  );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('保存'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
 
 class TimelineSettingsCard extends StatefulWidget {

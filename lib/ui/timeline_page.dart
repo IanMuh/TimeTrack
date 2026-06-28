@@ -17,6 +17,7 @@ import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'activity_colors.dart';
 import 'home_page.dart';
+import 'sort_controls.dart';
 import 'ui_components.dart';
 
 part 'timeline_canvas.dart';
@@ -27,7 +28,11 @@ enum TimelineViewMode { entries, actions }
 
 enum TimelineDensity { compact, detailed }
 
-enum TimelineDisplayMode { fitSingleLine, splitByDay }
+enum TimelineDisplayMode { singleLine, segmentedDay }
+
+enum TimelineEntrySortMetric { startTime, duration, activityName, color }
+
+enum ActionLogSortMetric { occurredAt, actionType, activityName, device }
 
 enum TimelineSpan {
   day(1),
@@ -125,8 +130,13 @@ class TimelinePage extends StatefulWidget {
 class _TimelinePageState extends State<TimelinePage> {
   TimelineViewMode _mode = TimelineViewMode.entries;
   TimelineDensity _density = TimelineDensity.detailed;
-  TimelineDisplayMode _displayMode = TimelineDisplayMode.fitSingleLine;
+  TimelineDisplayMode _displayMode = TimelineDisplayMode.singleLine;
   TimelineSpan _span = TimelineSpan.day;
+  TimelineEntrySortMetric _entrySortMetric = TimelineEntrySortMetric.startTime;
+  ActionLogSortMetric _actionSortMetric = ActionLogSortMetric.occurredAt;
+  SortOrder _entrySortOrder = SortOrder.ascending;
+  SortOrder _actionSortOrder = SortOrder.ascending;
+  int _segmentsPerDay = 4;
   double _zoom = 1;
 
   @override
@@ -208,6 +218,7 @@ class _TimelinePageState extends State<TimelinePage> {
               density: _density,
               displayMode: _displayMode,
               span: _span,
+              segmentsPerDay: _segmentsPerDay,
               zoom: _zoom,
               onPreviousRange: selectPreviousRange,
               onNextRange: selectNextRange,
@@ -217,6 +228,9 @@ class _TimelinePageState extends State<TimelinePage> {
               onDisplayModeChanged: (value) =>
                   setState(() => _displayMode = value),
               onSpanChanged: (value) => setState(() => _span = value),
+              onSegmentsPerDayChanged: (value) {
+                setState(() => _segmentsPerDay = value);
+              },
               onZoomChanged: (value) => setState(() => _zoom = value),
               onAddEntry: openEntryEditor,
             ),
@@ -229,19 +243,36 @@ class _TimelinePageState extends State<TimelinePage> {
                 return switch (_mode) {
                   TimelineViewMode.entries => _EntriesTimelineView(
                       state: state,
-                      entries: data.entries,
+                      entries: _sortedEntries(state, data.entries),
                       rangeStart: rangeStart,
                       span: _span,
                       density: _density,
                       displayMode: _displayMode,
+                      segmentsPerDay: _segmentsPerDay,
                       zoom: _zoom,
+                      sortMetric: _entrySortMetric,
+                      sortOrder: _entrySortOrder,
+                      onSortMetricChanged: (value) {
+                        setState(() => _entrySortMetric = value);
+                      },
+                      onSortOrderChanged: (value) {
+                        setState(() => _entrySortOrder = value);
+                      },
                       emptyText: _span == TimelineSpan.day
                           ? AppLocalizations.of(context)!.emptyDayEntries
                           : AppLocalizations.of(context)!.emptyRangeEntries,
                     ),
                   TimelineViewMode.actions => _ActionLogList(
                       state: state,
-                      logs: data.logs,
+                      logs: _sortedActionLogs(state, data.logs),
+                      sortMetric: _actionSortMetric,
+                      sortOrder: _actionSortOrder,
+                      onSortMetricChanged: (value) {
+                        setState(() => _actionSortMetric = value);
+                      },
+                      onSortOrderChanged: (value) {
+                        setState(() => _actionSortOrder = value);
+                      },
                       emptyText: _span == TimelineSpan.day
                           ? AppLocalizations.of(context)!.emptyDayActions
                           : AppLocalizations.of(context)!.emptyRangeActions,
@@ -271,6 +302,56 @@ class _TimelinePageState extends State<TimelinePage> {
     logs.sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
     return _TimelineRangeData(entries: entries, logs: logs);
   }
+
+  List<TimeEntry> _sortedEntries(AppState state, List<TimeEntry> entries) {
+    final sorted = [...entries];
+    sorted.sort((a, b) {
+      final compare = switch (_entrySortMetric) {
+        TimelineEntrySortMetric.startTime => a.startAt.compareTo(b.startAt),
+        TimelineEntrySortMetric.duration =>
+          _entryDuration(a, state.now).compareTo(_entryDuration(b, state.now)),
+        TimelineEntrySortMetric.activityName => state
+            .activityNameForEntry(a)
+            .compareTo(state.activityNameForEntry(b)),
+        TimelineEntrySortMetric.color => state
+            .activityColorForEntry(a)
+            .compareTo(state.activityColorForEntry(b)),
+      };
+      final directed =
+          _entrySortOrder == SortOrder.ascending ? compare : -compare;
+      if (directed != 0) return directed;
+      return a.startAt.compareTo(b.startAt);
+    });
+    return sorted;
+  }
+
+  List<ActionLog> _sortedActionLogs(AppState state, List<ActionLog> logs) {
+    final sorted = [...logs];
+    sorted.sort((a, b) {
+      final compare = switch (_actionSortMetric) {
+        ActionLogSortMetric.occurredAt => a.occurredAt.compareTo(b.occurredAt),
+        ActionLogSortMetric.actionType =>
+          a.actionType.storageValue.compareTo(b.actionType.storageValue),
+        ActionLogSortMetric.activityName =>
+          _logActivityName(state, a).compareTo(_logActivityName(state, b)),
+        ActionLogSortMetric.device => a.deviceId.compareTo(b.deviceId),
+      };
+      final directed =
+          _actionSortOrder == SortOrder.ascending ? compare : -compare;
+      if (directed != 0) return directed;
+      return a.occurredAt.compareTo(b.occurredAt);
+    });
+    return sorted;
+  }
+
+  Duration _entryDuration(TimeEntry entry, DateTime now) {
+    return (entry.endAt ?? now).difference(entry.startAt);
+  }
+
+  String _logActivityName(AppState state, ActionLog log) {
+    final activityId = log.activityId;
+    return activityId == null ? '' : state.activityById(activityId)?.name ?? '';
+  }
 }
 
 class _TimelineRangeData {
@@ -290,6 +371,7 @@ class TimelineHeader extends StatelessWidget {
     required this.mode,
     required this.density,
     required this.span,
+    required this.segmentsPerDay,
     required this.zoom,
     required this.onPreviousRange,
     required this.onNextRange,
@@ -297,9 +379,10 @@ class TimelineHeader extends StatelessWidget {
     required this.onModeChanged,
     required this.onDensityChanged,
     required this.onSpanChanged,
+    required this.onSegmentsPerDayChanged,
     required this.onZoomChanged,
     required this.onAddEntry,
-    this.displayMode = TimelineDisplayMode.fitSingleLine,
+    this.displayMode = TimelineDisplayMode.singleLine,
     this.onDisplayModeChanged,
     super.key,
   });
@@ -309,6 +392,7 @@ class TimelineHeader extends StatelessWidget {
   final TimelineDensity density;
   final TimelineDisplayMode displayMode;
   final TimelineSpan span;
+  final int segmentsPerDay;
   final double zoom;
   final VoidCallback onPreviousRange;
   final VoidCallback onNextRange;
@@ -317,6 +401,7 @@ class TimelineHeader extends StatelessWidget {
   final ValueChanged<TimelineDensity> onDensityChanged;
   final ValueChanged<TimelineDisplayMode>? onDisplayModeChanged;
   final ValueChanged<TimelineSpan> onSpanChanged;
+  final ValueChanged<int> onSegmentsPerDayChanged;
   final ValueChanged<double> onZoomChanged;
   final VoidCallback onAddEntry;
 
@@ -383,19 +468,23 @@ class TimelineHeader extends StatelessWidget {
         final displaySelector = SegmentedButton<TimelineDisplayMode>(
           segments: const [
             ButtonSegment(
-              value: TimelineDisplayMode.fitSingleLine,
-              icon: Icon(Icons.compress),
-              label: Text('单行适配'),
+              value: TimelineDisplayMode.singleLine,
+              icon: Icon(Icons.zoom_out_map),
+              label: Text('单行缩放'),
             ),
             ButtonSegment(
-              value: TimelineDisplayMode.splitByDay,
+              value: TimelineDisplayMode.segmentedDay,
               icon: Icon(Icons.view_day_outlined),
-              label: Text('按天拆分'),
+              label: Text('分段显示'),
             ),
           ],
           selected: {displayMode},
           onSelectionChanged: (value) =>
               onDisplayModeChanged?.call(value.first),
+        );
+        final segmentControl = _TimelineSegmentControl(
+          segmentsPerDay: segmentsPerDay,
+          onChanged: onSegmentsPerDayChanged,
         );
         final zoomControl = _TimelineZoomControl(
           zoom: zoom,
@@ -420,7 +509,10 @@ class TimelineHeader extends StatelessWidget {
                 const SizedBox(height: 10),
                 displaySelector,
                 const SizedBox(height: 10),
-                zoomControl,
+                if (displayMode == TimelineDisplayMode.segmentedDay)
+                  segmentControl
+                else
+                  zoomControl,
               ],
               const SizedBox(height: 10),
               FilledButton.icon(
@@ -463,7 +555,11 @@ class TimelineHeader extends StatelessWidget {
                   const SizedBox(width: 16),
                   displaySelector,
                   const SizedBox(width: 16),
-                  Expanded(child: zoomControl),
+                  Expanded(
+                    child: displayMode == TimelineDisplayMode.segmentedDay
+                        ? segmentControl
+                        : zoomControl,
+                  ),
                 ],
               ],
             ),
@@ -532,6 +628,41 @@ class _TimelineModeControl extends StatelessWidget {
       TimelineViewMode.entries => AppLocalizations.of(context)!.entries,
       TimelineViewMode.actions => AppLocalizations.of(context)!.actions,
     };
+  }
+}
+
+class _TimelineSegmentControl extends StatelessWidget {
+  const _TimelineSegmentControl({
+    required this.segmentsPerDay,
+    required this.onChanged,
+  });
+
+  final int segmentsPerDay;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton.filledTonal(
+          tooltip: '减少分段',
+          onPressed:
+              segmentsPerDay <= 1 ? null : () => onChanged(segmentsPerDay - 1),
+          icon: const Icon(Icons.remove),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('每天 $segmentsPerDay 段'),
+        ),
+        IconButton.filledTonal(
+          tooltip: '增加分段',
+          onPressed:
+              segmentsPerDay >= 12 ? null : () => onChanged(segmentsPerDay + 1),
+          icon: const Icon(Icons.add),
+        ),
+      ],
+    );
   }
 }
 

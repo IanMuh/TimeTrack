@@ -137,8 +137,9 @@ class RangeTimelineCard extends StatefulWidget {
     required this.span,
     required this.density,
     required this.zoom,
+    this.segmentsPerDay = 4,
     this.showEmptyState = true,
-    this.displayMode = TimelineDisplayMode.fitSingleLine,
+    this.displayMode = TimelineDisplayMode.singleLine,
     super.key,
   });
 
@@ -148,6 +149,7 @@ class RangeTimelineCard extends StatefulWidget {
   final TimelineSpan span;
   final TimelineDensity density;
   final TimelineDisplayMode displayMode;
+  final int segmentsPerDay;
   final double zoom;
   final bool showEmptyState;
 
@@ -156,6 +158,14 @@ class RangeTimelineCard extends StatefulWidget {
 }
 
 class _RangeTimelineCardState extends State<RangeTimelineCard> {
+  final _horizontalController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -171,6 +181,8 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
         );
         final canvasHeight =
             metrics.timeScaleHeight + metrics.laneHeight * widget.span.days;
+        final segmented =
+            widget.displayMode == TimelineDisplayMode.segmentedDay;
         return TimelineSurface(
           padding: EdgeInsets.all(metrics.cardPadding),
           child: Column(
@@ -182,28 +194,36 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
                 icon: Icons.timeline,
               ),
               const SizedBox(height: 14),
-              if (widget.displayMode == TimelineDisplayMode.splitByDay)
-                _SplitTimelineCanvas(
+              if (segmented)
+                _SegmentedTimelineCanvas(
                   state: widget.state,
                   entries: widget.entries,
                   rangeStart: widget.rangeStart,
                   span: widget.span,
                   density: widget.density,
                   metrics: metrics,
+                  segmentsPerDay: widget.segmentsPerDay,
                   showInlineDayLabels: true,
                 )
               else if (compact)
-                SizedBox(
-                  width: metrics.dayWidth,
-                  height: canvasHeight,
-                  child: _TimelineCanvas(
-                    state: widget.state,
-                    entries: widget.entries,
-                    rangeStart: widget.rangeStart,
-                    span: widget.span,
-                    density: widget.density,
-                    metrics: metrics,
-                    showInlineDayLabels: true,
+                Scrollbar(
+                  controller: _horizontalController,
+                  child: SingleChildScrollView(
+                    controller: _horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: metrics.dayWidth,
+                      height: canvasHeight,
+                      child: _TimelineCanvas(
+                        state: widget.state,
+                        entries: widget.entries,
+                        rangeStart: widget.rangeStart,
+                        span: widget.span,
+                        density: widget.density,
+                        metrics: metrics,
+                        showInlineDayLabels: true,
+                      ),
+                    ),
                   ),
                 )
               else
@@ -219,16 +239,24 @@ class _RangeTimelineCardState extends State<RangeTimelineCard> {
                     ),
                     SizedBox(width: metrics.dateColumnGap),
                     Expanded(
-                      child: SizedBox(
-                        height: canvasHeight,
-                        child: _TimelineCanvas(
-                          state: widget.state,
-                          entries: widget.entries,
-                          rangeStart: widget.rangeStart,
-                          span: widget.span,
-                          density: widget.density,
-                          metrics: metrics,
-                          showInlineDayLabels: false,
+                      child: Scrollbar(
+                        controller: _horizontalController,
+                        child: SingleChildScrollView(
+                          controller: _horizontalController,
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: metrics.dayWidth,
+                            height: canvasHeight,
+                            child: _TimelineCanvas(
+                              state: widget.state,
+                              entries: widget.entries,
+                              rangeStart: widget.rangeStart,
+                              span: widget.span,
+                              density: widget.density,
+                              metrics: metrics,
+                              showInlineDayLabels: false,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -272,10 +300,9 @@ class _TimelineLayoutMetrics {
     final usableFitWidth = math.max(240.0, fitWidth);
     return _TimelineLayoutMetrics(
       cardPadding: compact ? 10.0 : 16.0,
-      dayWidth: displayMode == TimelineDisplayMode.fitSingleLine ||
-              displayMode == TimelineDisplayMode.splitByDay
+      dayWidth: displayMode == TimelineDisplayMode.segmentedDay
           ? usableFitWidth
-          : 960.0 * zoom,
+          : math.max(usableFitWidth, 960.0 * zoom),
       laneHeight: laneHeight,
       timeScaleHeight: density == TimelineDensity.compact ? 24.0 : 32.0,
       blockHeight: blockHeight,
@@ -344,14 +371,15 @@ class _TimelineDateColumn extends StatelessWidget {
   }
 }
 
-class _SplitTimelineCanvas extends StatelessWidget {
-  const _SplitTimelineCanvas({
+class _SegmentedTimelineCanvas extends StatelessWidget {
+  const _SegmentedTimelineCanvas({
     required this.state,
     required this.entries,
     required this.rangeStart,
     required this.span,
     required this.density,
     required this.metrics,
+    required this.segmentsPerDay,
     required this.showInlineDayLabels,
   });
 
@@ -361,30 +389,183 @@ class _SplitTimelineCanvas extends StatelessWidget {
   final TimelineSpan span;
   final TimelineDensity density;
   final _TimelineLayoutMetrics metrics;
+  final int segmentsPerDay;
   final bool showInlineDayLabels;
 
   @override
   Widget build(BuildContext context) {
+    final safeSegments = segmentsPerDay.clamp(1, 12);
+    const secondsPerDay = 24 * 60 * 60;
+    final segmentSeconds = secondsPerDay ~/ safeSegments;
     return Column(
       children: [
-        for (var index = 0; index < span.days; index += 1) ...[
-          SizedBox(
-            height: metrics.timeScaleHeight + metrics.laneHeight,
-            child: _TimelineCanvas(
+        for (var dayIndex = 0; dayIndex < span.days; dayIndex += 1) ...[
+          for (var segmentIndex = 0;
+              segmentIndex < safeSegments;
+              segmentIndex += 1) ...[
+            _TimelineSegmentCanvas(
               state: state,
               entries: entries,
-              rangeStart: rangeStart.add(Duration(days: index)),
-              span: TimelineSpan.day,
+              dayStart: rangeStart.add(Duration(days: dayIndex)).startOfDay,
+              segmentIndex: segmentIndex,
+              segmentStartOffset:
+                  Duration(seconds: segmentSeconds * segmentIndex),
+              segmentDuration: Duration(
+                seconds: segmentIndex == safeSegments - 1
+                    ? secondsPerDay - segmentSeconds * segmentIndex
+                    : segmentSeconds,
+              ),
               density: density,
               metrics: metrics,
-              showInlineDayLabels: showInlineDayLabels,
+              showDayLabel: showInlineDayLabels,
             ),
-          ),
-          if (index != span.days - 1) const SizedBox(height: 8),
+            if (dayIndex != span.days - 1 || segmentIndex != safeSegments - 1)
+              const SizedBox(height: 8),
+          ],
         ],
       ],
     );
   }
+}
+
+class _TimelineSegmentCanvas extends StatelessWidget {
+  const _TimelineSegmentCanvas({
+    required this.state,
+    required this.entries,
+    required this.dayStart,
+    required this.segmentIndex,
+    required this.segmentStartOffset,
+    required this.segmentDuration,
+    required this.density,
+    required this.metrics,
+    required this.showDayLabel,
+  });
+
+  final AppState state;
+  final List<TimeEntry> entries;
+  final DateTime dayStart;
+  final int segmentIndex;
+  final Duration segmentStartOffset;
+  final Duration segmentDuration;
+  final TimelineDensity density;
+  final _TimelineLayoutMetrics metrics;
+  final bool showDayLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final segmentStart = dayStart.add(segmentStartOffset);
+    final segmentEnd = segmentStart.add(segmentDuration);
+    final label = '${_formatSegmentTime(segmentStart, dayStart)} - '
+        '${_formatSegmentTime(segmentEnd, dayStart)}';
+    final dayLabel = DateFormat('MM-dd E').format(dayStart);
+    final laneLabel = showDayLabel ? '$dayLabel  $label' : label;
+    return SizedBox(
+      height: metrics.timeScaleHeight + metrics.laneHeight,
+      child: Stack(
+        children: [
+          _TimelineSegmentTimeScale(
+            width: metrics.dayWidth,
+            height: metrics.timeScaleHeight,
+            start: segmentStart,
+            end: segmentEnd,
+          ),
+          _TimelineDayLane(
+            top: metrics.timeScaleHeight,
+            width: metrics.dayWidth,
+            height: metrics.laneHeight,
+            label: laneLabel,
+          ),
+          for (final entry in entries)
+            ..._entryBlocksFor(entry, segmentStart, segmentEnd),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _entryBlocksFor(
+    TimeEntry entry,
+    DateTime segmentStart,
+    DateTime segmentEnd,
+  ) {
+    final rawEnd = entry.endAt ?? state.now;
+    if (!entry.startAt.isBefore(segmentEnd) || !rawEnd.isAfter(segmentStart)) {
+      return const [];
+    }
+    final blockStart =
+        entry.startAt.isBefore(segmentStart) ? segmentStart : entry.startAt;
+    final blockEnd = rawEnd.isAfter(segmentEnd) ? segmentEnd : rawEnd;
+    if (!blockEnd.isAfter(blockStart)) {
+      return const [];
+    }
+    final segmentSeconds = segmentDuration.inSeconds;
+    final startRatio =
+        blockStart.difference(segmentStart).inSeconds.clamp(0, segmentSeconds) /
+            segmentSeconds;
+    final endRatio =
+        blockEnd.difference(segmentStart).inSeconds.clamp(0, segmentSeconds) /
+            segmentSeconds;
+    return [
+      Positioned(
+        left: metrics.dayWidth * startRatio,
+        top: metrics.timeScaleHeight + metrics.blockTopInset,
+        width: math.max(16, metrics.dayWidth * (endRatio - startRatio)),
+        height: metrics.blockHeight,
+        child: _TimelineBlock(
+          state: state,
+          entry: entry,
+          density: density,
+        ),
+      ),
+    ];
+  }
+}
+
+class _TimelineSegmentTimeScale extends StatelessWidget {
+  const _TimelineSegmentTimeScale({
+    required this.width,
+    required this.height,
+    required this.start,
+    required this.end,
+  });
+
+  final double width;
+  final double height;
+  final DateTime start;
+  final DateTime end;
+
+  @override
+  Widget build(BuildContext context) {
+    final mid =
+        start.add(Duration(seconds: end.difference(start).inSeconds ~/ 2));
+    final labels = [
+      (0.0, _formatSegmentTime(start, start.startOfDay)),
+      (0.5, _formatSegmentTime(mid, start.startOfDay)),
+      (1.0, _formatSegmentTime(end, start.startOfDay)),
+    ];
+    return Stack(
+      children: [
+        for (final item in labels)
+          Positioned(
+            left: math.min(width - 48, math.max(0, width * item.$1 - 24)),
+            top: 0,
+            width: 48,
+            height: height,
+            child: Text(
+              item.$2,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String _formatSegmentTime(DateTime value, DateTime dayStart) {
+  if (!value.isBefore(dayStart.add(const Duration(days: 1)))) {
+    return '24:00';
+  }
+  return DateFormat('HH:mm').format(value);
 }
 
 class _TimelineCanvas extends StatelessWidget {
@@ -654,7 +835,12 @@ class _EntriesTimelineView extends StatelessWidget {
     required this.span,
     required this.density,
     required this.displayMode,
+    required this.segmentsPerDay,
     required this.zoom,
+    required this.sortMetric,
+    required this.sortOrder,
+    required this.onSortMetricChanged,
+    required this.onSortOrderChanged,
     required this.emptyText,
   });
 
@@ -664,7 +850,12 @@ class _EntriesTimelineView extends StatelessWidget {
   final TimelineSpan span;
   final TimelineDensity density;
   final TimelineDisplayMode displayMode;
+  final int segmentsPerDay;
   final double zoom;
+  final TimelineEntrySortMetric sortMetric;
+  final SortOrder sortOrder;
+  final ValueChanged<TimelineEntrySortMetric> onSortMetricChanged;
+  final ValueChanged<SortOrder> onSortOrderChanged;
   final String emptyText;
 
   @override
@@ -676,12 +867,17 @@ class _EntriesTimelineView extends StatelessWidget {
       span: span,
       density: density,
       displayMode: displayMode,
+      segmentsPerDay: segmentsPerDay,
       zoom: zoom,
       showEmptyState: false,
     );
     final list = _TimelineEntryListSection(
       state: state,
       entries: entries,
+      sortMetric: sortMetric,
+      sortOrder: sortOrder,
+      onSortMetricChanged: onSortMetricChanged,
+      onSortOrderChanged: onSortOrderChanged,
       emptyText: emptyText,
     );
     return Column(

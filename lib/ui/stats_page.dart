@@ -35,8 +35,6 @@ class _StatsPageState extends State<StatsPage> {
   StatsPreset _preset = StatsPreset.today;
   DateTime _customDay = DateTime.now();
   StatsDimension _dimension = StatsDimension.activity;
-  StatsSortMetric _sortMetric = StatsSortMetric.duration;
-  StatsSortDirection _sortDirection = StatsSortDirection.descending;
   final Set<String> _selectedCategoryIds = {};
 
   @override
@@ -84,17 +82,9 @@ class _StatsPageState extends State<StatsPage> {
                       range: range,
                       stats: stats,
                       dimension: _dimension,
-                      sortMetric: _sortMetric,
-                      sortDirection: _sortDirection,
                       selectedCategoryIds: _selectedCategoryIds,
                       onDimensionChanged: (value) {
                         setState(() => _dimension = value);
-                      },
-                      onSortMetricChanged: (value) {
-                        setState(() => _sortMetric = value);
-                      },
-                      onSortDirectionChanged: (value) {
-                        setState(() => _sortDirection = value);
                       },
                       onCategoryFilterToggled: _toggleCategoryFilter,
                       totalMinutes: totalMinutes,
@@ -378,12 +368,8 @@ class _StatsCharts extends StatelessWidget {
     required this.range,
     required this.stats,
     required this.dimension,
-    required this.sortMetric,
-    required this.sortDirection,
     required this.selectedCategoryIds,
     required this.onDimensionChanged,
-    required this.onSortMetricChanged,
-    required this.onSortDirectionChanged,
     required this.onCategoryFilterToggled,
     required this.totalMinutes,
   });
@@ -392,12 +378,8 @@ class _StatsCharts extends StatelessWidget {
   final StatsRange range;
   final TimeRangeStats stats;
   final StatsDimension dimension;
-  final StatsSortMetric sortMetric;
-  final StatsSortDirection sortDirection;
   final Set<String> selectedCategoryIds;
   final ValueChanged<StatsDimension> onDimensionChanged;
-  final ValueChanged<StatsSortMetric> onSortMetricChanged;
-  final ValueChanged<StatsSortDirection> onSortDirectionChanged;
   final ValueChanged<String> onCategoryFilterToggled;
   final int totalMinutes;
 
@@ -405,8 +387,6 @@ class _StatsCharts extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = stats.groupRows(
       dimension: dimension,
-      sortMetric: sortMetric,
-      sortDirection: sortDirection,
       selectedCategoryIds: selectedCategoryIds,
     );
     return LayoutBuilder(
@@ -415,12 +395,8 @@ class _StatsCharts extends StatelessWidget {
         final controls = _StatsControls(
           state: state,
           dimension: dimension,
-          sortMetric: sortMetric,
-          sortDirection: sortDirection,
           selectedCategoryIds: selectedCategoryIds,
           onDimensionChanged: onDimensionChanged,
-          onSortMetricChanged: onSortMetricChanged,
-          onSortDirectionChanged: onSortDirectionChanged,
           onCategoryFilterToggled: onCategoryFilterToggled,
         );
         final distributionCard = RangeDistributionCard(
@@ -470,23 +446,15 @@ class _StatsControls extends StatelessWidget {
   const _StatsControls({
     required this.state,
     required this.dimension,
-    required this.sortMetric,
-    required this.sortDirection,
     required this.selectedCategoryIds,
     required this.onDimensionChanged,
-    required this.onSortMetricChanged,
-    required this.onSortDirectionChanged,
     required this.onCategoryFilterToggled,
   });
 
   final AppState state;
   final StatsDimension dimension;
-  final StatsSortMetric sortMetric;
-  final StatsSortDirection sortDirection;
   final Set<String> selectedCategoryIds;
   final ValueChanged<StatsDimension> onDimensionChanged;
-  final ValueChanged<StatsSortMetric> onSortMetricChanged;
-  final ValueChanged<StatsSortDirection> onSortDirectionChanged;
   final ValueChanged<String> onCategoryFilterToggled;
 
   @override
@@ -552,59 +520,6 @@ class _StatsControls extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 12),
-          Text(
-            '排序',
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: compact ? double.infinity : 180,
-                child: DropdownButtonFormField<StatsSortMetric>(
-                  initialValue: sortMetric,
-                  decoration: const InputDecoration(
-                    labelText: '排序依据',
-                    prefixIcon: Icon(Icons.sort),
-                  ),
-                  items: [
-                    for (final value in StatsSortMetric.values)
-                      DropdownMenuItem(
-                        value: value,
-                        child: Text(_sortMetricLabel(value)),
-                      ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) onSortMetricChanged(value);
-                  },
-                ),
-              ),
-              SegmentedButton<StatsSortDirection>(
-                segments: const [
-                  ButtonSegment(
-                    value: StatsSortDirection.descending,
-                    icon: Icon(Icons.south),
-                    label: Text('倒序'),
-                  ),
-                  ButtonSegment(
-                    value: StatsSortDirection.ascending,
-                    icon: Icon(Icons.north),
-                    label: Text('顺序'),
-                  ),
-                ],
-                selected: {sortDirection},
-                onSelectionChanged: (value) =>
-                    onSortDirectionChanged(value.first),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -616,14 +531,6 @@ class _StatsControls extends StatelessWidget {
       StatsDimension.primaryCategory => '主分类',
       StatsDimension.durationBucket => '单条时长',
       StatsDimension.primaryCategoryAndDurationBucket => '分类+时长',
-    };
-  }
-
-  String _sortMetricLabel(StatsSortMetric value) {
-    return switch (value) {
-      StatsSortMetric.duration => '时长',
-      StatsSortMetric.count => '次数',
-      StatsSortMetric.color => '颜色',
     };
   }
 }

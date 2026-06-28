@@ -1369,10 +1369,6 @@ enum StatsDimension {
   primaryCategoryAndDurationBucket,
 }
 
-enum StatsSortMetric { duration, count, color }
-
-enum StatsSortDirection { ascending, descending }
-
 class StatsGroupRow {
   const StatsGroupRow({
     required this.id,
@@ -1534,8 +1530,6 @@ class TimeRangeStats {
 
   List<StatsGroupRow> groupRows({
     StatsDimension dimension = StatsDimension.activity,
-    StatsSortMetric sortMetric = StatsSortMetric.duration,
-    StatsSortDirection sortDirection = StatsSortDirection.descending,
     Set<String> selectedCategoryIds = const {},
   }) {
     final builders = <String, _StatsGroupBuilder>{};
@@ -1560,14 +1554,8 @@ class TimeRangeStats {
       for (final builder in builders.values) builder.toRow(),
     ];
     rows.sort((a, b) {
-      final base = switch (sortMetric) {
-        StatsSortMetric.duration => a.totalDuration.compareTo(b.totalDuration),
-        StatsSortMetric.count => a.count.compareTo(b.count),
-        StatsSortMetric.color => a.color.compareTo(b.color),
-      };
-      final directed =
-          sortDirection == StatsSortDirection.ascending ? base : -base;
-      if (directed != 0) return directed;
+      final durationCompare = b.totalDuration.compareTo(a.totalDuration);
+      if (durationCompare != 0) return durationCompare;
       return a.label.compareTo(b.label);
     });
     return rows;

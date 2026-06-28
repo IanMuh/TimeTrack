@@ -110,7 +110,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stats page exposes dimension filter and sort controls',
+  testWidgets('stats page exposes dimension filters without sort controls',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -123,7 +123,10 @@ void main() {
     expect(find.text('主分类'), findsOneWidget);
     expect(find.text('单条时长'), findsOneWidget);
     expect(find.text('分类+时长'), findsOneWidget);
-    expect(find.text('排序'), findsOneWidget);
+    expect(find.text('排序'), findsNothing);
+    expect(find.text('排序依据'), findsNothing);
+    expect(find.text('顺序'), findsNothing);
+    expect(find.text('倒序'), findsNothing);
     expect(find.text('工作'), findsWidgets);
     expect(tester.takeException(), isNull);
   });

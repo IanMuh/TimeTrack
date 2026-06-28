@@ -227,15 +227,15 @@ void main() {
       ),
     );
 
-    expect(find.text('00:00'), findsOneWidget);
+    expect(find.text('00:00'), findsWidgets);
     expect(find.text('12:00'), findsOneWidget);
-    expect(find.text('24:00'), findsOneWidget);
-    expect(find.byType(Scrollbar), findsNothing);
+    expect(find.text('24:00'), findsWidgets);
+    expect(find.byType(Scrollbar), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-      'RangeTimelineCard fits compact screens without horizontal scroll',
+      'RangeTimelineCard segmented mode fits compact screens without horizontal scroll',
       (tester) async {
     tester.view.physicalSize = const Size(390, 1100);
     tester.view.devicePixelRatio = 1;
@@ -273,6 +273,8 @@ void main() {
                 rangeStart: DateTime(2026, 6, 15),
                 span: TimelineSpan.week,
                 density: TimelineDensity.detailed,
+                displayMode: TimelineDisplayMode.segmentedDay,
+                segmentsPerDay: 4,
                 zoom: 2,
               ),
             ),
@@ -286,19 +288,15 @@ void main() {
           widget is Scrollable &&
           axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
     );
-    final firstLaneWidth = tester
-        .getSize(find.byKey(const ValueKey('timeline-lane-06-15 Mon')))
-        .width;
 
     expect(horizontalScrollable, findsNothing);
-    expect(firstLaneWidth, lessThanOrEqualTo(390));
-    expect(find.text('06-15 Mon'), findsOneWidget);
-    expect(find.text('00:00'), findsOneWidget);
-    expect(find.text('24:00'), findsOneWidget);
+    expect(find.textContaining('06-15 Mon'), findsWidgets);
+    expect(find.text('00:00'), findsWidgets);
+    expect(find.text('24:00'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('RangeTimelineCard ignores zoom for fit mode horizontal layout',
+  testWidgets('RangeTimelineCard restores zoom scrolling for single-line mode',
       (tester) async {
     tester.view.physicalSize = const Size(900, 1000);
     tester.view.devicePixelRatio = 1;
@@ -348,11 +346,11 @@ void main() {
           axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
     );
 
-    expect(horizontalScrollable, findsNothing);
+    expect(horizontalScrollable, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('RangeTimelineCard can split multi-day timelines by day',
+  testWidgets('RangeTimelineCard can split multi-day timelines into segments',
       (tester) async {
     final state = _FakeAppState();
     final activity = state.activities.first;
@@ -376,25 +374,29 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: SizedBox(
-            width: 520,
-            child: RangeTimelineCard(
-              state: state,
-              entries: entries,
-              rangeStart: DateTime(2026, 6, 15),
-              span: TimelineSpan.threeDays,
-              density: TimelineDensity.detailed,
-              displayMode: TimelineDisplayMode.splitByDay,
-              zoom: 2,
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 520,
+              child: RangeTimelineCard(
+                state: state,
+                entries: entries,
+                rangeStart: DateTime(2026, 6, 15),
+                span: TimelineSpan.threeDays,
+                density: TimelineDensity.detailed,
+                displayMode: TimelineDisplayMode.segmentedDay,
+                segmentsPerDay: 4,
+                zoom: 2,
+              ),
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('06-15 Mon'), findsOneWidget);
-    expect(find.text('06-16 Tue'), findsOneWidget);
-    expect(find.text('06-17 Wed'), findsOneWidget);
+    expect(find.textContaining('06-15 Mon'), findsWidgets);
+    expect(find.textContaining('06-16 Tue'), findsWidgets);
+    expect(find.textContaining('06-17 Wed'), findsWidgets);
+    expect(find.textContaining('00:00 - 06:00'), findsWidgets);
     expect(
       find.byWidgetPredicate(
         (widget) =>
@@ -525,7 +527,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, '名称'), '带分类事项');
-    await tester.tap(find.text('未分类'));
+    await tester.tap(find.byType(DropdownButtonFormField<String?>).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('项目').last);
     await tester.pumpAndSettle();
@@ -684,6 +686,117 @@ void main() {
     await tester.tap(find.text('设备互通'));
     await tester.pumpAndSettle();
     expect(find.text('配对并同步'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SettingsPage assigns categories from activity management',
+      (tester) async {
+    final state = _FakeAppState();
+    state.activityCategories = [
+      ActivityCategory(
+        id: 'cat-project',
+        userId: null,
+        name: '项目',
+        color: 0xff0f766e,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+      ActivityCategory(
+        id: 'cat-focus',
+        userId: null,
+        name: '深度',
+        color: 0xff7c3aed,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+    ];
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 900,
+            child: SettingsPage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('事项分类'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('事项管理'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('设置 工作 的分类'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String?>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('项目').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, '深度'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(state.primaryCategoryForActivity('activity-1')?.name, '项目');
+    expect(
+      state
+          .secondaryCategoriesForActivity('activity-1')
+          .map((item) => item.name),
+      contains('深度'),
+    );
+    expect(find.widgetWithText(InputChip, '项目'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('HomePage sorts quick switch activities by color descending',
+      (tester) async {
+    final state = _FakeAppState();
+    state.activities = [
+      ...state.activities,
+      Activity(
+        id: 'activity-2',
+        userId: null,
+        name: '阅读',
+        color: 0xffef4444,
+        isFavorite: true,
+        updatedAt: state.now.subtract(const Duration(hours: 1)),
+        isDeleted: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 900,
+            child: HomePage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DropdownButtonFormField<ActivitySortMetric>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('颜色').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('倒序'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('阅读')).dx,
+      lessThan(tester.getTopLeft(find.text('工作')).dx),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -964,6 +1077,20 @@ class _FakeAppState extends AppState {
     }
     notifyListeners();
     return updated;
+  }
+
+  @override
+  Future<void> setActivityCategories({
+    required String activityId,
+    required String? primaryCategoryId,
+    List<String> secondaryCategoryIds = const [],
+  }) async {
+    _assignCategories(
+      activityId,
+      primaryCategoryId: primaryCategoryId,
+      secondaryCategoryIds: secondaryCategoryIds,
+    );
+    notifyListeners();
   }
 
   void _assignCategories(

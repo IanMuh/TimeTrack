@@ -8,7 +8,10 @@ import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'activity_colors.dart';
 import 'app_shell.dart';
+import 'sort_controls.dart';
 import 'ui_components.dart';
+
+enum ActivitySortMetric { name, color, primaryCategory, updatedAt }
 
 class HomePage extends StatefulWidget {
   const HomePage({required this.state, super.key});
@@ -21,6 +24,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String? _pendingActivityId;
+  ActivitySortMetric _activitySortMetric = ActivitySortMetric.name;
+  SortOrder _activitySortOrder = SortOrder.ascending;
 
   Future<void> _confirmOrSwitch(Activity activity) async {
     if (_pendingActivityId != activity.id) {
@@ -41,9 +46,7 @@ class _HomePageState extends State<HomePage> {
       animation: state,
       builder: (context, _) {
         final runningActivity = state.runningActivity;
-        final switchableActivities = state.activities.where(
-          (activity) => !activity.isUnassigned && !activity.isOneOff,
-        );
+        final switchableActivities = _sortedSwitchableActivities(state);
         final pendingActivity = _pendingActivityId == null
             ? null
             : state.activityById(_pendingActivityId!);
@@ -109,6 +112,17 @@ class _HomePageState extends State<HomePage> {
                 icon: const Icon(Icons.sync),
               ),
             ),
+            const SizedBox(height: 10),
+            _ActivitySortControls(
+              metric: _activitySortMetric,
+              order: _activitySortOrder,
+              onMetricChanged: (value) {
+                setState(() => _activitySortMetric = value);
+              },
+              onOrderChanged: (value) {
+                setState(() => _activitySortOrder = value);
+              },
+            ),
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -159,6 +173,94 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  List<Activity> _sortedSwitchableActivities(AppState state) {
+    final activities = [
+      for (final activity in state.activities)
+        if (!activity.isUnassigned && !activity.isOneOff) activity,
+    ];
+    activities.sort((a, b) {
+      final compare = switch (_activitySortMetric) {
+        ActivitySortMetric.name => a.name.compareTo(b.name),
+        ActivitySortMetric.color => a.color.compareTo(b.color),
+        ActivitySortMetric.primaryCategory =>
+          _categoryName(state, a).compareTo(_categoryName(state, b)),
+        ActivitySortMetric.updatedAt => a.updatedAt.compareTo(b.updatedAt),
+      };
+      final directed =
+          _activitySortOrder == SortOrder.ascending ? compare : -compare;
+      if (directed != 0) return directed;
+      return a.name.compareTo(b.name);
+    });
+    return activities;
+  }
+
+  String _categoryName(AppState state, Activity activity) {
+    return state.primaryCategoryForActivity(activity.id)?.name ?? '';
+  }
+}
+
+class _ActivitySortControls extends StatelessWidget {
+  const _ActivitySortControls({
+    required this.metric,
+    required this.order,
+    required this.onMetricChanged,
+    required this.onOrderChanged,
+  });
+
+  final ActivitySortMetric metric;
+  final SortOrder order;
+  final ValueChanged<ActivitySortMetric> onMetricChanged;
+  final ValueChanged<SortOrder> onOrderChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: compact ? double.infinity : 180,
+              child: DropdownButtonFormField<ActivitySortMetric>(
+                initialValue: metric,
+                decoration: const InputDecoration(
+                  labelText: '排序依据',
+                  prefixIcon: Icon(Icons.sort),
+                ),
+                items: [
+                  for (final value in ActivitySortMetric.values)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(_activitySortMetricLabel(value)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) onMetricChanged(value);
+                },
+              ),
+            ),
+            SortOrderSegmentedButton(
+              value: order,
+              onChanged: onOrderChanged,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _activitySortMetricLabel(ActivitySortMetric value) {
+    return switch (value) {
+      ActivitySortMetric.name => '名称',
+      ActivitySortMetric.color => '颜色',
+      ActivitySortMetric.primaryCategory => '主分类',
+      ActivitySortMetric.updatedAt => '最近更新',
+    };
   }
 }
 
