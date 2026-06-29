@@ -138,6 +138,8 @@ class _TimelinePageState extends State<TimelinePage> {
   SortOrder _actionSortOrder = SortOrder.ascending;
   int _segmentsPerDay = 4;
   double _zoom = 1;
+  _TimelineRangeCacheKey? _rangeDataKey;
+  Future<_TimelineRangeData>? _rangeDataFuture;
 
   @override
   void initState() {
@@ -154,6 +156,10 @@ class _TimelinePageState extends State<TimelinePage> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?._detach(this);
       widget.controller?._attach(this);
+    }
+    if (oldWidget.state != widget.state) {
+      _rangeDataKey = null;
+      _rangeDataFuture = null;
     }
   }
 
@@ -237,7 +243,7 @@ class _TimelinePageState extends State<TimelinePage> {
             const SectionGap(),
             if (isFutureDay) FutureDayBanner(selectedDay: state.selectedDay),
             FutureBuilder<_TimelineRangeData>(
-              future: _loadRangeData(state, rangeStart, rangeEnd),
+              future: _rangeDataFor(state, rangeStart, rangeEnd),
               builder: (context, snapshot) {
                 final data = snapshot.data ?? const _TimelineRangeData.empty();
                 return switch (_mode) {
@@ -284,6 +290,25 @@ class _TimelinePageState extends State<TimelinePage> {
         );
       },
     );
+  }
+
+  Future<_TimelineRangeData> _rangeDataFor(
+    AppState state,
+    DateTime start,
+    DateTime end,
+  ) {
+    final key = _TimelineRangeCacheKey(
+      start: start,
+      end: end,
+      span: _span,
+      dataRevision: state.dataRevision,
+    );
+    final cached = _rangeDataFuture;
+    if (cached != null && _rangeDataKey == key) {
+      return cached;
+    }
+    _rangeDataKey = key;
+    return _rangeDataFuture = _loadRangeData(state, start, end);
   }
 
   Future<_TimelineRangeData> _loadRangeData(
@@ -352,6 +377,32 @@ class _TimelinePageState extends State<TimelinePage> {
     final activityId = log.activityId;
     return activityId == null ? '' : state.activityById(activityId)?.name ?? '';
   }
+}
+
+class _TimelineRangeCacheKey {
+  const _TimelineRangeCacheKey({
+    required this.start,
+    required this.end,
+    required this.span,
+    required this.dataRevision,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final TimelineSpan span;
+  final int dataRevision;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TimelineRangeCacheKey &&
+        other.start == start &&
+        other.end == end &&
+        other.span == span &&
+        other.dataRevision == dataRevision;
+  }
+
+  @override
+  int get hashCode => Object.hash(start, end, span, dataRevision);
 }
 
 class _TimelineRangeData {

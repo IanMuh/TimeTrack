@@ -57,11 +57,12 @@ class AppState extends ChangeNotifier {
       activityRepository: activityRepository,
       entryRepository: entryRepository,
       onFullRefresh: _onFullRefresh,
+      onEntryRefresh: _onDailyRefresh,
     );
     _entryState = EntryState(
       entryRepository: entryRepository,
       now: () => now,
-      onFullRefresh: _onFullRefresh,
+      onFullRefresh: _onDailyRefresh,
     );
     _activityState.addListener(_onSubStateChanged);
     _entryState.addListener(_onSubStateChanged);
@@ -92,6 +93,7 @@ class AppState extends ChangeNotifier {
   ProfileSettings settings = ProfileSettings.defaults();
   SyncPeer? lanPeer;
   DateTime now = DateTime.now();
+  int _dataRevision = 0;
   final ValueNotifier<DateTime> clockNotifier = ValueNotifier(DateTime.now());
   DateTime? lastReminderAt;
   String? ignoredSuspiciousEntryId;
@@ -101,6 +103,8 @@ class AppState extends ChangeNotifier {
   AppUpdateInfo? availableUpdate;
   String currentAppVersion = '';
   String? updateErrorMessage;
+
+  int get dataRevision => _dataRevision;
 
   final List<_UndoHistoryEntry> _undoStack = [];
   final List<_UndoHistoryEntry> _redoStack = [];
@@ -114,6 +118,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> _onFullRefresh() async {
     await refresh();
+  }
+
+  Future<void> _onDailyRefresh() async {
+    await _refreshDailyData();
   }
 
   // ---------------------------------------------------------------------------
@@ -136,49 +144,40 @@ class AppState extends ChangeNotifier {
   bool _entryIsUnassigned(TimeEntry entry) =>
       _activityState.entryIsUnassigned(entry);
 
-  List<ActivityCategory> activityCategories = [];
-  List<ActivityCategoryLink> activityCategoryLinks = [];
+  List<ActivityCategory> _activityCategories = const [];
+  List<ActivityCategoryLink> _activityCategoryLinks = const [];
+  Map<String, ActivityCategory> _categoryById = const {};
+  Map<String, List<ActivityCategoryLink>> _categoryLinksByActivity = const {};
+  Map<String, ActivityCategory> _primaryCategoryByActivity = const {};
+  Map<String, List<ActivityCategory>> _secondaryCategoriesByActivity = const {};
+
+  List<ActivityCategory> get activityCategories => _activityCategories;
+
+  set activityCategories(List<ActivityCategory> value) {
+    _setCategoryCache(categories: value, links: _activityCategoryLinks);
+  }
+
+  List<ActivityCategoryLink> get activityCategoryLinks =>
+      _activityCategoryLinks;
+
+  set activityCategoryLinks(List<ActivityCategoryLink> value) {
+    _setCategoryCache(categories: _activityCategories, links: value);
+  }
 
   ActivityCategory? categoryById(String id) {
-    for (final category in activityCategories) {
-      if (category.id == id && !category.isDeleted) {
-        return category;
-      }
-    }
-    return null;
+    return _categoryById[id];
   }
 
   ActivityCategory? primaryCategoryForActivity(String activityId) {
-    for (final link in activityCategoryLinks) {
-      if (link.activityId == activityId && link.isPrimary && !link.isDeleted) {
-        return categoryById(link.categoryId);
-      }
-    }
-    return null;
+    return _primaryCategoryByActivity[activityId];
   }
 
   List<ActivityCategory> secondaryCategoriesForActivity(String activityId) {
-    final pairs = [
-      for (final link in activityCategoryLinks)
-        if (link.activityId == activityId && !link.isPrimary && !link.isDeleted)
-          (link: link, category: categoryById(link.categoryId)),
-    ]..sort((a, b) => a.link.sortOrder.compareTo(b.link.sortOrder));
-    return [
-      for (final pair in pairs)
-        if (pair.category != null) pair.category!,
-    ];
+    return _secondaryCategoriesByActivity[activityId] ?? const [];
   }
 
   List<ActivityCategoryLink> categoryLinksForActivity(String activityId) {
-    return [
-      for (final link in activityCategoryLinks)
-        if (link.activityId == activityId && !link.isDeleted) link,
-    ]..sort((a, b) {
-        final primaryCompare =
-            (b.isPrimary ? 1 : 0).compareTo(a.isPrimary ? 1 : 0);
-        if (primaryCompare != 0) return primaryCompare;
-        return a.sortOrder.compareTo(b.sortOrder);
-      });
+    return _categoryLinksByActivity[activityId] ?? const [];
   }
 
   // ---------------------------------------------------------------------------
@@ -256,6 +255,10 @@ class AppState extends ChangeNotifier {
   String? get undoLabel => _undoStack.isEmpty ? null : _undoStack.last.label;
 
   String? get redoLabel => _redoStack.isEmpty ? null : _redoStack.last.label;
+
+  @visibleForTesting
+  RepositoryUndoChangeSet? get lastUndoChangeSetForTest =>
+      _undoStack.isEmpty ? null : _undoStack.last.changeSet;
 
   String? get lanPairingCode => _lanSyncServer.pairingCode;
 
@@ -424,24 +427,38 @@ class AppState extends ChangeNotifier {
 
   Future<void> refresh() async {
     await _repository.rolloverRunningEntriesIfNeeded(at: now);
-    await _activityState.refresh();
-    activityCategories = await _repository.categories();
-    activityCategoryLinks = await _repository.activityCategoryLinks();
+    await _activityState.refresh(notify: false);
+    await _refreshCategoryCache();
     settings = await _repository.settings();
     lanPeer = await _lanSyncClient.currentPeer();
     syncStatus = await _syncStatusStore.load();
-    await _entryState.refresh(selectedDay);
+    await _entryState.refresh(selectedDay, notify: false);
     final logs = await _repository.actionLogsForDay(selectedDay);
     _entryState.setActionLogs(logs);
     // Also update running entry from TimeRepository to ensure consistency
     final repoRunning = await _repository.runningEntry();
     _entryState.setRunningEntry(repoRunning);
+    _markDataChanged();
     notifyListeners();
   }
 
   Future<void> selectDay(DateTime day) async {
     selectedDay = day;
-    await refresh();
+    await _refreshDailyData();
+  }
+
+  Future<void> _refreshDailyData() async {
+    await _repository.rolloverRunningEntriesIfNeeded(at: now);
+    await _entryState.refresh(selectedDay, notify: false);
+    final logs = await _repository.actionLogsForDay(selectedDay);
+    _entryState.setActionLogs(logs);
+    _entryState.setRunningEntry(await _repository.runningEntry());
+    _markDataChanged();
+    notifyListeners();
+  }
+
+  void _markDataChanged() {
+    _dataRevision += 1;
   }
 
   Future<void> _rolloverRunningEntryIfNeeded() async {
@@ -459,13 +476,13 @@ class AppState extends ChangeNotifier {
   Future<void> switchTo(Activity activity) async {
     await _recordUndoable('切换到 ${activity.name}', () async {
       await _activityState.switchTo(activity);
-    });
+    }, undoScope: _activeEntryUndoScope());
   }
 
   Future<void> stopCurrent() async {
     await _recordUndoable('停止当前事项', () async {
       await _activityState.stopCurrent();
-    });
+    }, undoScope: _activeEntryUndoScope());
   }
 
   Future<void> continueCurrent() async {
@@ -517,7 +534,7 @@ class AppState extends ChangeNotifier {
         color,
         reuseActivity: reuseActivity,
       );
-    });
+    }, undoScope: _activeEntryUndoScope());
   }
 
   Future<Activity> createEntryActivity(
@@ -652,8 +669,145 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _refreshCategoryCache() async {
-    activityCategories = await _repository.categories();
-    activityCategoryLinks = await _repository.activityCategoryLinks();
+    _setCategoryCache(
+      categories: await _repository.categories(),
+      links: await _repository.activityCategoryLinks(),
+    );
+  }
+
+  void _setCategoryCache({
+    required List<ActivityCategory> categories,
+    required List<ActivityCategoryLink> links,
+  }) {
+    _activityCategories = categories;
+    _activityCategoryLinks = links;
+    _categoryById = {
+      for (final category in categories)
+        if (!category.isDeleted) category.id: category,
+    };
+
+    final linksByActivity = <String, List<ActivityCategoryLink>>{};
+    for (final link in links) {
+      if (link.isDeleted || !_categoryById.containsKey(link.categoryId)) {
+        continue;
+      }
+      linksByActivity.putIfAbsent(link.activityId, () => []).add(link);
+    }
+    for (final activityLinks in linksByActivity.values) {
+      activityLinks.sort(_compareCategoryLinks);
+    }
+    _categoryLinksByActivity = {
+      for (final entry in linksByActivity.entries)
+        entry.key: List.unmodifiable(entry.value),
+    };
+
+    _primaryCategoryByActivity = {
+      for (final entry in _categoryLinksByActivity.entries)
+        if (entry.value.any((link) => link.isPrimary))
+          entry.key: _categoryById[
+              entry.value.firstWhere((link) => link.isPrimary).categoryId]!,
+    };
+    _secondaryCategoriesByActivity = {
+      for (final entry in _categoryLinksByActivity.entries)
+        entry.key: List.unmodifiable([
+          for (final link in entry.value)
+            if (!link.isPrimary) _categoryById[link.categoryId]!,
+        ]),
+    };
+  }
+
+  int _compareCategoryLinks(
+    ActivityCategoryLink first,
+    ActivityCategoryLink second,
+  ) {
+    final primaryCompare =
+        (second.isPrimary ? 1 : 0).compareTo(first.isPrimary ? 1 : 0);
+    if (primaryCompare != 0) return primaryCompare;
+    return first.sortOrder.compareTo(second.sortOrder);
+  }
+
+  RepositoryUndoScope _activeEntryUndoScope() {
+    final windows = <RepositoryUndoWindow>[];
+    final entry = runningEntry;
+    if (entry != null) {
+      windows.add(_entryUndoWindow(entry, fallbackEnd: _operationNow()));
+    }
+    return _undoScopeForWindows(windows);
+  }
+
+  RepositoryUndoScope _entryUndoScope(
+    TimeEntry entry, {
+    DateTime? fallbackEnd,
+  }) {
+    return _undoScopeForWindows([
+      _entryUndoWindow(entry, fallbackEnd: fallbackEnd),
+    ]);
+  }
+
+  RepositoryUndoScope _entryIdUndoScope(
+    String entryId, {
+    List<DateTime> extraDays = const [],
+  }) {
+    final entry = _loadedEntryById(entryId);
+    return _undoScopeForWindows([
+      if (entry != null) _entryUndoWindow(entry, fallbackEnd: _operationNow()),
+      for (final day in extraDays) RepositoryUndoWindow.forLocalDay(day),
+    ]);
+  }
+
+  RepositoryUndoScope _entryIntervalUndoScope(
+    DateTime start,
+    DateTime end,
+  ) {
+    return _undoScopeForWindows([
+      RepositoryUndoWindow.covering(start, end),
+    ]);
+  }
+
+  RepositoryUndoWindow _entryUndoWindow(
+    TimeEntry entry, {
+    DateTime? fallbackEnd,
+  }) {
+    return RepositoryUndoWindow.covering(
+      entry.startAt,
+      entry.endAt ?? fallbackEnd ?? _operationNow(),
+    );
+  }
+
+  RepositoryUndoScope _undoScopeForWindows(
+    Iterable<RepositoryUndoWindow> windows,
+  ) {
+    final systemNow = DateTime.now();
+    final anchorWindows = [
+      RepositoryUndoWindow.forLocalDay(selectedDay),
+      RepositoryUndoWindow.forLocalDay(now),
+      RepositoryUndoWindow.forLocalDay(systemNow),
+    ];
+    final entryWindows = <RepositoryUndoWindow>[
+      ...windows,
+      ...anchorWindows,
+    ];
+    return RepositoryUndoScope(
+      entryWindows: entryWindows,
+      actionLogWindows: entryWindows,
+    );
+  }
+
+  DateTime _operationNow() {
+    return DateTime.now();
+  }
+
+  TimeEntry? _loadedEntryById(String entryId) {
+    for (final entry in dayEntries) {
+      if (entry.id == entryId) {
+        return entry;
+      }
+    }
+    final current = runningEntry;
+    if (current?.id == entryId) {
+      return current;
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -663,7 +817,7 @@ class AppState extends ChangeNotifier {
   Future<void> saveEntry(TimeEntry entry) async {
     await _recordUndoable('编辑时间段', () async {
       await _entryState.saveEntry(entry);
-    });
+    }, undoScope: _entryUndoScope(entry));
   }
 
   Future<void> splitEntry({
@@ -672,7 +826,7 @@ class AppState extends ChangeNotifier {
   }) async {
     await _recordUndoable('切割时间段', () async {
       await _entryState.splitEntry(entryId: entryId, splitAt: splitAt);
-    });
+    }, undoScope: _entryIdUndoScope(entryId, extraDays: [splitAt]));
   }
 
   Future<void> extendEntryToNow(TimeEntry entry) async {
@@ -681,7 +835,7 @@ class AppState extends ChangeNotifier {
     }
     await _recordUndoable('延续时间段到现在', () async {
       await _entryState.extendEntryToNow(entry);
-    });
+    }, undoScope: _entryUndoScope(entry, fallbackEnd: now));
   }
 
   Future<void> createManualEntry({
@@ -697,13 +851,13 @@ class AppState extends ChangeNotifier {
         endAt: endAt,
         note: note,
       );
-    });
+    }, undoScope: _entryIntervalUndoScope(startAt, endAt));
   }
 
   Future<void> deleteEntry(TimeEntry entry) async {
     await _recordUndoable('删除时间段', () async {
       await _entryState.deleteEntry(entry);
-    });
+    }, undoScope: _entryUndoScope(entry));
   }
 
   Future<void> correctSuspiciousRunning(DateTime endAt) async {
@@ -713,7 +867,7 @@ class AppState extends ChangeNotifier {
     }
     await _recordUndoable('修正运行记录', () async {
       await _entryState.correctSuspiciousRunning(endAt);
-    });
+    }, undoScope: _entryUndoScope(entry, fallbackEnd: endAt));
   }
 
   Future<List<TimeEntry>> overlaps(TimeEntry entry) {
@@ -738,7 +892,7 @@ class AppState extends ChangeNotifier {
         direction: direction,
         confirmed: confirmed,
       );
-    });
+    }, undoScope: _entryIdUndoScope(entryId));
   }
 
   Future<List<TimeEntry>> entriesForRange({
@@ -814,30 +968,31 @@ class AppState extends ChangeNotifier {
     String label,
     Future<T> Function() action, {
     bool syncAfter = true,
+    RepositoryUndoScope? undoScope,
   }) async {
-    final before = await _repository.undoSnapshot();
+    if (_undoBatchDepth > 0) {
+      final result = await action();
+      if (syncAfter) {
+        _syncAfterUndoBatch = true;
+      }
+      return result;
+    }
+
+    final before = await _repository.undoSnapshot(scope: undoScope);
     final result = await action();
-    final after = await _repository.undoSnapshot();
+    final after = await _repository.undoSnapshot(scope: undoScope);
     final changeSet = before.diff(label: label, after: after);
     if (!changeSet.isEmpty) {
       final historyEntry = _UndoHistoryEntry(
         label: label,
         changeSet: changeSet,
       );
-      if (_undoBatchDepth > 0) {
-        _syncAfterUndoBatch = _syncAfterUndoBatch || syncAfter;
-      } else {
-        _undoStack.add(historyEntry);
-        _redoStack.clear();
-        notifyListeners();
-      }
+      _undoStack.add(historyEntry);
+      _redoStack.clear();
+      notifyListeners();
     }
     if (syncAfter) {
-      if (_undoBatchDepth > 0) {
-        _syncAfterUndoBatch = true;
-      } else {
-        unawaited(sync());
-      }
+      unawaited(sync());
     }
     return result;
   }

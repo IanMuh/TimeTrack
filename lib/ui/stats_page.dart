@@ -39,6 +39,7 @@ class _StatsPageState extends State<StatsPage> {
   bool _showCompactStatsFilters = false;
   DateTime? _statsRangeStart;
   DateTime? _statsRangeEnd;
+  int? _statsDataRevision;
   Future<TimeRangeStats>? _statsFuture;
 
   @override
@@ -55,7 +56,7 @@ class _StatsPageState extends State<StatsPage> {
     }
     oldWidget.state.removeListener(_invalidateStatsFuture);
     widget.state.addListener(_invalidateStatsFuture);
-    _invalidateStatsFuture();
+    _clearStatsFuture();
   }
 
   @override
@@ -204,13 +205,16 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<TimeRangeStats> _statsForRange(StatsRange range) {
     final cached = _statsFuture;
+    final revision = widget.state.dataRevision;
     if (cached != null &&
         _statsRangeStart == range.start &&
-        _statsRangeEnd == range.end) {
+        _statsRangeEnd == range.end &&
+        _statsDataRevision == revision) {
       return cached;
     }
     _statsRangeStart = range.start;
     _statsRangeEnd = range.end;
+    _statsDataRevision = revision;
     return _statsFuture = widget.state.statsForRange(
       start: range.start,
       end: range.end,
@@ -218,8 +222,16 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   void _invalidateStatsFuture() {
+    if (_statsDataRevision == widget.state.dataRevision) {
+      return;
+    }
+    _clearStatsFuture();
+  }
+
+  void _clearStatsFuture() {
     _statsRangeStart = null;
     _statsRangeEnd = null;
+    _statsDataRevision = null;
     _statsFuture = null;
   }
 }

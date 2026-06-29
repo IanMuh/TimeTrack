@@ -105,12 +105,13 @@ class ActionLogRepository implements IActionLogRepository {
   Future<List<ActionLog>> _actionLogsForDay(DateTime day) async {
     final db = await _database.db;
     final start = day.startOfDay.toUtc().toIso8601String();
-    final end = day.endOfDay.toUtc().toIso8601String();
+    final end =
+        day.startOfDay.add(const Duration(days: 1)).toUtc().toIso8601String();
     final rows = await db.query(
       'action_logs',
-      where: 'is_deleted = 0 and occurred_at >= ? and occurred_at <= ?',
+      where: 'is_deleted = 0 and occurred_at >= ? and occurred_at < ?',
       whereArgs: [start, end],
-      orderBy: 'occurred_at asc',
+      orderBy: 'is_deleted asc, occurred_at asc',
     );
     return rows.map(ActionLog.fromMap).toList();
   }
@@ -129,7 +130,7 @@ class ActionLogRepository implements IActionLogRepository {
       'action_logs',
       where: 'is_deleted = 0 and occurred_at >= ? and occurred_at < ?',
       whereArgs: [startValue, endValue],
-      orderBy: 'occurred_at asc',
+      orderBy: 'is_deleted asc, occurred_at asc',
     );
     return rows.map(ActionLog.fromMap).toList();
   }

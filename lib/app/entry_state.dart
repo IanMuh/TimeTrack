@@ -22,7 +22,7 @@ class EntryState extends ChangeNotifier {
   TimeEntry? runningEntry;
   String? errorMessage;
 
-  Future<void> refresh(DateTime day) async {
+  Future<void> refresh(DateTime day, {bool notify = true}) async {
     final runningResult = await _entryRepo.runningEntry();
     runningEntry = runningResult.fold(
       onSuccess: (entry) => entry,
@@ -39,7 +39,9 @@ class EntryState extends ChangeNotifier {
         return dayEntries;
       },
     );
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   void setActionLogs(List<ActionLog> logs) {

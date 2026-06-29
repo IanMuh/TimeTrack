@@ -734,12 +734,18 @@ class TimeRepository {
   // Undo / redo
   // -------------------------------------------------------------------------
 
-  Future<RepositoryUndoSnapshot> undoSnapshot() async {
+  Future<RepositoryUndoSnapshot> undoSnapshot({
+    RepositoryUndoScope? scope,
+  }) async {
     final activityRows = await activities(includeDeleted: true);
     final categoryRows = await categories(includeDeleted: true);
     final categoryLinkRows = await activityCategoryLinks(includeDeleted: true);
-    final entryRows = await allEntries();
-    final logRows = await allActionLogs();
+    final entryRows = scope == null
+        ? await allEntries()
+        : await _timeEntriesForUndoWindows(scope.entryWindows);
+    final logRows = scope == null
+        ? await allActionLogs()
+        : await _actionLogsForUndoWindows(scope.actionLogWindows);
     return RepositoryUndoSnapshot(
       activities: {
         for (final activity in activityRows) activity.id: activity,
@@ -757,6 +763,74 @@ class TimeRepository {
         for (final log in logRows) log.id: log,
       },
     );
+  }
+
+  Future<List<TimeEntry>> _timeEntriesForUndoWindows(
+    List<RepositoryUndoWindow> windows,
+  ) async {
+    final db = await _database.db;
+    final entriesById = <String, TimeEntry>{};
+    for (final window in _mergedUndoWindows(windows)) {
+      final rows = await db.query(
+        'time_entries',
+        where: 'start_at < ? and (end_at is null or end_at > ?)',
+        whereArgs: [window.endValue, window.startValue],
+        orderBy: 'updated_at asc',
+      );
+      for (final row in rows) {
+        final entry = TimeEntry.fromMap(row);
+        entriesById[entry.id] = entry;
+      }
+    }
+    return entriesById.values.toList();
+  }
+
+  Future<List<ActionLog>> _actionLogsForUndoWindows(
+    List<RepositoryUndoWindow> windows,
+  ) async {
+    final db = await _database.db;
+    final logsById = <String, ActionLog>{};
+    for (final window in _mergedUndoWindows(windows)) {
+      final rows = await db.query(
+        'action_logs',
+        where: 'occurred_at >= ? and occurred_at < ?',
+        whereArgs: [window.startValue, window.endValue],
+        orderBy: 'updated_at asc',
+      );
+      for (final row in rows) {
+        final log = ActionLog.fromMap(row);
+        logsById[log.id] = log;
+      }
+    }
+    return logsById.values.toList();
+  }
+
+  List<RepositoryUndoWindow> _mergedUndoWindows(
+    List<RepositoryUndoWindow> windows,
+  ) {
+    final sorted = [
+      for (final window in windows)
+        if (!window.isEmpty) window,
+    ]..sort((first, second) => first.start.compareTo(second.start));
+    if (sorted.isEmpty) {
+      return const [];
+    }
+
+    final merged = <RepositoryUndoWindow>[];
+    var current = sorted.first;
+    for (final window in sorted.skip(1)) {
+      if (!window.start.isAfter(current.end)) {
+        current = RepositoryUndoWindow(
+          start: current.start,
+          end: window.end.isAfter(current.end) ? window.end : current.end,
+        );
+        continue;
+      }
+      merged.add(current);
+      current = window;
+    }
+    merged.add(current);
+    return merged;
   }
 
   Future<void> applyUndoChangeSet(

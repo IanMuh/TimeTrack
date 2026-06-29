@@ -10,45 +10,62 @@ class ActivityState extends ChangeNotifier {
     required IActivityRepository activityRepository,
     required ITimeEntryRepository entryRepository,
     required Future<void> Function() onFullRefresh,
+    required Future<void> Function() onEntryRefresh,
   })  : _activityRepo = activityRepository,
         _entryRepo = entryRepository,
-        _onFullRefresh = onFullRefresh;
+        _onFullRefresh = onFullRefresh,
+        _onEntryRefresh = onEntryRefresh;
 
   final IActivityRepository _activityRepo;
   final ITimeEntryRepository _entryRepo;
   final Future<void> Function() _onFullRefresh;
+  final Future<void> Function() _onEntryRefresh;
 
-  List<Activity> activities = const [];
+  List<Activity> _activities = const [];
+  Map<String, Activity> _activitiesById = const {};
+  Activity? _unassignedActivity;
   String? errorMessage;
 
-  Future<void> refresh() async {
+  List<Activity> get activities => _activities;
+
+  set activities(List<Activity> value) {
+    _setActivities(value);
+  }
+
+  Future<void> refresh({bool notify = true}) async {
     final result = await _activityRepo.activities();
-    activities = result.fold(
+    _setActivities(result.fold(
       onSuccess: (list) => list,
       onFailure: (msg) {
         errorMessage = msg;
-        return activities;
+        return _activities;
       },
-    );
-    notifyListeners();
+    ));
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   Activity? activityById(String id) {
-    for (final activity in activities) {
-      if (activity.id == id) {
-        return activity;
-      }
-    }
-    return null;
+    return _activitiesById[id];
   }
 
   Activity? get unassignedActivity {
-    for (final activity in activities) {
+    return _unassignedActivity;
+  }
+
+  void _setActivities(List<Activity> value) {
+    _activities = value;
+    _activitiesById = {
+      for (final activity in value) activity.id: activity,
+    };
+    for (final activity in value) {
       if (activity.isUnassigned) {
-        return activity;
+        _unassignedActivity = activity;
+        return;
       }
     }
-    return null;
+    _unassignedActivity = null;
   }
 
   bool entryIsUnassigned(TimeEntry entry) {
@@ -76,8 +93,7 @@ class ActivityState extends ChangeNotifier {
       onSuccess: (_) {},
       onFailure: (msg) => throw StateError(msg),
     );
-    await refresh();
-    await _onFullRefresh();
+    await _onEntryRefresh();
   }
 
   Future<void> stopCurrent() async {
@@ -86,8 +102,7 @@ class ActivityState extends ChangeNotifier {
       onSuccess: (_) {},
       onFailure: (msg) => throw StateError(msg),
     );
-    await refresh();
-    await _onFullRefresh();
+    await _onEntryRefresh();
   }
 
   Future<Activity> createActivity(String name, int color) async {
@@ -97,7 +112,7 @@ class ActivityState extends ChangeNotifier {
       onSuccess: (a) => a,
       onFailure: (msg) => throw StateError(msg),
     );
-    await refresh();
+    await refresh(notify: false);
     await _onFullRefresh();
     return activity;
   }
@@ -135,8 +150,8 @@ class ActivityState extends ChangeNotifier {
       onSuccess: (_) {},
       onFailure: (msg) => throw StateError(msg),
     );
-    await refresh();
-    await _onFullRefresh();
+    await refresh(notify: false);
+    await _onEntryRefresh();
     return activity;
   }
 
@@ -157,7 +172,7 @@ class ActivityState extends ChangeNotifier {
       onSuccess: (a) => a,
       onFailure: (msg) => throw StateError(msg),
     );
-    await refresh();
+    await refresh(notify: false);
     await _onFullRefresh();
     return activity;
   }
@@ -179,7 +194,7 @@ class ActivityState extends ChangeNotifier {
       onSuccess: (a) => a,
       onFailure: (msg) => throw StateError(msg),
     );
-    await refresh();
+    await refresh(notify: false);
     await _onFullRefresh();
     return updated;
   }
@@ -205,7 +220,7 @@ class ActivityState extends ChangeNotifier {
       onSuccess: (_) {},
       onFailure: (msg) => throw StateError(msg),
     );
-    await refresh();
+    await refresh(notify: false);
     await _onFullRefresh();
   }
 
