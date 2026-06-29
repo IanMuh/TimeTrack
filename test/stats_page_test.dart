@@ -43,6 +43,10 @@ Future<void> _pumpStats(
   AppState state, {
   required double width,
 }) async {
+  tester.view.physicalSize = Size(width, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
       locale: const Locale('zh'),
@@ -106,7 +110,36 @@ void main() {
 
     expect(find.text('统计'), findsOneWidget);
     expect(find.text('暂无数据'), findsWidgets);
+    expect(find.text('筛选'), findsOneWidget);
+    expect(find.text('统计维度'), findsNothing);
     expect(find.text('每日累计'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact stats filters expand and toggle category chips',
+      (tester) async {
+    final fixture = (await tester.runAsync(_buildFixture))!;
+    final state = fixture.state;
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
+
+    await _pumpStats(tester, state, width: 390);
+
+    await tester.ensureVisible(find.text('筛选'));
+    await tester.tap(find.text('筛选'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('统计维度'), findsWidgets);
+    expect(find.byType(FilterChip), findsOneWidget);
+    expect(
+        tester.widget<FilterChip>(find.byType(FilterChip)).selected, isFalse);
+
+    await tester.tap(find.byType(FilterChip));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<FilterChip>(find.byType(FilterChip)).selected,
+      isTrue,
+    );
     expect(tester.takeException(), isNull);
   });
 

@@ -17,6 +17,7 @@
   "reminderClose": "Close",
   "emptyTimeline": "No entries yet",
   "sync": "Sync",
+  "sortBy": "Sort by",
   "edit": "Edit",
   "create": "Create",
   "start": "Start",
@@ -95,6 +96,8 @@
   "newActivity": "New activity",
   "editActivityTitle": "Edit activity",
   "name": "Name",
+  "color": "Color",
+  "recentlyUpdated": "Recently updated",
   "deleteActivityTitle": "Delete activity",
   "confirmDeleteActivity": "Delete \"{name}\"? Existing time records will be kept, but this activity can no longer be selected.",
   "@confirmDeleteActivity": {
@@ -157,6 +160,9 @@
   "viewMode": "View",
   "entries": "Records",
   "actions": "Actions",
+  "displayOptions": "Display options",
+  "singleLineZoom": "Single-line zoom",
+  "segmentedDayDisplay": "Segmented day",
   "futureDayBanner": "{date} hasn't arrived yet. Records will appear here after the day actually occurs.",
   "@futureDayBanner": {
     "placeholders": {
@@ -253,6 +259,12 @@
     }
   },
   "range": "Range",
+  "filters": "Filters",
+  "statsDimension": "Stats dimension",
+  "activityDimension": "Activity",
+  "primaryCategoryDimension": "Primary category",
+  "durationBucketDimension": "Entry duration",
+  "categoryDurationDimension": "Category + duration",
   "customDay": "Custom day",
   "totalRangeRecords": "Range total",
   "longestStreak": "Longest streak",
@@ -274,6 +286,8 @@
   "recordHint": "Total duration will be listed by date once records exist.",
   "settings": "Settings",
   "settingsSubtitle": "Reminders, sync, and device sharing always stay local-first.",
+  "settingsSections": "Back to settings sections",
+  "activityCategorySettings": "Activity categories",
   "timelineSettings": "Timeline",
   "timelineSettingsHint": "Control whether confirmation is needed when merging adjacent entries.",
   "mergeThreshold": "Merge threshold",

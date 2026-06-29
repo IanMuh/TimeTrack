@@ -17,6 +17,7 @@
   "reminderClose": "关闭",
   "emptyTimeline": "暂无记录",
   "sync": "同步",
+  "sortBy": "排序依据",
   "edit": "编辑",
   "create": "创建",
   "start": "开始",
@@ -95,6 +96,8 @@
   "newActivity": "新增事项",
   "editActivityTitle": "编辑事项",
   "name": "名称",
+  "color": "颜色",
+  "recentlyUpdated": "最近更新",
   "deleteActivityTitle": "删除事项",
   "confirmDeleteActivity": "确定删除\"{name}\"吗？已有时间记录会保留，但之后不能再选择这个事项。",
   "@confirmDeleteActivity": {
@@ -157,6 +160,9 @@
   "viewMode": "视图",
   "entries": "记录",
   "actions": "指令",
+  "displayOptions": "显示选项",
+  "singleLineZoom": "单行缩放",
+  "segmentedDayDisplay": "分段显示",
   "futureDayBanner": "{date} 尚未到来。记录会在这一天实际发生后才出现在这里。",
   "@futureDayBanner": {
     "placeholders": {
@@ -253,6 +259,12 @@
     }
   },
   "range": "范围",
+  "filters": "筛选",
+  "statsDimension": "统计维度",
+  "activityDimension": "事项",
+  "primaryCategoryDimension": "主分类",
+  "durationBucketDimension": "单条时长",
+  "categoryDurationDimension": "分类+时长",
   "customDay": "自选日",
   "totalRangeRecords": "范围总记录",
   "longestStreak": "最长连续",
@@ -274,6 +286,8 @@
   "recordHint": "有记录后会按日期列出总时长。",
   "settings": "设置",
   "settingsSubtitle": "提醒、同步和设备互通都保持本地优先。",
+  "settingsSections": "返回设置分区",
+  "activityCategorySettings": "事项分类",
   "timelineSettings": "时间线",
   "timelineSettingsHint": "控制相邻记录合并时是否需要确认。",
   "mergeThreshold": "合并阈值",

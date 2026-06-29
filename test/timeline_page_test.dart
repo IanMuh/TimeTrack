@@ -461,6 +461,8 @@ void main() {
     ];
 
     await _pumpTimeline(tester, state, width: 520);
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
     await tester.drag(find.byType(Slider), const Offset(180, 0));
     await tester.pumpAndSettle();
 

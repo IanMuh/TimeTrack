@@ -57,6 +57,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sync => '同步';
 
   @override
+  String get sortBy => '排序依据';
+
+  @override
   String get edit => '编辑';
 
   @override
@@ -156,6 +159,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get name => '名称';
+
+  @override
+  String get color => '颜色';
+
+  @override
+  String get recentlyUpdated => '最近更新';
 
   @override
   String get deleteActivityTitle => '删除事项';
@@ -266,6 +275,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get actions => '指令';
+
+  @override
+  String get displayOptions => '显示选项';
+
+  @override
+  String get singleLineZoom => '单行缩放';
+
+  @override
+  String get segmentedDayDisplay => '分段显示';
 
   @override
   String futureDayBanner(String date) {
@@ -424,6 +442,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get range => '范围';
 
   @override
+  String get filters => '筛选';
+
+  @override
+  String get statsDimension => '统计维度';
+
+  @override
+  String get activityDimension => '事项';
+
+  @override
+  String get primaryCategoryDimension => '主分类';
+
+  @override
+  String get durationBucketDimension => '单条时长';
+
+  @override
+  String get categoryDurationDimension => '分类+时长';
+
+  @override
   String get customDay => '自选日';
 
   @override
@@ -466,6 +502,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsSubtitle => '提醒、同步和设备互通都保持本地优先。';
+
+  @override
+  String get settingsSections => '返回设置分区';
+
+  @override
+  String get activityCategorySettings => '事项分类';
 
   @override
   String get timelineSettings => '时间线';

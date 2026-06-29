@@ -171,7 +171,7 @@ class _AppShellState extends State<AppShell> {
     }
 
     final sizeClass = adaptiveSizeClassFor(MediaQuery.sizeOf(context).width);
-    final showRail = sizeClass == AdaptiveSizeClass.expanded;
+    final showRail = sizeClass != AdaptiveSizeClass.compact;
 
     return Shortcuts(
       shortcuts: _shortcuts,
@@ -258,6 +258,10 @@ class _AppShellState extends State<AppShell> {
                   ),
                 ),
               ),
+              floatingActionButton:
+                  showRail ? null : _CompactHistoryMenu(state: state),
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.endFloat,
               bottomNavigationBar: showRail
                   ? null
                   : SafeArea(
@@ -272,27 +276,20 @@ class _AppShellState extends State<AppShell> {
                             ),
                           ),
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                              child: UndoRedoControls(state: state),
-                            ),
-                            NavigationBar(
-                              selectedIndex: _index,
-                              onDestinationSelected: _selectDestination,
-                              destinations: [
-                                for (final destination
-                                    in _buildDestinations(context))
-                                  NavigationDestination(
-                                    icon: Icon(destination.icon),
-                                    selectedIcon:
-                                        Icon(destination.selectedIcon),
-                                    label: destination.label,
-                                  ),
-                              ],
-                            ),
+                        child: NavigationBar(
+                          height: 72,
+                          labelBehavior: NavigationDestinationLabelBehavior
+                              .onlyShowSelected,
+                          selectedIndex: _index,
+                          onDestinationSelected: _selectDestination,
+                          destinations: [
+                            for (final destination
+                                in _buildDestinations(context))
+                              NavigationDestination(
+                                icon: Icon(destination.icon),
+                                selectedIcon: Icon(destination.selectedIcon),
+                                label: destination.label,
+                              ),
                           ],
                         ),
                       ),
@@ -301,6 +298,79 @@ class _AppShellState extends State<AppShell> {
           ),
         ),
       ),
+    );
+  }
+}
+
+enum _HistoryAction { undo, redo }
+
+class _CompactHistoryMenu extends StatelessWidget {
+  const _CompactHistoryMenu({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: state,
+      builder: (context, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final undoLabel = state.undoLabel;
+        final redoLabel = state.redoLabel;
+        return Material(
+          elevation: 3,
+          color: colorScheme.primaryContainer,
+          shape: const CircleBorder(),
+          child: PopupMenuButton<_HistoryAction>(
+            tooltip:
+                '${AppLocalizations.of(context)!.undoHint} / ${AppLocalizations.of(context)!.redoHint}',
+            icon: Icon(
+              Icons.history,
+              color: colorScheme.onPrimaryContainer,
+            ),
+            onSelected: (action) {
+              switch (action) {
+                case _HistoryAction.undo:
+                  unawaited(state.undo());
+                case _HistoryAction.redo:
+                  unawaited(state.redo());
+              }
+            },
+            itemBuilder: (context) {
+              return [
+                PopupMenuItem(
+                  value: _HistoryAction.undo,
+                  enabled: state.canUndo,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.undo),
+                    title: Text(
+                      undoLabel == null
+                          ? AppLocalizations.of(context)!.undoHint
+                          : AppLocalizations.of(context)!
+                              .undoWithLabel(undoLabel),
+                    ),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _HistoryAction.redo,
+                  enabled: state.canRedo,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.redo),
+                    title: Text(
+                      redoLabel == null
+                          ? AppLocalizations.of(context)!.redoHint
+                          : AppLocalizations.of(context)!
+                              .redoWithLabel(redoLabel),
+                    ),
+                  ),
+                ),
+              ];
+            },
+          ),
+        );
+      },
     );
   }
 }

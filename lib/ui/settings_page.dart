@@ -32,6 +32,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   _SettingsSection? _selectedCompactSection;
   _SettingsSection _selectedExpandedSection = _SettingsSection.reminders;
+  bool _compactSectionListRequested = false;
+  bool _expandedSectionSelectedByUser = false;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +53,11 @@ class _SettingsPageState extends State<SettingsPage> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final expanded = constraints.maxWidth >= expandedBreakpoint;
-                final sections = _settingsSections();
+                final sections = _settingsSections(context);
                 if (!expanded) {
                   final selected = _selectedCompactSection ??
-                      (_shouldOpenUpdateSection(state)
+                      (!_compactSectionListRequested &&
+                              _shouldOpenUpdateSection(state)
                           ? _SettingsSection.updates
                           : null);
                   if (selected == null) {
@@ -62,7 +65,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       sections: sections,
                       selected: null,
                       onSelected: (section) {
-                        setState(() => _selectedCompactSection = section);
+                        setState(() {
+                          _selectedCompactSection = section;
+                          _compactSectionListRequested = false;
+                        });
                       },
                     );
                   }
@@ -72,9 +78,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: IconButton.filledTonal(
-                          tooltip: '返回设置分区',
+                          tooltip:
+                              AppLocalizations.of(context)!.settingsSections,
                           onPressed: () {
-                            setState(() => _selectedCompactSection = null);
+                            setState(() {
+                              _selectedCompactSection = null;
+                              _compactSectionListRequested = true;
+                            });
                           },
                           icon: const Icon(Icons.arrow_back),
                         ),
@@ -93,7 +103,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         sections: sections,
                         selected: _effectiveExpandedSection(state),
                         onSelected: (section) {
-                          setState(() => _selectedExpandedSection = section);
+                          setState(() {
+                            _selectedExpandedSection = section;
+                            _expandedSectionSelectedByUser = true;
+                          });
                         },
                       ),
                     ),
@@ -112,43 +125,45 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  List<_SettingsSectionInfo> _settingsSections() {
-    return const [
+  List<_SettingsSectionInfo> _settingsSections(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
       _SettingsSectionInfo(
         section: _SettingsSection.reminders,
-        label: '提醒',
+        label: l10n.reminderSettings,
         icon: Icons.notifications_outlined,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.timeline,
-        label: '时间线',
+        label: l10n.timelineSettings,
         icon: Icons.timeline,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.categories,
-        label: '事项分类',
+        label: l10n.activityCategorySettings,
         icon: Icons.category_outlined,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.cloudSync,
-        label: '云同步',
+        label: l10n.cloudSync,
         icon: Icons.cloud_sync_outlined,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.interop,
-        label: '设备互通',
+        label: l10n.deviceInterop,
         icon: Icons.devices_other_outlined,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.updates,
-        label: '版本更新',
+        label: l10n.versionUpdate,
         icon: Icons.system_update_alt_outlined,
       ),
     ];
   }
 
   _SettingsSection _effectiveExpandedSection(AppState state) {
-    if (_selectedExpandedSection == _SettingsSection.reminders &&
+    if (!_expandedSectionSelectedByUser &&
+        _selectedExpandedSection == _SettingsSection.reminders &&
         _shouldOpenUpdateSection(state)) {
       return _SettingsSection.updates;
     }

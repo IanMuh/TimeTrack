@@ -26,6 +26,7 @@ class _HomePageState extends State<HomePage> {
   String? _pendingActivityId;
   ActivitySortMetric _activitySortMetric = ActivitySortMetric.name;
   SortOrder _activitySortOrder = SortOrder.ascending;
+  bool _showCompactSortControls = false;
 
   Future<void> _confirmOrSwitch(Activity activity) async {
     if (_pendingActivityId != activity.id) {
@@ -45,6 +46,7 @@ class _HomePageState extends State<HomePage> {
     return AnimatedBuilder(
       animation: state,
       builder: (context, _) {
+        final l10n = AppLocalizations.of(context)!;
         final runningActivity = state.runningActivity;
         final switchableActivities = _sortedSwitchableActivities(state);
         final pendingActivity = _pendingActivityId == null
@@ -54,12 +56,12 @@ class _HomePageState extends State<HomePage> {
           pageKey: const PageStorageKey('home-page'),
           children: [
             PageHeader(
-              title: AppLocalizations.of(context)!.appTitle,
-              subtitle: AppLocalizations.of(context)!.appSubtitle,
+              title: l10n.appTitle,
+              subtitle: l10n.appSubtitle,
               trailing: StatusPill(
                 label: state.hasSyncTarget
-                    ? AppLocalizations.of(context)!.syncStatusCloud
-                    : AppLocalizations.of(context)!.syncStatusLocal,
+                    ? l10n.syncStatusCloud
+                    : l10n.syncStatusLocal,
                 icon: state.hasSyncTarget
                     ? Icons.cloud_done_outlined
                     : Icons.offline_bolt_outlined,
@@ -82,9 +84,9 @@ class _HomePageState extends State<HomePage> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      LoginBanner(state: state),
-                      const SectionGap(),
                       statusCard,
+                      const SizedBox(height: 10),
+                      LoginBanner(state: state),
                     ],
                   );
                 }
@@ -99,42 +101,72 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             const SectionGap(height: 18),
-            PageHeader(
-              title: AppLocalizations.of(context)!.quickSwitch,
-              subtitle: pendingActivity == null ||
-                      pendingActivity.id == runningActivity?.id
-                  ? AppLocalizations.of(context)!.quickSwitchHint
-                  : AppLocalizations.of(context)!
-                      .quickSwitchSelected(pendingActivity.name),
-              trailing: IconButton.filledTonal(
-                tooltip: AppLocalizations.of(context)!.sync,
-                onPressed: state.hasSyncTarget ? state.sync : null,
-                icon: const Icon(Icons.sync),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _ActivitySortControls(
-              metric: _activitySortMetric,
-              order: _activitySortOrder,
-              onMetricChanged: (value) {
-                setState(() => _activitySortMetric = value);
-              },
-              onOrderChanged: (value) {
-                setState(() => _activitySortOrder = value);
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < compactBreakpoint;
+                final sortControls = _ActivitySortControls(
+                  metric: _activitySortMetric,
+                  order: _activitySortOrder,
+                  onMetricChanged: (value) {
+                    setState(() => _activitySortMetric = value);
+                  },
+                  onOrderChanged: (value) {
+                    setState(() => _activitySortOrder = value);
+                  },
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PageHeader(
+                      title: l10n.quickSwitch,
+                      subtitle: pendingActivity == null ||
+                              pendingActivity.id == runningActivity?.id
+                          ? l10n.quickSwitchHint
+                          : l10n.quickSwitchSelected(pendingActivity.name),
+                      trailing: Wrap(
+                        spacing: 8,
+                        children: [
+                          if (compact)
+                            IconButton.filledTonal(
+                              tooltip: l10n.sortBy,
+                              onPressed: () {
+                                setState(() {
+                                  _showCompactSortControls =
+                                      !_showCompactSortControls;
+                                });
+                              },
+                              icon: Icon(_showCompactSortControls
+                                  ? Icons.expand_less
+                                  : Icons.sort),
+                            ),
+                          IconButton.filledTonal(
+                            tooltip: l10n.sync,
+                            onPressed: state.hasSyncTarget ? state.sync : null,
+                            icon: const Icon(Icons.sync),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!compact || _showCompactSortControls) ...[
+                      const SizedBox(height: 10),
+                      sortControls,
+                    ],
+                  ],
+                );
               },
             ),
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < compactBreakpoint;
-                final tileExtent = compact ? 190.0 : 250.0;
+                final tileExtent = compact ? 170.0 : 250.0;
                 return GridView.extent(
                   maxCrossAxisExtent: tileExtent,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: compact ? 2.1 : 3.15,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+                  childAspectRatio: compact ? 2.35 : 3.15,
+                  crossAxisSpacing: compact ? 10 : 12,
+                  mainAxisSpacing: compact ? 10 : 12,
                   children: [
                     for (final activity in switchableActivities)
                       ActivitySwitchButton(
@@ -228,15 +260,15 @@ class _ActivitySortControls extends StatelessWidget {
               width: compact ? double.infinity : 180,
               child: DropdownButtonFormField<ActivitySortMetric>(
                 initialValue: metric,
-                decoration: const InputDecoration(
-                  labelText: '排序依据',
-                  prefixIcon: Icon(Icons.sort),
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.sortBy,
+                  prefixIcon: const Icon(Icons.sort),
                 ),
                 items: [
                   for (final value in ActivitySortMetric.values)
                     DropdownMenuItem(
                       value: value,
-                      child: Text(_activitySortMetricLabel(value)),
+                      child: Text(_activitySortMetricLabel(context, value)),
                     ),
                 ],
                 onChanged: (value) {
@@ -254,12 +286,14 @@ class _ActivitySortControls extends StatelessWidget {
     );
   }
 
-  String _activitySortMetricLabel(ActivitySortMetric value) {
+  String _activitySortMetricLabel(
+      BuildContext context, ActivitySortMetric value) {
+    final l10n = AppLocalizations.of(context)!;
     return switch (value) {
-      ActivitySortMetric.name => '名称',
-      ActivitySortMetric.color => '颜色',
-      ActivitySortMetric.primaryCategory => '主分类',
-      ActivitySortMetric.updatedAt => '最近更新',
+      ActivitySortMetric.name => l10n.name,
+      ActivitySortMetric.color => l10n.color,
+      ActivitySortMetric.primaryCategory => l10n.primaryCategoryDimension,
+      ActivitySortMetric.updatedAt => l10n.recentlyUpdated,
     };
   }
 }
@@ -284,82 +318,92 @@ class CurrentStatusCard extends StatelessWidget {
     final runningColor = runningActivity == null
         ? colorScheme.primary
         : Color(runningActivity!.color);
-    return QuietPanel(
-      padding: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
+        return QuietPanel(
+          padding: EdgeInsets.zero,
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 16 : 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconBadge(
-                  icon: runningActivity == null
-                      ? Icons.timer_outlined
-                      : Icons.play_arrow_rounded,
-                  color: runningColor,
+                Row(
+                  children: [
+                    IconBadge(
+                      icon: runningActivity == null
+                          ? Icons.timer_outlined
+                          : Icons.play_arrow_rounded,
+                      color: runningColor,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context)!.currentDoing,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ),
+                    StatusPill(
+                      label: runningActivity == null
+                          ? AppLocalizations.of(context)!.notStarted
+                          : AppLocalizations.of(context)!.recording,
+                      icon: runningActivity == null
+                          ? Icons.pause_circle_outline
+                          : Icons.radio_button_checked,
+                      color: runningColor,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context)!.currentDoing,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ),
-                StatusPill(
-                  label: runningActivity == null
-                      ? AppLocalizations.of(context)!.notStarted
-                      : AppLocalizations.of(context)!.recording,
-                  icon: runningActivity == null
-                      ? Icons.pause_circle_outline
-                      : Icons.radio_button_checked,
-                  color: runningColor,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              runningActivity?.name ??
-                  AppLocalizations.of(context)!.notStartedRecord,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                SizedBox(height: compact ? 8 : 12),
+                Text(
+                  runningActivity?.name ??
+                      AppLocalizations.of(context)!.notStartedRecord,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: (compact
+                          ? Theme.of(context).textTheme.headlineSmall
+                          : Theme.of(context).textTheme.displaySmall)
+                      ?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
-            ),
-            const SizedBox(height: 8),
-            if (runningActivity == null)
-              Text(
-                AppLocalizations.of(context)!.selectActivityToStart,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-              )
-            else
-              ValueListenableBuilder<DateTime>(
-                valueListenable: clockNotifier,
-                builder: (context, now, _) {
-                  final duration = runningDurationAt(now);
-                  return Text(
-                    AppLocalizations.of(context)!
-                        .elapsedDuration(formatDurationCompact(duration)),
+                ),
+                SizedBox(height: compact ? 4 : 8),
+                if (runningActivity == null)
+                  Text(
+                    AppLocalizations.of(context)!.selectActivityToStart,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
-                  );
-                },
-              ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: onStop,
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: Text(AppLocalizations.of(context)!.stopCurrentActivity),
+                  )
+                else
+                  ValueListenableBuilder<DateTime>(
+                    valueListenable: clockNotifier,
+                    builder: (context, now, _) {
+                      final duration = runningDurationAt(now);
+                      return Text(
+                        AppLocalizations.of(context)!
+                            .elapsedDuration(formatDurationCompact(duration)),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                      );
+                    },
+                  ),
+                SizedBox(height: compact ? 12 : 18),
+                FilledButton.icon(
+                  onPressed: onStop,
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label:
+                      Text(AppLocalizations.of(context)!.stopCurrentActivity),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
