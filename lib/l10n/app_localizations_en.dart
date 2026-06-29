@@ -58,6 +58,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sync => 'Sync';
 
   @override
+  String get sortBy => 'Sort by';
+
+  @override
   String get edit => 'Edit';
 
   @override
@@ -158,6 +161,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get name => 'Name';
+
+  @override
+  String get color => 'Color';
+
+  @override
+  String get recentlyUpdated => 'Recently updated';
 
   @override
   String get deleteActivityTitle => 'Delete activity';
@@ -269,6 +278,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get actions => 'Actions';
+
+  @override
+  String get displayOptions => 'Display options';
+
+  @override
+  String get singleLineZoom => 'Single-line zoom';
+
+  @override
+  String get segmentedDayDisplay => 'Segmented day';
 
   @override
   String futureDayBanner(String date) {
@@ -433,6 +451,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get range => 'Range';
 
   @override
+  String get filters => 'Filters';
+
+  @override
+  String get statsDimension => 'Stats dimension';
+
+  @override
+  String get activityDimension => 'Activity';
+
+  @override
+  String get primaryCategoryDimension => 'Primary category';
+
+  @override
+  String get durationBucketDimension => 'Entry duration';
+
+  @override
+  String get categoryDurationDimension => 'Category + duration';
+
+  @override
   String get customDay => 'Custom day';
 
   @override
@@ -480,6 +516,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsSubtitle =>
       'Reminders, sync, and device sharing always stay local-first.';
+
+  @override
+  String get settingsSections => 'Back to settings sections';
+
+  @override
+  String get activityCategorySettings => 'Activity categories';
 
   @override
   String get timelineSettings => 'Timeline';

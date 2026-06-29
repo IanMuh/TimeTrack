@@ -127,6 +127,15 @@ void main() {
     await pumpAtWidth(390);
     expect(find.text('补记'), findsOneWidget);
     expect(find.text('视图'), findsOneWidget);
+    expect(find.text('显示选项'), findsOneWidget);
+    expect(find.text('单行缩放'), findsNothing);
+
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('详细'), findsOneWidget);
+    expect(find.text('7日'), findsOneWidget);
+    expect(find.text('单行缩放'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await pumpAtWidth(920);
@@ -173,6 +182,11 @@ void main() {
     }
 
     await pumpMode(TimelineViewMode.entries);
+    expect(find.byType(Slider), findsNothing);
+
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
+
     final slider = tester.widget<Slider>(find.byType(Slider));
     expect(slider.min, 0.25);
     expect(slider.max, 3);
@@ -180,6 +194,9 @@ void main() {
     expect(find.text('0.25x'), findsOneWidget);
 
     await pumpMode(TimelineViewMode.actions);
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
+
     expect(find.byType(Slider), findsNothing);
     expect(find.text('0.25x'), findsNothing);
     expect(tester.takeException(), isNull);

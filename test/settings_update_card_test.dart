@@ -26,6 +26,39 @@ void main() {
       await _expectUpdateCardStates(tester, width: 390);
     });
 
+    testWidgets('compact update section can return to settings sections', (
+      tester,
+    ) async {
+      final state = _UpdateCardTestState(
+        check: ({required currentVersion, required platform}) async {
+          return AppSuccess(_updateInfo(currentVersion: currentVersion));
+        },
+      );
+      addTearDown(state.dispose);
+      await state.checkForUpdates();
+      await _pumpSettingsPage(tester, state: state, width: 390);
+
+      expect(find.text('Version update'), findsOneWidget);
+      expect(find.text('Update available'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back to settings sections'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reminders'), findsOneWidget);
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('Activity categories'), findsOneWidget);
+      expect(find.text('Cloud sync'), findsOneWidget);
+      expect(find.text('Device sharing'), findsOneWidget);
+      expect(find.text('Version update'), findsOneWidget);
+
+      await tester.tap(find.text('Cloud sync'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cloud sync'), findsOneWidget);
+      expect(find.text('Sync status'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('renders update states on expanded width without overflow', (
       tester,
     ) async {

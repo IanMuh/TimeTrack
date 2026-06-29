@@ -466,16 +466,16 @@ class TimelineHeader extends StatelessWidget {
           onSelectionChanged: (value) => onSpanChanged(value.first),
         );
         final displaySelector = SegmentedButton<TimelineDisplayMode>(
-          segments: const [
+          segments: [
             ButtonSegment(
               value: TimelineDisplayMode.singleLine,
-              icon: Icon(Icons.zoom_out_map),
-              label: Text('单行缩放'),
+              icon: const Icon(Icons.zoom_out_map),
+              label: Text(AppLocalizations.of(context)!.singleLineZoom),
             ),
             ButtonSegment(
               value: TimelineDisplayMode.segmentedDay,
-              icon: Icon(Icons.view_day_outlined),
-              label: Text('分段显示'),
+              icon: const Icon(Icons.view_day_outlined),
+              label: Text(AppLocalizations.of(context)!.segmentedDayDisplay),
             ),
           ],
           selected: {displayMode},
@@ -491,6 +491,15 @@ class TimelineHeader extends StatelessWidget {
           onZoomChanged: onZoomChanged,
         );
         if (compact) {
+          final displayOptions = _TimelineDisplayOptions(
+            showRecordControls: showRecordControls,
+            densitySelector: densitySelector,
+            spanSelector: spanSelector,
+            displaySelector: displaySelector,
+            detailControl: displayMode == TimelineDisplayMode.segmentedDay
+                ? segmentControl
+                : zoomControl,
+          );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -498,28 +507,20 @@ class TimelineHeader extends StatelessWidget {
               const SizedBox(height: 12),
               daySelector,
               const SizedBox(height: 12),
-              modeSelector,
-              if (showRecordControls) ...[
-                const SizedBox(height: 10),
-                densitySelector,
-              ],
-              const SizedBox(height: 10),
-              spanSelector,
-              if (showRecordControls) ...[
-                const SizedBox(height: 10),
-                displaySelector,
-                const SizedBox(height: 10),
-                if (displayMode == TimelineDisplayMode.segmentedDay)
-                  segmentControl
-                else
-                  zoomControl,
-              ],
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: onAddEntry,
-                icon: const Icon(Icons.add),
-                label: Text(AppLocalizations.of(context)!.addEntry),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: modeSelector),
+                  const SizedBox(width: 10),
+                  FilledButton.icon(
+                    onPressed: onAddEntry,
+                    icon: const Icon(Icons.add),
+                    label: Text(AppLocalizations.of(context)!.addEntry),
+                  ),
+                ],
               ),
+              const SizedBox(height: 10),
+              displayOptions,
             ],
           );
         }
@@ -566,6 +567,45 @@ class TimelineHeader extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _TimelineDisplayOptions extends StatelessWidget {
+  const _TimelineDisplayOptions({
+    required this.showRecordControls,
+    required this.densitySelector,
+    required this.spanSelector,
+    required this.displaySelector,
+    required this.detailControl,
+  });
+
+  final bool showRecordControls;
+  final Widget densitySelector;
+  final Widget spanSelector;
+  final Widget displaySelector;
+  final Widget detailControl;
+
+  @override
+  Widget build(BuildContext context) {
+    return QuietPanel(
+      padding: EdgeInsets.zero,
+      child: ExpansionTile(
+        leading: const Icon(Icons.tune),
+        title: Text(AppLocalizations.of(context)!.displayOptions),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          spanSelector,
+          if (showRecordControls) ...[
+            const SizedBox(height: 10),
+            densitySelector,
+            const SizedBox(height: 10),
+            displaySelector,
+            const SizedBox(height: 10),
+            detailControl,
+          ],
+        ],
+      ),
     );
   }
 }

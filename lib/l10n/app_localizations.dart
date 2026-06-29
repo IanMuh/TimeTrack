@@ -194,6 +194,12 @@ abstract class AppLocalizations {
   /// **'同步'**
   String get sync;
 
+  /// No description provided for @sortBy.
+  ///
+  /// In zh, this message translates to:
+  /// **'排序依据'**
+  String get sortBy;
+
   /// No description provided for @edit.
   ///
   /// In zh, this message translates to:
@@ -367,6 +373,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'名称'**
   String get name;
+
+  /// No description provided for @color.
+  ///
+  /// In zh, this message translates to:
+  /// **'颜色'**
+  String get color;
+
+  /// No description provided for @recentlyUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近更新'**
+  String get recentlyUpdated;
 
   /// No description provided for @deleteActivityTitle.
   ///
@@ -571,6 +589,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'指令'**
   String get actions;
+
+  /// No description provided for @displayOptions.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示选项'**
+  String get displayOptions;
+
+  /// No description provided for @singleLineZoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'单行缩放'**
+  String get singleLineZoom;
+
+  /// No description provided for @segmentedDayDisplay.
+  ///
+  /// In zh, this message translates to:
+  /// **'分段显示'**
+  String get segmentedDayDisplay;
 
   /// No description provided for @futureDayBanner.
   ///
@@ -860,6 +896,42 @@ abstract class AppLocalizations {
   /// **'范围'**
   String get range;
 
+  /// No description provided for @filters.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选'**
+  String get filters;
+
+  /// No description provided for @statsDimension.
+  ///
+  /// In zh, this message translates to:
+  /// **'统计维度'**
+  String get statsDimension;
+
+  /// No description provided for @activityDimension.
+  ///
+  /// In zh, this message translates to:
+  /// **'事项'**
+  String get activityDimension;
+
+  /// No description provided for @primaryCategoryDimension.
+  ///
+  /// In zh, this message translates to:
+  /// **'主分类'**
+  String get primaryCategoryDimension;
+
+  /// No description provided for @durationBucketDimension.
+  ///
+  /// In zh, this message translates to:
+  /// **'单条时长'**
+  String get durationBucketDimension;
+
+  /// No description provided for @categoryDurationDimension.
+  ///
+  /// In zh, this message translates to:
+  /// **'分类+时长'**
+  String get categoryDurationDimension;
+
   /// No description provided for @customDay.
   ///
   /// In zh, this message translates to:
@@ -943,6 +1015,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'提醒、同步和设备互通都保持本地优先。'**
   String get settingsSubtitle;
+
+  /// No description provided for @settingsSections.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回设置分区'**
+  String get settingsSections;
+
+  /// No description provided for @activityCategorySettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'事项分类'**
+  String get activityCategorySettings;
 
   /// No description provided for @timelineSettings.
   ///

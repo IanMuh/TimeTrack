@@ -272,9 +272,27 @@ void main() {
 
     await _pumpShell(tester, state, width: 390);
 
-    expect(find.byTooltip('撤销 Ctrl+Z'), findsOneWidget);
-    expect(find.byTooltip('重做 Ctrl+Y'), findsOneWidget);
+    expect(find.byTooltip('撤销 Ctrl+Z / 重做 Ctrl+Y'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
+
+    state.setHistory(
+      canUndo: true,
+      canRedo: true,
+      undoLabel: '补记时间段',
+      redoLabel: '删除时间段',
+    );
+    await _pumpShortcutFrame(tester);
+
+    await tester.tap(find.byTooltip('撤销 Ctrl+Z / 重做 Ctrl+Y'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('撤销：补记时间段 Ctrl+Z'), findsOneWidget);
+    expect(find.text('重做：删除时间段 Ctrl+Y'), findsOneWidget);
+
+    await tester.tap(find.text('撤销：补记时间段 Ctrl+Z'));
+    await tester.pumpAndSettle();
+
+    expect(state.undoCount, 1);
   });
 
   testWidgets('undo and redo keyboard shortcuts invoke state actions',

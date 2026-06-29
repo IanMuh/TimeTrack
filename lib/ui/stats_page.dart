@@ -36,6 +36,33 @@ class _StatsPageState extends State<StatsPage> {
   DateTime _customDay = DateTime.now();
   StatsDimension _dimension = StatsDimension.activity;
   final Set<String> _selectedCategoryIds = {};
+  bool _showCompactStatsFilters = false;
+  DateTime? _statsRangeStart;
+  DateTime? _statsRangeEnd;
+  Future<TimeRangeStats>? _statsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.addListener(_invalidateStatsFuture);
+  }
+
+  @override
+  void didUpdateWidget(covariant StatsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state == widget.state) {
+      return;
+    }
+    oldWidget.state.removeListener(_invalidateStatsFuture);
+    widget.state.addListener(_invalidateStatsFuture);
+    _invalidateStatsFuture();
+  }
+
+  @override
+  void dispose() {
+    widget.state.removeListener(_invalidateStatsFuture);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +84,7 @@ class _StatsPageState extends State<StatsPage> {
             ),
             const SectionGap(),
             FutureBuilder<TimeRangeStats>(
-              future: state.statsForRange(start: range.start, end: range.end),
+              future: _statsForRange(range),
               builder: (context, snapshot) {
                 final stats = snapshot.data ??
                     const TimeRangeStats(
@@ -88,6 +115,12 @@ class _StatsPageState extends State<StatsPage> {
                       },
                       onCategoryFilterToggled: _toggleCategoryFilter,
                       totalMinutes: totalMinutes,
+                      showCompactFilters: _showCompactStatsFilters,
+                      onCompactFiltersToggled: () {
+                        setState(() {
+                          _showCompactStatsFilters = !_showCompactStatsFilters;
+                        });
+                      },
                     ),
                   ],
                 );
@@ -167,6 +200,27 @@ class _StatsPageState extends State<StatsPage> {
         _selectedCategoryIds.remove(categoryId);
       }
     });
+  }
+
+  Future<TimeRangeStats> _statsForRange(StatsRange range) {
+    final cached = _statsFuture;
+    if (cached != null &&
+        _statsRangeStart == range.start &&
+        _statsRangeEnd == range.end) {
+      return cached;
+    }
+    _statsRangeStart = range.start;
+    _statsRangeEnd = range.end;
+    return _statsFuture = widget.state.statsForRange(
+      start: range.start,
+      end: range.end,
+    );
+  }
+
+  void _invalidateStatsFuture() {
+    _statsRangeStart = null;
+    _statsRangeEnd = null;
+    _statsFuture = null;
   }
 }
 
@@ -372,6 +426,8 @@ class _StatsCharts extends StatelessWidget {
     required this.onDimensionChanged,
     required this.onCategoryFilterToggled,
     required this.totalMinutes,
+    required this.showCompactFilters,
+    required this.onCompactFiltersToggled,
   });
 
   final AppState state;
@@ -382,6 +438,8 @@ class _StatsCharts extends StatelessWidget {
   final ValueChanged<StatsDimension> onDimensionChanged;
   final ValueChanged<String> onCategoryFilterToggled;
   final int totalMinutes;
+  final bool showCompactFilters;
+  final VoidCallback onCompactFiltersToggled;
 
   @override
   Widget build(BuildContext context) {
@@ -391,6 +449,7 @@ class _StatsCharts extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
+        final compact = constraints.maxWidth < compactBreakpoint;
         final expanded = constraints.maxWidth >= expandedBreakpoint;
         final controls = _StatsControls(
           state: state,
@@ -407,6 +466,31 @@ class _StatsCharts extends StatelessWidget {
           totalMinutes: totalMinutes,
         );
         final dayTotalsCard = DayTotalsCard(dayTotals: stats.totalsByDay);
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              distributionCard,
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: onCompactFiltersToggled,
+                  icon: Icon(
+                    showCompactFilters ? Icons.expand_less : Icons.filter_list,
+                  ),
+                  label: Text(AppLocalizations.of(context)!.filters),
+                ),
+              ),
+              if (showCompactFilters) ...[
+                const SizedBox(height: 10),
+                controls,
+              ],
+              const SectionGap(),
+              dayTotalsCard,
+            ],
+          );
+        }
         if (!expanded) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -460,17 +544,20 @@ class _StatsControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < compactBreakpoint;
+    final l10n = AppLocalizations.of(context)!;
     final dimensions = compact
         ? DropdownButtonFormField<StatsDimension>(
             initialValue: dimension,
-            decoration: const InputDecoration(
-              labelText: '统计维度',
-              prefixIcon: Icon(Icons.query_stats),
+            decoration: InputDecoration(
+              labelText: l10n.statsDimension,
+              prefixIcon: const Icon(Icons.query_stats),
             ),
             items: [
               for (final value in StatsDimension.values)
                 DropdownMenuItem(
-                    value: value, child: Text(_dimensionLabel(value))),
+                  value: value,
+                  child: Text(_dimensionLabel(context, value)),
+                ),
             ],
             onChanged: (value) {
               if (value != null) onDimensionChanged(value);
@@ -481,7 +568,7 @@ class _StatsControls extends StatelessWidget {
               for (final value in StatsDimension.values)
                 ButtonSegment(
                   value: value,
-                  label: Text(_dimensionLabel(value)),
+                  label: Text(_dimensionLabel(context, value)),
                 ),
             ],
             selected: {dimension},
@@ -493,7 +580,7 @@ class _StatsControls extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '统计维度',
+            l10n.statsDimension,
             style: Theme.of(context)
                 .textTheme
                 .titleSmall
@@ -525,12 +612,14 @@ class _StatsControls extends StatelessWidget {
     );
   }
 
-  String _dimensionLabel(StatsDimension value) {
+  String _dimensionLabel(BuildContext context, StatsDimension value) {
+    final l10n = AppLocalizations.of(context)!;
     return switch (value) {
-      StatsDimension.activity => '事项',
-      StatsDimension.primaryCategory => '主分类',
-      StatsDimension.durationBucket => '单条时长',
-      StatsDimension.primaryCategoryAndDurationBucket => '分类+时长',
+      StatsDimension.activity => l10n.activityDimension,
+      StatsDimension.primaryCategory => l10n.primaryCategoryDimension,
+      StatsDimension.durationBucket => l10n.durationBucketDimension,
+      StatsDimension.primaryCategoryAndDurationBucket =>
+        l10n.categoryDurationDimension,
     };
   }
 }
