@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
-import '../core/app_constants.dart';
 import '../core/date_time_ext.dart';
 import '../core/result.dart';
 import '../domain/action_log.dart';
@@ -318,8 +317,7 @@ class TimeEntryRepository implements ITimeEntryRepository {
           activityId: activityId,
           entryId: next.id,
           occurredAt: now,
-          message:
-              previousActivityId == null ? '开始事项' : '切换事项',
+          message: previousActivityId == null ? '开始事项' : '切换事项',
         ).toLocalMap(),
       );
     });
@@ -476,7 +474,8 @@ class TimeEntryRepository implements ITimeEntryRepository {
   }
 
   Future<void> _deleteEntry(TimeEntry entry) async {
-    await _saveEntry(entry.copyWith(isDeleted: true, updatedAt: DateTime.now()));
+    await _saveEntry(
+        entry.copyWith(isDeleted: true, updatedAt: DateTime.now()));
     await _insertActionLog(
       actionType: ActionType.delete,
       activityId: entry.activityId,
@@ -493,9 +492,10 @@ class TimeEntryRepository implements ITimeEntryRepository {
         day.startOfDay.add(const Duration(days: 1)).toUtc().toIso8601String();
     final rows = await db.query(
       'time_entries',
-      where: 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) > ?',
-      whereArgs: [end, end, start],
-      orderBy: 'start_at asc',
+      where: 'is_deleted = 0 and start_at < ? and '
+          '(end_at is null or end_at > ?)',
+      whereArgs: [end, start],
+      orderBy: 'is_deleted asc, start_at asc',
     );
     return rows.map(TimeEntry.fromMap).toList();
   }
@@ -512,9 +512,10 @@ class TimeEntryRepository implements ITimeEntryRepository {
     final startStr = start.toUtc().toIso8601String();
     final rows = await db.query(
       'time_entries',
-      where: 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) > ?',
-      whereArgs: [endStr, endStr, startStr],
-      orderBy: 'start_at asc',
+      where: 'is_deleted = 0 and start_at < ? and '
+          '(end_at is null or end_at > ?)',
+      whereArgs: [endStr, startStr],
+      orderBy: 'is_deleted asc, start_at asc',
     );
     return rows.map(TimeEntry.fromMap).toList();
   }
@@ -628,8 +629,7 @@ class TimeEntryRepository implements ITimeEntryRepository {
       activityId: merged.activityId,
       entryId: merged.id,
       occurredAt: now,
-      message:
-          direction == EntryMergeDirection.previous ? '合并左侧' : '合并右侧',
+      message: direction == EntryMergeDirection.previous ? '合并左侧' : '合并右侧',
     );
     return merged;
   }
@@ -809,8 +809,7 @@ class TimeEntryRepository implements ITimeEntryRepository {
       final entry = TimeEntry.fromMap(row);
       final withSnapshot =
           await _activityRepo.entryWithActivitySnapshot(entry, db);
-      if (withSnapshot.activityNameSnapshot ==
-              entry.activityNameSnapshot &&
+      if (withSnapshot.activityNameSnapshot == entry.activityNameSnapshot &&
           withSnapshot.activityColorSnapshot == entry.activityColorSnapshot) {
         continue;
       }
@@ -937,24 +936,19 @@ class TimeEntryRepository implements ITimeEntryRepository {
         : finiteReplacementEnds.reduce(
             (first, second) => first.isAfter(second) ? first : second,
           );
-    final openEndedSentinel =
-        AppConstants.farFutureDate.toUtc().toIso8601String();
     final rows = await executor.query(
       'time_entries',
       where: hasRunningReplacement
-          ? 'is_deleted = 0 and coalesce(end_at, ?) > ?'
-          : 'is_deleted = 0 and start_at < ? and coalesce(end_at, ?) > ?',
+          ? 'is_deleted = 0 and (end_at is null or end_at > ?)'
+          : 'is_deleted = 0 and start_at < ? and '
+              '(end_at is null or end_at > ?)',
       whereArgs: hasRunningReplacement
-          ? [
-              openEndedSentinel,
-              firstStart.toUtc().toIso8601String(),
-            ]
+          ? [firstStart.toUtc().toIso8601String()]
           : [
               lastEnd!.toUtc().toIso8601String(),
-              lastEnd.toUtc().toIso8601String(),
               firstStart.toUtc().toIso8601String(),
             ],
-      orderBy: 'start_at asc, end_at asc',
+      orderBy: 'is_deleted asc, start_at asc, end_at asc',
     );
 
     for (final row in rows) {

@@ -28,7 +28,7 @@ class LocalDatabase {
     final dbPath = _databasePath ?? await _defaultDatabasePath();
     final db = await openDatabase(
       dbPath,
-      version: 8,
+      version: 9,
       onConfigure: _configure,
       onCreate: _create,
       onUpgrade: _upgrade,
@@ -46,6 +46,7 @@ class LocalDatabase {
   Future<void> _configure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
     await _tryEnableWal(db);
+    await _tryApplyPerformancePragmas(db);
   }
 
   Future<void> _open(Database db) async {
@@ -78,6 +79,11 @@ class LocalDatabase {
     if (oldVersion < 8) {
       await createActivityCategorySchema(db);
     }
+    if (oldVersion < 9) {
+      await createActionLogsSchema(db);
+      await createActivityCategorySchema(db);
+      await createPerformanceIndexes(db);
+    }
   }
 
   static Future<void> ensureSchema(Database db) async {
@@ -86,6 +92,7 @@ class LocalDatabase {
     await migrateUnassignedActivitySchema(db);
     await migrateEntrySnapshotsAndOneOffSchema(db);
     await createActivityCategorySchema(db);
+    await createPerformanceIndexes(db);
   }
 
   static Future<void> createSchema(Database db) async {
@@ -151,6 +158,7 @@ class LocalDatabase {
     await createSyncPeerSchema(db);
     await createAppMetadataSchema(db);
     await createActivityCategorySchema(db);
+    await createPerformanceIndexes(db);
   }
 
   static Future<void> createActionLogsSchema(Database db) async {
@@ -174,6 +182,34 @@ class LocalDatabase {
     );
     await db.execute(
       'create index if not exists idx_action_logs_updated_at on action_logs(updated_at)',
+    );
+  }
+
+  static Future<void> createPerformanceIndexes(Database db) async {
+    await db.execute(
+      'create index if not exists idx_time_entries_active_start '
+      'on time_entries(is_deleted, start_at)',
+    );
+    await db.execute(
+      'create index if not exists idx_time_entries_active_end '
+      'on time_entries(is_deleted, end_at)',
+    );
+    await db.execute(
+      'create index if not exists idx_time_entries_running_active '
+      'on time_entries(start_at) '
+      'where end_at is null and is_deleted = 0',
+    );
+    await db.execute(
+      'create index if not exists idx_action_logs_active_occurred_at '
+      'on action_logs(is_deleted, occurred_at)',
+    );
+    await db.execute(
+      'create index if not exists idx_activities_active_sort '
+      'on activities(is_deleted, is_favorite, name)',
+    );
+    await db.execute(
+      'create index if not exists idx_activity_category_links_active_sort '
+      'on activity_category_links(activity_id, is_deleted, is_primary, sort_order)',
     );
   }
 
@@ -324,6 +360,17 @@ class LocalDatabase {
     } on DatabaseException {
       // WAL is an optimization. Keep local startup available when a platform
       // SQLite build or transient lock cannot switch journal mode.
+    }
+  }
+
+  static Future<void> _tryApplyPerformancePragmas(Database db) async {
+    try {
+      await db.execute('PRAGMA synchronous = NORMAL');
+      await db.execute('PRAGMA cache_size = -10000');
+      await db.execute('PRAGMA temp_store = MEMORY');
+    } on DatabaseException {
+      // These pragmas only tune local performance. Keep startup available on
+      // SQLite builds that reject one of them.
     }
   }
 }

@@ -33,6 +33,10 @@ Future<TimeRepository> buildRepository() async {
   return (await buildRepositoryFixture()).repository;
 }
 
+String _planText(List<Map<String, Object?>> rows) {
+  return rows.map((row) => row.values.join(' ')).join('\n');
+}
+
 void main() {
   test('seed data includes immutable unassigned activity', () async {
     final repository = await buildRepository();
@@ -127,6 +131,65 @@ void main() {
     expect(await repository.runningEntry(), isNotNull);
     expect(logs.map((log) => log.actionType),
         [ActionType.switch_, ActionType.switch_]);
+  });
+
+  test('common range queries use performance indexes', () async {
+    final fixture = await buildRepositoryFixture();
+    final db = fixture.database;
+    final activity = (await fixture.repository.activities())
+        .firstWhere((item) => !item.isUnassigned);
+    final base = DateTime(2025, 1, 1);
+    final batch = db.batch();
+
+    for (var i = 0; i < 1500; i += 1) {
+      final start = base.add(Duration(hours: i));
+      final end = start.add(const Duration(minutes: 30));
+      batch.insert('time_entries', {
+        'id': 'bulk-entry-$i',
+        'user_id': null,
+        'activity_id': activity.id,
+        'activity_name': activity.name,
+        'activity_color': activity.color,
+        'start_at': start.toUtc().toIso8601String(),
+        'end_at': end.toUtc().toIso8601String(),
+        'note': '',
+        'device_id': 'test-device',
+        'updated_at': end.toUtc().toIso8601String(),
+        'is_deleted': 0,
+      });
+      batch.insert('action_logs', {
+        'id': 'bulk-log-$i',
+        'user_id': null,
+        'action_type': 'switch',
+        'activity_id': activity.id,
+        'entry_id': 'bulk-entry-$i',
+        'message': 'bulk',
+        'occurred_at': start.toUtc().toIso8601String(),
+        'device_id': 'test-device',
+        'updated_at': start.toUtc().toIso8601String(),
+        'is_deleted': 0,
+      });
+    }
+    await batch.commit(noResult: true);
+
+    final rangeStart = DateTime(2025, 1, 10).toUtc().toIso8601String();
+    final rangeEnd = DateTime(2025, 1, 11).toUtc().toIso8601String();
+    final entryPlan = _planText(await db.rawQuery(
+      'explain query plan select * from time_entries '
+      'where is_deleted = 0 and start_at < ? and '
+      '(end_at is null or end_at > ?) '
+      'order by is_deleted asc, start_at asc',
+      [rangeEnd, rangeStart],
+    ));
+    final logPlan = _planText(await db.rawQuery(
+      'explain query plan select * from action_logs '
+      'where is_deleted = 0 and occurred_at >= ? and occurred_at < ? '
+      'order by is_deleted asc, occurred_at asc',
+      [rangeStart, rangeEnd],
+    ));
+
+    expect(entryPlan, contains('idx_time_entries_active_start'));
+    expect(logPlan, contains('idx_action_logs_active_occurred_at'));
   });
 
   test('stopping while already unassigned does not split it', () async {

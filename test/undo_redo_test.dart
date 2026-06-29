@@ -117,6 +117,77 @@ void main() {
     expect(fixture.state.runningActivity?.id, activities[1].id);
   });
 
+  test('scoped undo excludes unrelated historical entries and logs', () async {
+    final fixture = await _buildState();
+    addTearDown(fixture.dispose);
+    final activities = fixture.state.activities
+        .where((activity) => !activity.isUnassigned)
+        .toList();
+    final oldStart = DateTime(2024, 1, 1, 9);
+    final oldEnd = DateTime(2024, 1, 1, 10);
+
+    await fixture.sqliteDatabase.insert('time_entries', {
+      'id': 'old-unrelated-entry',
+      'user_id': null,
+      'activity_id': activities[0].id,
+      'activity_name': activities[0].name,
+      'activity_color': activities[0].color,
+      'start_at': oldStart.toUtc().toIso8601String(),
+      'end_at': oldEnd.toUtc().toIso8601String(),
+      'note': 'old',
+      'device_id': 'test-device',
+      'updated_at': oldEnd.toUtc().toIso8601String(),
+      'is_deleted': 0,
+    });
+    await fixture.sqliteDatabase.insert('action_logs', {
+      'id': 'old-unrelated-log',
+      'user_id': null,
+      'action_type': 'switch',
+      'activity_id': activities[0].id,
+      'entry_id': 'old-unrelated-entry',
+      'message': 'old',
+      'occurred_at': oldStart.toUtc().toIso8601String(),
+      'device_id': 'test-device',
+      'updated_at': oldStart.toUtc().toIso8601String(),
+      'is_deleted': 0,
+    });
+
+    await fixture.state.createManualEntry(
+      activityId: activities[1].id,
+      startAt: DateTime(2026, 1, 1, 10),
+      endAt: DateTime(2026, 1, 1, 11),
+      note: 'inserted',
+    );
+
+    final changeSet = fixture.state.lastUndoChangeSetForTest;
+    expect(changeSet, isNotNull);
+    expect(
+      changeSet!.timeEntries.map((change) => change.id),
+      isNot(contains('old-unrelated-entry')),
+    );
+    expect(
+      changeSet.actionLogs.map((change) => change.id),
+      isNot(contains('old-unrelated-log')),
+    );
+    expect(changeSet.timeEntries, isNotEmpty);
+    expect(changeSet.actionLogs, isNotEmpty);
+
+    await fixture.state.undo();
+
+    final oldEntryRows = await fixture.sqliteDatabase.query(
+      'time_entries',
+      where: 'id = ?',
+      whereArgs: ['old-unrelated-entry'],
+    );
+    final oldLogRows = await fixture.sqliteDatabase.query(
+      'action_logs',
+      where: 'id = ?',
+      whereArgs: ['old-unrelated-log'],
+    );
+    expect(oldEntryRows.single['is_deleted'], 0);
+    expect(oldLogRows.single['is_deleted'], 0);
+  });
+
   test('entry edits, split, merge, delete, extend, and activity edits undo',
       () async {
     final fixture = await _buildState();

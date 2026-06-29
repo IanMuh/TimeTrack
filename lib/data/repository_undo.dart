@@ -5,6 +5,63 @@ import '../domain/time_entry.dart';
 
 enum RepositoryUndoDirection { undo, redo }
 
+class RepositoryUndoWindow {
+  RepositoryUndoWindow({required DateTime start, required DateTime end})
+      : start = start.isBefore(end) ? start : end,
+        end = end.isAfter(start) ? end : start;
+
+  factory RepositoryUndoWindow.forLocalDay(DateTime day) {
+    final start = DateTime(day.year, day.month, day.day);
+    return RepositoryUndoWindow(
+      start: start,
+      end: start.add(const Duration(days: 1)),
+    );
+  }
+
+  factory RepositoryUndoWindow.covering(DateTime start, DateTime end) {
+    final orderedStart = start.isBefore(end) ? start : end;
+    final orderedEnd = end.isAfter(start) ? end : start;
+    final dayStart = DateTime(
+      orderedStart.year,
+      orderedStart.month,
+      orderedStart.day,
+    );
+    final endDayStart = DateTime(
+      orderedEnd.year,
+      orderedEnd.month,
+      orderedEnd.day,
+    );
+    return RepositoryUndoWindow(
+      start: dayStart,
+      end: endDayStart.add(const Duration(days: 1)),
+    );
+  }
+
+  final DateTime start;
+  final DateTime end;
+
+  bool get isEmpty => !start.isBefore(end);
+
+  String get startValue => start.toUtc().toIso8601String();
+
+  String get endValue => end.toUtc().toIso8601String();
+}
+
+class RepositoryUndoScope {
+  const RepositoryUndoScope({
+    this.entryWindows = const [],
+    this.actionLogWindows = const [],
+  });
+
+  final List<RepositoryUndoWindow> entryWindows;
+  final List<RepositoryUndoWindow> actionLogWindows;
+
+  bool get hasEntryScope => entryWindows.any((window) => !window.isEmpty);
+
+  bool get hasActionLogScope =>
+      actionLogWindows.any((window) => !window.isEmpty);
+}
+
 class RepositoryUndoConflictException implements Exception {
   const RepositoryUndoConflictException(this.message);
 
