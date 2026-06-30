@@ -100,6 +100,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('stats metrics render below charts and daily totals',
+      (tester) async {
+    final fixture = (await tester.runAsync(_buildFixture))!;
+    final state = fixture.state;
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
+
+    await _pumpStats(tester, state, width: 920);
+    await tester.pumpAndSettle();
+
+    final metricsTop = tester.getTopLeft(find.text('范围总记录')).dy;
+
+    expect(
+      metricsTop,
+      greaterThan(tester.getBottomLeft(find.byType(RangeDistributionCard)).dy),
+    );
+    expect(
+      metricsTop,
+      greaterThan(tester.getBottomLeft(find.byType(DayTotalsCard)).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('最长连续')).dy,
+      greaterThan(tester.getBottomLeft(find.byType(DayTotalsCard)).dy),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('stats page keeps quiet metric and empty states on compact width',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;

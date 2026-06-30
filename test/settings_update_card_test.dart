@@ -46,7 +46,7 @@ void main() {
 
       expect(find.text('Reminders'), findsOneWidget);
       expect(find.text('Timeline'), findsOneWidget);
-      expect(find.text('Activity categories'), findsOneWidget);
+      expect(find.text('Activity categories'), findsNothing);
       expect(find.text('Cloud sync'), findsOneWidget);
       expect(find.text('Device sharing'), findsOneWidget);
       expect(find.text('Version update'), findsOneWidget);

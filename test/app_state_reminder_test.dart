@@ -330,21 +330,60 @@ void main() {
     expect(allTotals.containsKey(unassigned.id), isFalse);
   });
 
+  test('statsForRange counts only real entries across multi-day gaps',
+      () async {
+    final fixture = await buildTestAppFixture(
+      now: DateTime(2026, 1, 3, 12),
+      selectedDay: DateTime(2026, 1, 3),
+    );
+    final state = fixture.state;
+    addTearDown(fixture.dispose);
+    final activity = state.activities.firstWhere(
+      (activity) => !activity.isUnassigned,
+    );
+    final unassigned = state.activities.singleWhere(
+      (activity) => activity.isUnassigned,
+    );
+
+    await fixture.repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: 'one real entry',
+    );
+
+    final stats = await state.statsForRange(
+      start: DateTime(2026, 1, 1),
+      end: DateTime(2026, 1, 4),
+    );
+
+    expect(stats.totalDuration, const Duration(hours: 1));
+    expect(stats.longestBlock, const Duration(hours: 1));
+    expect(stats.totalsByActivity, hasLength(1));
+    expect(stats.totalsByActivity[activity.id], const Duration(hours: 1));
+    expect(stats.totalsByActivity.containsKey(unassigned.id), isFalse);
+    expect(stats.totalsByDay, hasLength(1));
+    expect(
+      stats.totalsByDay[DateTime(2026, 1, 1)],
+      const Duration(hours: 1),
+    );
+  });
+
   test('totalsForPeriod uses state.now for running entry', () async {
     final fixture = await _buildState();
     final state = fixture.state;
     addTearDown(fixture.dispose);
     final activity = state.activities.first;
+    state.now = DateTime(2026, 1, 2, 10);
 
-    // Create a running entry 30 minutes ago via repository
-    final startAt = state.now.subtract(const Duration(minutes: 30));
+    final startAt = DateTime(2026, 1, 2, 9, 30);
     await fixture.repository.switchToActivity(activity.id, at: startAt);
     await state.selectDay(state.now);
 
     final dayTotals = await state.totalsForPeriod(StatsPeriod.day);
     expect(
       dayTotals[activity.id]?.inMinutes ?? 0,
-      greaterThanOrEqualTo(30),
+      30,
     );
   });
 

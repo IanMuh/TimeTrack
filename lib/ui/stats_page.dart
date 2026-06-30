@@ -100,11 +100,6 @@ class _StatsPageState extends State<StatsPage> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _StatsMetrics(
-                      totalDuration: stats.totalDuration,
-                      longestBlock: stats.longestBlock,
-                    ),
-                    const SectionGap(),
                     _StatsCharts(
                       state: state,
                       range: range,
@@ -122,6 +117,11 @@ class _StatsPageState extends State<StatsPage> {
                           _showCompactStatsFilters = !_showCompactStatsFilters;
                         });
                       },
+                    ),
+                    const SectionGap(),
+                    _StatsMetrics(
+                      totalDuration: stats.totalDuration,
+                      longestBlock: stats.longestBlock,
                     ),
                   ],
                 );
