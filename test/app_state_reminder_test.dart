@@ -374,16 +374,16 @@ void main() {
     final state = fixture.state;
     addTearDown(fixture.dispose);
     final activity = state.activities.first;
+    state.now = DateTime(2026, 1, 2, 10);
 
-    // Create a running entry 30 minutes ago via repository
-    final startAt = state.now.subtract(const Duration(minutes: 30));
+    final startAt = DateTime(2026, 1, 2, 9, 30);
     await fixture.repository.switchToActivity(activity.id, at: startAt);
     await state.selectDay(state.now);
 
     final dayTotals = await state.totalsForPeriod(StatsPeriod.day);
     expect(
       dayTotals[activity.id]?.inMinutes ?? 0,
-      greaterThanOrEqualTo(30),
+      30,
     );
   });
 
