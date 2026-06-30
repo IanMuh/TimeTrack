@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../app/app_state.dart';
 import '../core/date_time_ext.dart';
 import '../domain/activity.dart';
+import '../domain/activity_category.dart';
 import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'activity_colors.dart';
@@ -584,8 +585,12 @@ Future<Activity?> showActivityEditorDialog(
     return activity;
   }
   final controller = TextEditingController(text: activity?.name ?? '');
+  final categoryController = TextEditingController();
   var selectedColor = activity?.color ??
       nextActivityColor(state.activities.map((activity) => activity.color));
+  var selectedCategoryColor = nextCategoryColor(
+    state.activityCategories.map((category) => category.color),
+  );
   var primaryCategoryId = activity == null
       ? null
       : state.primaryCategoryForActivity(activity.id)?.id;
@@ -602,6 +607,101 @@ Future<Activity?> showActivityEditorDialog(
     builder: (context) {
       return StatefulBuilder(
         builder: (context, setState) {
+          Future<void> createCategory() async {
+            final name = categoryController.text.trim();
+            if (name.isEmpty) {
+              return;
+            }
+            final category = await state.createCategory(
+              name,
+              selectedCategoryColor,
+            );
+            if (!context.mounted) {
+              return;
+            }
+            categoryController.clear();
+            setState(() {
+              primaryCategoryId ??= category.id;
+              selectedCategoryColor = nextCategoryColor(
+                state.activityCategories.map((category) => category.color),
+              );
+            });
+          }
+
+          Future<void> deleteCategory(ActivityCategory category) async {
+            setState(() {
+              if (primaryCategoryId == category.id) {
+                primaryCategoryId = null;
+              }
+              secondaryCategoryIds.remove(category.id);
+            });
+            await state.deleteCategory(category);
+            if (context.mounted) {
+              setState(() {});
+            }
+          }
+
+          Future<void> saveActivity() async {
+            final name = controller.text.trim();
+            if (name.isEmpty) {
+              return;
+            }
+            saved = activity == null
+                ? await state.createActivity(
+                    name,
+                    selectedColor,
+                    primaryCategoryId: primaryCategoryId,
+                    secondaryCategoryIds:
+                        secondaryCategoryIds.toList(growable: false),
+                  )
+                : await state.updateActivity(
+                    activity,
+                    name: name,
+                    color: selectedColor,
+                    updateCategories: true,
+                    primaryCategoryId: primaryCategoryId,
+                    secondaryCategoryIds:
+                        secondaryCategoryIds.toList(growable: false),
+                  );
+            if (context.mounted) {
+              Navigator.pop(context);
+            }
+          }
+
+          Future<void> deleteActivity() async {
+            if (activity == null || activity.isUnassigned) {
+              return;
+            }
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(AppLocalizations.of(context)!.deleteActivityTitle),
+                content: Text(
+                  AppLocalizations.of(context)!
+                      .confirmDeleteActivity(activity.name),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(AppLocalizations.of(context)!.cancel),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, true),
+                    icon: const Icon(Icons.delete_outline),
+                    label: Text(AppLocalizations.of(context)!.delete),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed != true) {
+              return;
+            }
+            await state.deleteActivity(activity);
+            if (context.mounted) {
+              Navigator.pop(context);
+            }
+          }
+
           return AlertDialog(
             title: Text(activity == null
                 ? AppLocalizations.of(context)!.newActivity
@@ -621,62 +721,33 @@ Future<Activity?> showActivityEditorDialog(
                       ),
                       autofocus: true,
                     ),
-                    if (state.activityCategories.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String?>(
-                        initialValue: primaryCategoryId,
-                        decoration: const InputDecoration(
-                          labelText: '主分类',
-                          prefixIcon: Icon(Icons.category_outlined),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('未分类'),
-                          ),
-                          for (final category in state.activityCategories)
-                            DropdownMenuItem<String?>(
-                              value: category.id,
-                              child: Text(category.name),
-                            ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            primaryCategoryId = value;
-                            secondaryCategoryIds.remove(value);
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final category in state.activityCategories)
-                            FilterChip(
-                              label: Text(category.name),
-                              avatar: CircleAvatar(
-                                radius: 6,
-                                backgroundColor: Color(category.color),
-                              ),
-                              selected:
-                                  secondaryCategoryIds.contains(category.id),
-                              onSelected: category.id == primaryCategoryId
-                                  ? null
-                                  : (selected) {
-                                      setState(() {
-                                        if (selected) {
-                                          secondaryCategoryIds.add(category.id);
-                                        } else {
-                                          secondaryCategoryIds
-                                              .remove(category.id);
-                                        }
-                                      });
-                                    },
-                            ),
-                        ],
-                      ),
-                    ],
+                    _ActivityCategoryEditor(
+                      state: state,
+                      categoryController: categoryController,
+                      primaryCategoryId: primaryCategoryId,
+                      secondaryCategoryIds: secondaryCategoryIds,
+                      selectedCategoryColor: selectedCategoryColor,
+                      onPrimaryChanged: (value) {
+                        setState(() {
+                          primaryCategoryId = value;
+                          secondaryCategoryIds.remove(value);
+                        });
+                      },
+                      onSecondaryToggled: (category, selected) {
+                        setState(() {
+                          if (selected) {
+                            secondaryCategoryIds.add(category.id);
+                          } else {
+                            secondaryCategoryIds.remove(category.id);
+                          }
+                        });
+                      },
+                      onCategoryColorChanged: (color) {
+                        setState(() => selectedCategoryColor = color);
+                      },
+                      onCreateCategory: createCategory,
+                      onDeleteCategory: deleteCategory,
+                    ),
                     const SizedBox(height: 16),
                     ActivityColorPicker(
                       selectedColor: selectedColor,
@@ -687,78 +758,17 @@ Future<Activity?> showActivityEditorDialog(
                 ),
               ),
             ),
+            actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
             actions: [
-              if (activity != null && !activity.isUnassigned)
-                TextButton.icon(
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text(
-                            AppLocalizations.of(context)!.deleteActivityTitle),
-                        content: Text(
-                          AppLocalizations.of(context)!
-                              .confirmDeleteActivity(activity.name),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: Text(AppLocalizations.of(context)!.cancel),
-                          ),
-                          FilledButton.icon(
-                            onPressed: () => Navigator.pop(context, true),
-                            icon: const Icon(Icons.delete_outline),
-                            label: Text(AppLocalizations.of(context)!.delete),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirmed != true) {
-                      return;
-                    }
-                    await state.deleteActivity(activity);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  icon: const Icon(Icons.delete_outline),
-                  label: Text(AppLocalizations.of(context)!.delete),
-                ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(AppLocalizations.of(context)!.cancel),
-              ),
-              FilledButton.icon(
-                onPressed: () async {
-                  final name = controller.text.trim();
-                  if (name.isEmpty) {
-                    return;
-                  }
-                  saved = activity == null
-                      ? await state.createActivity(
-                          name,
-                          selectedColor,
-                          primaryCategoryId: primaryCategoryId,
-                          secondaryCategoryIds:
-                              secondaryCategoryIds.toList(growable: false),
-                        )
-                      : await state.updateActivity(
-                          activity,
-                          name: name,
-                          color: selectedColor,
-                          updateCategories: true,
-                          primaryCategoryId: primaryCategoryId,
-                          secondaryCategoryIds:
-                              secondaryCategoryIds.toList(growable: false),
-                        );
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                  }
-                },
-                icon: Icon(activity == null ? Icons.add : Icons.save_outlined),
-                label: Text(activity == null
+              _ActivityEditorActionRow(
+                showDelete: activity != null && !activity.isUnassigned,
+                onDelete: deleteActivity,
+                onCancel: () => Navigator.pop(context),
+                onSave: saveActivity,
+                saveIcon: activity == null ? Icons.add : Icons.save_outlined,
+                saveLabel: activity == null
                     ? AppLocalizations.of(context)!.create
-                    : AppLocalizations.of(context)!.save),
+                    : AppLocalizations.of(context)!.save,
               ),
             ],
           );
@@ -767,6 +777,204 @@ Future<Activity?> showActivityEditorDialog(
     },
   );
   return saved;
+}
+
+class _ActivityCategoryEditor extends StatelessWidget {
+  const _ActivityCategoryEditor({
+    required this.state,
+    required this.categoryController,
+    required this.primaryCategoryId,
+    required this.secondaryCategoryIds,
+    required this.selectedCategoryColor,
+    required this.onPrimaryChanged,
+    required this.onSecondaryToggled,
+    required this.onCategoryColorChanged,
+    required this.onCreateCategory,
+    required this.onDeleteCategory,
+  });
+
+  final AppState state;
+  final TextEditingController categoryController;
+  final String? primaryCategoryId;
+  final Set<String> secondaryCategoryIds;
+  final int selectedCategoryColor;
+  final ValueChanged<String?> onPrimaryChanged;
+  final void Function(ActivityCategory category, bool selected)
+      onSecondaryToggled;
+  final ValueChanged<int> onCategoryColorChanged;
+  final Future<void> Function() onCreateCategory;
+  final Future<void> Function(ActivityCategory category) onDeleteCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = state.activityCategories;
+    final selectedPrimary = categories.any(
+      (category) => category.id == primaryCategoryId,
+    )
+        ? primaryCategoryId
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String?>(
+          key: ValueKey(selectedPrimary),
+          initialValue: selectedPrimary,
+          decoration: const InputDecoration(
+            labelText: '主分类',
+            prefixIcon: Icon(Icons.category_outlined),
+          ),
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('未分类'),
+            ),
+            for (final category in categories)
+              DropdownMenuItem<String?>(
+                value: category.id,
+                child: Text(category.name),
+              ),
+          ],
+          onChanged: onPrimaryChanged,
+        ),
+        if (categories.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final category in categories)
+                FilterChip(
+                  label: Text(category.name),
+                  avatar: CircleAvatar(
+                    radius: 6,
+                    backgroundColor: Color(category.color),
+                  ),
+                  selected: secondaryCategoryIds.contains(category.id),
+                  onSelected: category.id == selectedPrimary
+                      ? null
+                      : (selected) => onSecondaryToggled(category, selected),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 12),
+        TextField(
+          controller: categoryController,
+          decoration: const InputDecoration(
+            labelText: '分类名称',
+            prefixIcon: Icon(Icons.add_circle_outline),
+          ),
+          onSubmitted: (_) => onCreateCategory(),
+        ),
+        const SizedBox(height: 12),
+        InputDecorator(
+          key: const ValueKey('activity-category-color-picker'),
+          decoration: const InputDecoration(
+            labelText: '分类颜色',
+            prefixIcon: Icon(Icons.palette_outlined),
+          ),
+          child: ActivityColorPicker(
+            selectedColor: selectedCategoryColor,
+            onColorChanged: onCategoryColorChanged,
+            palette: categoryPalette,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: onCreateCategory,
+            icon: const Icon(Icons.add),
+            label: const Text('新建分类'),
+          ),
+        ),
+        if (categories.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final category in categories)
+                InputChip(
+                  avatar: CircleAvatar(
+                    backgroundColor: Color(category.color),
+                  ),
+                  label: Text(category.name),
+                  onDeleted: () => onDeleteCategory(category),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ActivityEditorActionRow extends StatelessWidget {
+  const _ActivityEditorActionRow({
+    required this.showDelete,
+    required this.onDelete,
+    required this.onCancel,
+    required this.onSave,
+    required this.saveIcon,
+    required this.saveLabel,
+  });
+
+  final bool showDelete;
+  final VoidCallback onDelete;
+  final VoidCallback onCancel;
+  final VoidCallback onSave;
+  final IconData saveIcon;
+  final String saveLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return SizedBox(
+      width: double.infinity,
+      child: Row(
+        children: [
+          if (showDelete) ...[
+            Expanded(
+              child: TextButton.icon(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline),
+                label: Text(
+                  l10n.delete,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: TextButton(
+              onPressed: onCancel,
+              child: Text(
+                l10n.cancel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: onSave,
+              icon: Icon(saveIcon),
+              label: Text(
+                saveLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 Future<Activity?> showOneOffActivityDialog(
@@ -934,11 +1142,13 @@ class ActivityColorPicker extends StatelessWidget {
   const ActivityColorPicker({
     required this.selectedColor,
     required this.onColorChanged,
+    this.palette = activityPalette,
     super.key,
   });
 
   final int selectedColor;
   final ValueChanged<int> onColorChanged;
+  final List<int> palette;
 
   @override
   Widget build(BuildContext context) {
@@ -950,7 +1160,7 @@ class ActivityColorPicker extends StatelessWidget {
           spacing: 8,
           runSpacing: 4,
           children: [
-            for (final colorValue in activityPalette)
+            for (final colorValue in palette)
               IconButton(
                 tooltip: AppLocalizations.of(context)!
                     .selectColorTooltip(_formatHexColor(colorValue)),

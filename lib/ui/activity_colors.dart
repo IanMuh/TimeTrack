@@ -19,12 +19,30 @@ const activityPalette = <int>[
   0xff475569,
 ];
 
+const categoryPalette = <int>[
+  0xffdc2626,
+  0xffea580c,
+  0xffca8a04,
+  0xff16a34a,
+  0xff0891b2,
+  0xff2563eb,
+  0xff9333ea,
+];
+
 int nextActivityColor(Iterable<int> usedColors) {
+  return nextPaletteColor(usedColors, activityPalette);
+}
+
+int nextCategoryColor(Iterable<int> usedColors) {
+  return nextPaletteColor(usedColors, categoryPalette);
+}
+
+int nextPaletteColor(Iterable<int> usedColors, List<int> palette) {
   final used = usedColors.toSet();
-  for (final color in activityPalette) {
+  for (final color in palette) {
     if (!used.contains(color)) {
       return color;
     }
   }
-  return activityPalette.elementAt(used.length % activityPalette.length);
+  return palette.elementAt(used.length % palette.length);
 }

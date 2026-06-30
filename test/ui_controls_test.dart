@@ -169,7 +169,7 @@ void main() {
 
     expect(find.text('提醒'), findsOneWidget);
     expect(find.text('时间线'), findsOneWidget);
-    expect(find.text('事项分类'), findsOneWidget);
+    expect(find.text('事项分类'), findsNothing);
     expect(find.text('设备互通'), findsOneWidget);
     expect(find.textContaining('应用内提示'), findsNothing);
 
@@ -484,7 +484,7 @@ void main() {
   });
 
   testWidgets(
-      'showActivityEditorDialog assigns primary and secondary categories',
+      'showActivityEditorDialog creates and assigns activity categories',
       (tester) async {
     final state = _FakeAppState();
     state.activityCategories = [
@@ -493,14 +493,6 @@ void main() {
         userId: null,
         name: '项目',
         color: 0xff0f766e,
-        updatedAt: state.now,
-        isDeleted: false,
-      ),
-      ActivityCategory(
-        id: 'cat-focus',
-        userId: null,
-        name: '深度',
-        color: 0xff7c3aed,
         updatedAt: state.now,
         isDeleted: false,
       ),
@@ -527,11 +519,89 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, '名称'), '带分类事项');
-    await tester.tap(find.byType(DropdownButtonFormField<String?>).last);
+    final categoryColorPicker = find.byKey(
+      const ValueKey('activity-category-color-picker'),
+    );
+    expect(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.byTooltip('选择颜色 #DC2626'),
+        ),
+        findsOneWidget);
+    expect(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.byTooltip('选择颜色 #EA580C'),
+        ),
+        findsOneWidget);
+    expect(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.byTooltip('选择颜色 #CA8A04'),
+        ),
+        findsOneWidget);
+    expect(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.byTooltip('选择颜色 #16A34A'),
+        ),
+        findsOneWidget);
+    expect(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.byTooltip('选择颜色 #0891B2'),
+        ),
+        findsOneWidget);
+    expect(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.byTooltip('选择颜色 #2563EB'),
+        ),
+        findsOneWidget);
+    expect(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.byTooltip('选择颜色 #9333EA'),
+        ),
+        findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, '分类名称'),
+      '深度',
+    );
+    final categoryRgbTuner = find.descendant(
+      of: categoryColorPicker,
+      matching: find.text('RGB 调色'),
+    );
+    await tester.ensureVisible(categoryRgbTuner);
+    await tester.tap(categoryRgbTuner);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('项目').last);
+    await tester.enterText(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.widgetWithText(TextField, 'R'),
+        ),
+        '18');
+    await tester.enterText(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.widgetWithText(TextField, 'G'),
+        ),
+        '52');
+    await tester.enterText(
+        find.descendant(
+          of: categoryColorPicker,
+          matching: find.widgetWithText(TextField, 'B'),
+        ),
+        '86');
+    final createCategoryButton = find.widgetWithText(FilledButton, '新建分类');
+    await tester.ensureVisible(createCategoryButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilterChip, '深度'));
+    await tester.tap(createCategoryButton);
+    await tester.pumpAndSettle();
+    final projectChip = find.widgetWithText(FilterChip, '项目');
+    await tester.ensureVisible(projectChip);
+    await tester.pumpAndSettle();
+    await tester.tap(projectChip);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '创建'));
     await tester.pumpAndSettle();
@@ -539,10 +609,11 @@ void main() {
     final created = state.activities.singleWhere(
       (activity) => activity.name == '带分类事项',
     );
-    expect(state.primaryCategoryForActivity(created.id)?.name, '项目');
+    expect(state.primaryCategoryForActivity(created.id)?.name, '深度');
+    expect(state.primaryCategoryForActivity(created.id)?.color, 0xff123456);
     expect(
       state.secondaryCategoriesForActivity(created.id).map((item) => item.name),
-      contains('深度'),
+      contains('项目'),
     );
     expect(tester.takeException(), isNull);
   });
@@ -667,16 +738,10 @@ void main() {
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('提醒'), findsOneWidget);
     expect(find.text('时间线'), findsOneWidget);
-    expect(find.text('事项分类'), findsOneWidget);
+    expect(find.text('事项分类'), findsNothing);
     expect(find.text('云同步'), findsOneWidget);
     expect(find.text('设备互通'), findsOneWidget);
 
-    await tester.tap(find.text('事项分类'));
-    await tester.pumpAndSettle();
-    expect(find.text('新建分类'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('返回设置分区'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('云同步'));
     await tester.pumpAndSettle();
     expect(find.text('同步状态'), findsOneWidget);
@@ -689,7 +754,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('SettingsPage assigns categories from activity management',
+  testWidgets('showActivityEditorDialog edits existing activity categories',
       (tester) async {
     final state = _FakeAppState();
     state.activityCategories = [
@@ -718,21 +783,23 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: SizedBox(
-            width: 920,
-            height: 900,
-            child: SettingsPage(state: state),
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () => showActivityEditorDialog(
+                  context,
+                  state,
+                  activity: state.activities.first,
+                ),
+                child: const Text('open'),
+              );
+            },
           ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('事项分类'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('事项管理'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('设置 工作 的分类'));
+    await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String?>).last);
     await tester.pumpAndSettle();
@@ -750,7 +817,6 @@ void main() {
           .map((item) => item.name),
       contains('深度'),
     );
-    expect(find.widgetWithText(InputChip, '项目'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -928,6 +994,7 @@ class _FakeAppState extends AppState {
   static final SyncPeerStore _peerStore = SyncPeerStore(database: _database);
 
   int _nextActivityId = 2;
+  int _nextCategoryId = 1;
 
   @override
   Future<List<Activity>> entryActivityChoices() async {
@@ -961,6 +1028,34 @@ class _FakeAppState extends AppState {
     );
     notifyListeners();
     return activity;
+  }
+
+  @override
+  Future<ActivityCategory> createCategory(String name, int color) async {
+    final category = ActivityCategory(
+      id: 'cat-created-${_nextCategoryId++}',
+      userId: null,
+      name: name,
+      color: color,
+      updatedAt: now,
+      isDeleted: false,
+    );
+    activityCategories = [...activityCategories, category];
+    notifyListeners();
+    return category;
+  }
+
+  @override
+  Future<void> deleteCategory(ActivityCategory category) async {
+    activityCategories = [
+      for (final item in activityCategories)
+        if (item.id != category.id) item,
+    ];
+    activityCategoryLinks = [
+      for (final link in activityCategoryLinks)
+        if (link.categoryId != category.id) link,
+    ];
+    notifyListeners();
   }
 
   @override

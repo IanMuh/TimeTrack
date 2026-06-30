@@ -1051,7 +1051,11 @@ class AppState extends ChangeNotifier {
     required DateTime start,
     required DateTime end,
   }) async {
-    final entries = await entriesForRange(start: start, end: end);
+    final storedEntries = await _entryState.entriesForRange(
+      start: start,
+      end: end,
+    );
+    final entries = _visibleStoredEntries(storedEntries);
     return TimeRangeStats.fromEntries(
       entries: entries,
       start: start,
