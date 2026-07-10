@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
+import 'package:timetrack/data/sync_status_store.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/domain/stats_period.dart';
 import 'test_fixtures.dart';
@@ -7,6 +10,55 @@ import 'test_fixtures.dart';
 Future<TestAppFixture> _buildState() => buildTestAppFixture();
 
 void main() {
+  test('AppState reminder facade stays separate from runtime facade', () {
+    final reminderFacade = File('lib/app/app_state_reminder_facade.dart');
+    final runtimeFacade = File('lib/app/app_state_runtime_facade.dart');
+
+    expect(reminderFacade.existsSync(), isTrue);
+
+    final reminderSource = reminderFacade.readAsStringSync();
+    final runtimeSource = runtimeFacade.readAsStringSync();
+
+    expect(reminderSource, contains('mixin AppStateReminderFacade'));
+    expect(reminderSource, contains('bool get shouldShowReminder'));
+    expect(reminderSource, contains('bool get shouldShowReminderDialog'));
+    expect(reminderSource, contains('bool get shouldShowReminderBanner'));
+    expect(reminderSource, contains('bool get hasSuspiciousRunningEntry'));
+    expect(reminderSource, contains('DateTime? get lastReminderAt'));
+    expect(reminderSource, contains('String? get ignoredSuspiciousEntryId'));
+    expect(reminderSource, contains('Future<void> continueCurrent()'));
+    expect(reminderSource, contains('Future<void> snoozeReminder()'));
+    expect(reminderSource, contains('Future<void> ignoreSuspiciousRunning()'));
+    expect(runtimeSource, isNot(contains('bool get shouldShowReminder')));
+    expect(runtimeSource, isNot(contains('bool get shouldShowReminderDialog')));
+    expect(runtimeSource, isNot(contains('bool get shouldShowReminderBanner')));
+    expect(
+        runtimeSource, isNot(contains('bool get hasSuspiciousRunningEntry')));
+    expect(runtimeSource, isNot(contains('DateTime? get lastReminderAt')));
+    expect(
+      runtimeSource,
+      isNot(contains('String? get ignoredSuspiciousEntryId')),
+    );
+  });
+
+  test('AppState reminder actions stay separate from activity facade', () {
+    final reminderFacade = File('lib/app/app_state_reminder_facade.dart');
+    final activityFacade = File('lib/app/app_state_activity_facade.dart');
+
+    final reminderSource = reminderFacade.readAsStringSync();
+    final activitySource = activityFacade.readAsStringSync();
+
+    expect(reminderSource, contains('Future<void> continueCurrent()'));
+    expect(reminderSource, contains('Future<void> snoozeReminder()'));
+    expect(reminderSource, contains('Future<void> ignoreSuspiciousRunning()'));
+    expect(activitySource, isNot(contains('Future<void> continueCurrent()')));
+    expect(activitySource, isNot(contains('Future<void> snoozeReminder()')));
+    expect(
+      activitySource,
+      isNot(contains('Future<void> ignoreSuspiciousRunning()')),
+    );
+  });
+
   test('sync failure records an error without advancing last success',
       () async {
     final fixture = await _buildState();
@@ -15,7 +67,7 @@ void main() {
     final successAt = DateTime.utc(2026, 6, 24, 8, 30);
     state.syncStatus = await fixture.syncStatusStore.markSuccess(
       at: successAt,
-      target: 'lan',
+      target: SyncTarget.lan,
     );
     state.lanPeer = SyncPeer(
       id: 'missing-host',
@@ -30,7 +82,7 @@ void main() {
 
     expect(state.syncStatus.lastSuccessfulSyncAt?.toUtc(), successAt);
     expect(state.syncStatus.lastError, contains('同步部分失败'));
-    expect(state.syncStatus.lastTarget, 'lan');
+    expect(state.syncStatus.lastTarget, SyncTarget.lan);
   });
 
   test('successful lan sync records last success and clears old error',
@@ -42,15 +94,15 @@ void main() {
     final previousSuccess = DateTime.utc(2020, 1, 1);
     client.state.syncStatus = await client.syncStatusStore.markFailure(
       error: 'old failure',
-      target: 'lan',
+      target: SyncTarget.lan,
     );
     client.state.syncStatus = await client.syncStatusStore.markSuccess(
       at: previousSuccess,
-      target: 'lan',
+      target: SyncTarget.lan,
     );
     client.state.syncStatus = await client.syncStatusStore.markFailure(
       error: 'old failure',
-      target: 'lan',
+      target: SyncTarget.lan,
     );
 
     await host.lanSyncServer.start();
@@ -68,7 +120,7 @@ void main() {
       isTrue,
     );
     expect(client.state.syncStatus.lastError, isNull);
-    expect(client.state.syncStatus.lastTarget, 'lan');
+    expect(client.state.syncStatus.lastTarget, SyncTarget.lan);
   });
 
   test('reminder interval controls repeated reminder cadence', () async {

@@ -35,8 +35,10 @@ class _TimelineFixture {
 class _DelayedOverlapAppState extends AppState {
   _DelayedOverlapAppState({
     required super.repository,
-    required super.activityRepository,
-    required super.entryRepository,
+    required super.activityCatalog,
+    required super.activityCommands,
+    required super.entryQueries,
+    required super.entryCommands,
     required super.syncService,
     required super.lanSyncServer,
     required super.lanSyncClient,
@@ -71,24 +73,26 @@ AppState _createAppState({
     client: null,
   );
   final lanSyncServer = LanSyncServer(
-    repository: repository,
+    bundleStore: repository,
     deviceIdStore: deviceIdStore,
     peerStore: peerStore,
     portCandidates: const [0],
   );
   final lanSyncClient = LanSyncClient(
-    repository: repository,
+    bundleStore: repository,
     deviceIdStore: deviceIdStore,
     peerStore: peerStore,
   );
   final fileInteropService = FileInteropService(
-    repository: repository,
+    bundleStore: repository,
   );
   if (delayOverlaps) {
     return _DelayedOverlapAppState(
       repository: repository,
-      activityRepository: activityRepository,
-      entryRepository: timeEntryRepository,
+      activityCatalog: activityRepository,
+      activityCommands: activityRepository,
+      entryQueries: timeEntryRepository,
+      entryCommands: timeEntryRepository,
       syncService: syncService,
       lanSyncServer: lanSyncServer,
       lanSyncClient: lanSyncClient,
@@ -97,8 +101,10 @@ AppState _createAppState({
   }
   return AppState(
     repository: repository,
-    activityRepository: activityRepository,
-    entryRepository: timeEntryRepository,
+    activityCatalog: activityRepository,
+    activityCommands: activityRepository,
+    entryQueries: timeEntryRepository,
+    entryCommands: timeEntryRepository,
     syncService: syncService,
     lanSyncServer: lanSyncServer,
     lanSyncClient: lanSyncClient,

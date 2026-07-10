@@ -32,7 +32,6 @@ class LocalDatabase {
       onConfigure: _configure,
       onCreate: _create,
       onUpgrade: _upgrade,
-      onOpen: _open,
     );
     _database = db;
     return db;
@@ -47,10 +46,6 @@ class LocalDatabase {
     await db.execute('PRAGMA foreign_keys = ON');
     await _tryEnableWal(db);
     await _tryApplyPerformancePragmas(db);
-  }
-
-  Future<void> _open(Database db) async {
-    await ensureSchema(db);
   }
 
   Future<void> _create(Database db, int version) async {
@@ -79,20 +74,124 @@ class LocalDatabase {
     if (oldVersion < 8) {
       await createActivityCategorySchema(db);
     }
-    if (oldVersion < 9) {
-      await createActionLogsSchema(db);
-      await createActivityCategorySchema(db);
+    final repairedLegacyDrift = await _repairLegacySchemaDriftIfNeeded(db);
+    if (oldVersion < 9 && !repairedLegacyDrift) {
       await createPerformanceIndexes(db);
     }
   }
 
   static Future<void> ensureSchema(Database db) async {
-    await createSchema(db);
+    await _repairLegacySchemaDriftIfNeeded(db);
+  }
+
+  static Future<void> repairLegacySchemaDrift(Database db) async {
+    await createActionLogsSchema(db);
+    await createSyncPeerSchema(db);
+    await createAppMetadataSchema(db);
     await migrateProfileSettingsReminderSchema(db);
     await migrateUnassignedActivitySchema(db);
     await migrateEntrySnapshotsAndOneOffSchema(db);
     await createActivityCategorySchema(db);
     await createPerformanceIndexes(db);
+  }
+
+  static Future<bool> _repairLegacySchemaDriftIfNeeded(Database db) async {
+    if (await _needsLegacySchemaDriftRepair(db)) {
+      await repairLegacySchemaDrift(db);
+      return true;
+    }
+    return false;
+  }
+
+  static Future<bool> _needsLegacySchemaDriftRepair(Database db) async {
+    final tables = await _tableNames(db);
+    if (!tables.containsAll(const {
+      'activities',
+      'time_entries',
+      'profile_settings',
+      'action_logs',
+      'sync_peers',
+      'app_metadata',
+      'activity_categories',
+      'activity_category_links',
+    })) {
+      return true;
+    }
+
+    if (!await _tableHasColumns(
+      db,
+      'activities',
+      const {'is_unassigned', 'is_one_off'},
+    )) {
+      return true;
+    }
+    if (!await _tableHasColumns(
+      db,
+      'time_entries',
+      const {'activity_name', 'activity_color'},
+    )) {
+      return true;
+    }
+    if (!await _tableHasColumns(
+      db,
+      'profile_settings',
+      const {
+        'reminder_interval_minutes',
+        'reminder_method',
+        'reminder_time_of_day_minutes',
+        'merge_neighbor_threshold_minutes',
+      },
+    )) {
+      return true;
+    }
+
+    for (final index in const {
+      'idx_time_entries_active_start',
+      'idx_time_entries_active_end',
+      'idx_time_entries_running_active',
+      'idx_action_logs_active_occurred_at',
+      'idx_activities_active_sort',
+      'idx_activity_category_links_active_sort',
+    }) {
+      if (!await _indexExists(db, index)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static Future<Set<String>> _tableNames(Database db) async {
+    final rows = await db.rawQuery(
+      "select name from sqlite_master where type = 'table'",
+    );
+    return {
+      for (final row in rows)
+        if (row['name'] case final String name) name,
+    };
+  }
+
+  static Future<bool> _tableHasColumns(
+    Database db,
+    String table,
+    Set<String> requiredColumns,
+  ) async {
+    final rows = await db.rawQuery('pragma table_info($table)');
+    final columns = {
+      for (final row in rows)
+        if (row['name'] case final String name) name,
+    };
+    return columns.containsAll(requiredColumns);
+  }
+
+  static Future<bool> _indexExists(Database db, String name) async {
+    final rows = await db.query(
+      'sqlite_master',
+      columns: const ['name'],
+      where: 'type = ? and name = ?',
+      whereArgs: ['index', name],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
   }
 
   static Future<void> createSchema(Database db) async {

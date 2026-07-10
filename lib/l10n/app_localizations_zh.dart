@@ -164,6 +164,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get color => '颜色';
 
   @override
+  String get primaryCategory => '主分类';
+
+  @override
+  String get uncategorized => '未分类';
+
+  @override
+  String get categoryName => '分类名称';
+
+  @override
+  String get categoryColor => '分类颜色';
+
+  @override
+  String get createCategory => '新建分类';
+
+  @override
   String get recentlyUpdated => '最近更新';
 
   @override

@@ -9,7 +9,11 @@ import '../domain/time_entry.dart';
 import 'local_database.dart';
 import 'repository_interfaces.dart';
 
-class ActivityRepository implements IActivityRepository {
+class ActivityRepository
+    implements
+        IActivityCatalogRepository,
+        IActivityCommandRepository,
+        IActivitySyncRepository {
   ActivityRepository({
     required LocalDatabase database,
     Uuid? uuid,
@@ -20,7 +24,7 @@ class ActivityRepository implements IActivityRepository {
   final Uuid _uuid;
 
   // ---------------------------------------------------------------------------
-  // IActivityRepository — AppResult-wrapped public API
+  // Activity repository — AppResult-wrapped public API
   // ---------------------------------------------------------------------------
 
   @override
@@ -101,8 +105,7 @@ class ActivityRepository implements IActivityRepository {
     required int color,
   }) async {
     try {
-      if (activity.isUnassigned ||
-          await activityIdIsUnassigned(activity.id)) {
+      if (activity.isUnassigned || await activityIdIsUnassigned(activity.id)) {
         final unassigned = await ensureUnassignedActivity();
         return AppSuccess(unassigned);
       }

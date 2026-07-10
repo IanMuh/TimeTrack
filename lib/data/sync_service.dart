@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/result.dart';
 import '../domain/action_log.dart';
 import '../domain/activity.dart';
 import '../domain/activity_category.dart';
@@ -24,6 +26,9 @@ Future<List<Map<String, dynamic>>> fetchAllPaginated({
   required Future<List<Map<String, dynamic>>> Function(int offset, int limit)
       fetchPage,
 }) async {
+  if (pageSize <= 0) {
+    throw ArgumentError.value(pageSize, 'pageSize', 'must be positive');
+  }
   final allRows = <Map<String, dynamic>>[];
   var offset = 0;
   while (true) {
@@ -43,6 +48,13 @@ Future<void> batchProcess({
   required int maxBatchSize,
   required Future<void> Function(List<Map<String, dynamic>> batch) processBatch,
 }) async {
+  if (maxBatchSize <= 0) {
+    throw ArgumentError.value(
+      maxBatchSize,
+      'maxBatchSize',
+      'must be positive',
+    );
+  }
   if (items.isEmpty) return;
   for (var i = 0; i < items.length; i += maxBatchSize) {
     final end =
@@ -66,16 +78,21 @@ Future<T> withRetry<T>({
     try {
       return await operation();
     } catch (e) {
-      if (attempt == maxRetries || !_isTransientError(e)) rethrow;
+      if (attempt == maxRetries || !isTransientSyncError(e)) rethrow;
       final delay = baseDelay * (1 << attempt); // 1s, 2s, 4s
       await Future.delayed(delay);
     }
   }
   // unreachable — loop always throws or returns
-  throw StateError('Unreachable');
+  throw SyncException(
+    const SyncFailure(
+      operation: 'withRetry',
+      message: 'unreachable retry loop',
+    ),
+  );
 }
 
-bool _isTransientError(Object error) {
+bool isTransientSyncError(Object error) {
   if (error is PostgrestException) {
     final code = error.code;
     if (code != null) {
@@ -84,10 +101,38 @@ bool _isTransientError(Object error) {
     }
   }
   if (error is SocketException || error is TimeoutException) return true;
-  // Catch HTTP-level errors from the underlying client (package:http throws
-  // ClientException on socket/connection failures).
-  if (error.runtimeType.toString() == 'ClientException') return true;
+  if (error is http.ClientException) return true;
   return false;
+}
+
+final class SyncFailure {
+  const SyncFailure({
+    required this.operation,
+    required this.message,
+  });
+
+  final String operation;
+  final String message;
+
+  String get description => '$operation failed: $message';
+}
+
+final class SyncException extends StateError implements Exception {
+  SyncException(this.failure) : super(failure.description);
+
+  final SyncFailure failure;
+}
+
+T unwrapSyncRepositoryResult<T>({
+  required String operation,
+  required AppResult<T> result,
+}) {
+  return switch (result) {
+    AppSuccess(:final value) => value,
+    AppFailure(:final message) => throw SyncException(
+        SyncFailure(operation: operation, message: message),
+      ),
+  };
 }
 
 abstract class SyncBackend {
@@ -98,11 +143,11 @@ abstract class SyncBackend {
 
 class SyncService {
   SyncService({
-    required IActivityRepository activityRepository,
-    required ISettingsRepository settingsRepository,
-    required ITimeEntryRepository timeEntryRepository,
-    required IActionLogRepository actionLogRepository,
-    IActivityCategoryRepository? activityCategoryRepository,
+    required IActivitySyncRepository activityRepository,
+    required ISettingsSyncRepository settingsRepository,
+    required ITimeEntrySyncRepository timeEntryRepository,
+    required IActionLogSyncRepository actionLogRepository,
+    IActivityCategorySyncRepository? activityCategoryRepository,
     required SupabaseClient? client,
   }) : _cloudBackend = client == null
             ? null
@@ -150,7 +195,12 @@ class SyncService {
   SupabaseSyncBackend _requireCloudBackend() {
     final backend = _cloudBackend;
     if (backend == null) {
-      throw StateError('Supabase is not configured.');
+      throw SyncException(
+        const SyncFailure(
+          operation: 'syncService',
+          message: 'Supabase is not configured.',
+        ),
+      );
     }
     return backend;
   }
@@ -158,11 +208,11 @@ class SyncService {
 
 class SupabaseSyncBackend implements SyncBackend {
   SupabaseSyncBackend({
-    required IActivityRepository activityRepository,
-    IActivityCategoryRepository? activityCategoryRepository,
-    required ISettingsRepository settingsRepository,
-    required ITimeEntryRepository timeEntryRepository,
-    required IActionLogRepository actionLogRepository,
+    required IActivitySyncRepository activityRepository,
+    IActivityCategorySyncRepository? activityCategoryRepository,
+    required ISettingsSyncRepository settingsRepository,
+    required ITimeEntrySyncRepository timeEntryRepository,
+    required IActionLogSyncRepository actionLogRepository,
     required SupabaseClient client,
   })  : _activityRepository = activityRepository,
         _activityCategoryRepository = activityCategoryRepository,
@@ -171,11 +221,11 @@ class SupabaseSyncBackend implements SyncBackend {
         _actionLogRepository = actionLogRepository,
         _client = client;
 
-  final IActivityRepository _activityRepository;
-  final IActivityCategoryRepository? _activityCategoryRepository;
-  final ISettingsRepository _settingsRepository;
-  final ITimeEntryRepository _timeEntryRepository;
-  final IActionLogRepository _actionLogRepository;
+  final IActivitySyncRepository _activityRepository;
+  final IActivityCategorySyncRepository? _activityCategoryRepository;
+  final ISettingsSyncRepository _settingsRepository;
+  final ITimeEntrySyncRepository _timeEntryRepository;
+  final IActionLogSyncRepository _actionLogRepository;
   final SupabaseClient _client;
 
   @override
@@ -224,10 +274,9 @@ class SupabaseSyncBackend implements SyncBackend {
     for (final row in remoteActivityRows) {
       final result = await _activityRepository
           .replaceActivityIfRemoteNewer(Activity.fromMap(row));
-      result.fold(
-        onSuccess: (_) {},
-        onFailure: (msg) =>
-            throw StateError('replaceActivityIfRemoteNewer failed: $msg'),
+      unwrapSyncRepositoryResult(
+        operation: 'replaceActivityIfRemoteNewer',
+        result: result,
       );
     }
 
@@ -245,10 +294,9 @@ class SupabaseSyncBackend implements SyncBackend {
       for (final row in remoteCategoryRows) {
         final result = await categoryRepository
             .replaceCategoryIfRemoteNewer(ActivityCategory.fromMap(row));
-        result.fold(
-          onSuccess: (_) {},
-          onFailure: (msg) =>
-              throw StateError('replaceCategoryIfRemoteNewer failed: $msg'),
+        unwrapSyncRepositoryResult(
+          operation: 'replaceCategoryIfRemoteNewer',
+          result: result,
         );
       }
 
@@ -266,11 +314,9 @@ class SupabaseSyncBackend implements SyncBackend {
             await categoryRepository.replaceCategoryLinkIfRemoteNewer(
           ActivityCategoryLink.fromMap(row),
         );
-        result.fold(
-          onSuccess: (_) {},
-          onFailure: (msg) => throw StateError(
-            'replaceCategoryLinkIfRemoteNewer failed: $msg',
-          ),
+        unwrapSyncRepositoryResult(
+          operation: 'replaceCategoryLinkIfRemoteNewer',
+          result: result,
         );
       }
     }
@@ -287,10 +333,9 @@ class SupabaseSyncBackend implements SyncBackend {
     for (final row in remoteEntryRows) {
       final entryResult = await _timeEntryRepository
           .replaceEntryIfRemoteNewer(TimeEntry.fromMap(row));
-      entryResult.fold(
-        onSuccess: (_) {},
-        onFailure: (msg) =>
-            throw StateError('replaceEntryIfRemoteNewer failed: $msg'),
+      unwrapSyncRepositoryResult(
+        operation: 'replaceEntryIfRemoteNewer',
+        result: entryResult,
       );
     }
 
@@ -306,10 +351,9 @@ class SupabaseSyncBackend implements SyncBackend {
     for (final row in remoteActionLogRows) {
       final logResult = await _actionLogRepository
           .replaceActionLogIfRemoteNewer(ActionLog.fromMap(row));
-      logResult.fold(
-        onSuccess: (_) {},
-        onFailure: (msg) =>
-            throw StateError('replaceActionLogIfRemoteNewer failed: $msg'),
+      unwrapSyncRepositoryResult(
+        operation: 'replaceActionLogIfRemoteNewer',
+        result: logResult,
       );
     }
 
@@ -317,19 +361,18 @@ class SupabaseSyncBackend implements SyncBackend {
     if (fetchedSettings != null) {
       final settingsResult = await _settingsRepository
           .replaceSettingsIfRemoteNewer(fetchedSettings);
-      settingsResult.fold(
-        onSuccess: (_) {},
-        onFailure: (msg) =>
-            throw StateError('replaceSettingsIfRemoteNewer failed: $msg'),
+      unwrapSyncRepositoryResult(
+        operation: 'replaceSettingsIfRemoteNewer',
+        result: settingsResult,
       );
     }
 
     // --- UPLOAD (batched with retry, max 100/batch) ---
     final localActivitiesResult =
         await _activityRepository.activitiesSince(floor);
-    final localActivities = localActivitiesResult.fold(
-      onSuccess: (list) => list,
-      onFailure: (_) => <Activity>[],
+    final localActivities = unwrapSyncRepositoryResult(
+      operation: 'activitiesSince',
+      result: localActivitiesResult,
     );
     if (localActivities.isNotEmpty) {
       await _batchUploadIfNotStale(
@@ -343,9 +386,9 @@ class SupabaseSyncBackend implements SyncBackend {
     if (categoryRepository != null) {
       final localCategoriesResult =
           await categoryRepository.categoriesSince(floor);
-      final localCategories = localCategoriesResult.fold(
-        onSuccess: (list) => list,
-        onFailure: (_) => <ActivityCategory>[],
+      final localCategories = unwrapSyncRepositoryResult(
+        operation: 'categoriesSince',
+        result: localCategoriesResult,
       );
       if (localCategories.isNotEmpty) {
         await _batchUploadIfNotStale(
@@ -359,9 +402,9 @@ class SupabaseSyncBackend implements SyncBackend {
 
       final localCategoryLinksResult =
           await categoryRepository.categoryLinksSince(floor);
-      final localCategoryLinks = localCategoryLinksResult.fold(
-        onSuccess: (list) => list,
-        onFailure: (_) => <ActivityCategoryLink>[],
+      final localCategoryLinks = unwrapSyncRepositoryResult(
+        operation: 'categoryLinksSince',
+        result: localCategoryLinksResult,
       );
       if (localCategoryLinks.isNotEmpty) {
         await _batchUploadIfNotStale(
@@ -375,9 +418,9 @@ class SupabaseSyncBackend implements SyncBackend {
     }
 
     final localEntriesResult = await _timeEntryRepository.entriesSince(floor);
-    final localEntries = localEntriesResult.fold(
-      onSuccess: (list) => list,
-      onFailure: (_) => <TimeEntry>[],
+    final localEntries = unwrapSyncRepositoryResult(
+      operation: 'entriesSince',
+      result: localEntriesResult,
     );
     if (localEntries.isNotEmpty) {
       await _batchUploadIfNotStale(
@@ -390,9 +433,9 @@ class SupabaseSyncBackend implements SyncBackend {
 
     final localActionLogsResult =
         await _actionLogRepository.actionLogsSince(floor);
-    final localActionLogs = localActionLogsResult.fold(
-      onSuccess: (list) => list,
-      onFailure: (_) => <ActionLog>[],
+    final localActionLogs = unwrapSyncRepositoryResult(
+      operation: 'actionLogsSince',
+      result: localActionLogsResult,
     );
     if (localActionLogs.isNotEmpty) {
       await _batchUploadIfNotStale(
@@ -404,9 +447,9 @@ class SupabaseSyncBackend implements SyncBackend {
     }
 
     final settingsResult = await _settingsRepository.settings();
-    final settings = settingsResult.fold(
-      onSuccess: (value) => value,
-      onFailure: (msg) => throw StateError('Failed to load settings: $msg'),
+    final settings = unwrapSyncRepositoryResult(
+      operation: 'settings',
+      result: settingsResult,
     );
     await _batchUploadIfNotStale(
       table: 'profiles',

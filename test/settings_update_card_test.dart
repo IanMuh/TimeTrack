@@ -183,8 +183,10 @@ class _UpdateCardTestState extends AppState {
       : _check = check,
         super(
           repository: _repository,
-          activityRepository: _activityRepository,
-          entryRepository: _timeEntryRepository,
+          activityCatalog: _activityRepository,
+          activityCommands: _activityRepository,
+          entryQueries: _timeEntryRepository,
+          entryCommands: _timeEntryRepository,
           syncService: SyncService(
             activityRepository: _activityRepository,
             settingsRepository: _settingsRepository,
@@ -193,18 +195,18 @@ class _UpdateCardTestState extends AppState {
             client: null,
           ),
           lanSyncServer: LanSyncServer(
-            repository: _repository,
+            bundleStore: _repository,
             deviceIdStore: _deviceIdStore,
             peerStore: _peerStore,
             portCandidates: const [0],
           ),
           lanSyncClient: LanSyncClient(
-            repository: _repository,
+            bundleStore: _repository,
             deviceIdStore: _deviceIdStore,
             peerStore: _peerStore,
             timeout: const Duration(milliseconds: 50),
           ),
-          fileInteropService: FileInteropService(repository: _repository),
+          fileInteropService: FileInteropService(bundleStore: _repository),
         );
 
   final _CheckHandler _check;

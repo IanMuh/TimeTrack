@@ -10,6 +10,7 @@ import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/lan_sync.dart';
 import 'package:timetrack/data/local_database.dart';
 import 'package:timetrack/data/settings_repository.dart';
+import 'package:timetrack/data/sync_bundle_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
 import 'package:timetrack/data/sync_status_store.dart';
@@ -25,6 +26,7 @@ class TestRepositoryFixture {
     required this.deviceIdStore,
     required this.timeEntryRepository,
     required this.actionLogRepository,
+    required this.syncBundleRepository,
     required this.repository,
     required this.peerStore,
     required this.syncStatusStore,
@@ -38,6 +40,7 @@ class TestRepositoryFixture {
   final DeviceIdStore deviceIdStore;
   final TimeEntryRepository timeEntryRepository;
   final ActionLogRepository actionLogRepository;
+  final SyncBundleRepository syncBundleRepository;
   final TimeRepository repository;
   final SyncPeerStore peerStore;
   final SyncStatusStore syncStatusStore;
@@ -58,7 +61,7 @@ class TestRepositoryFixture {
     InternetAddress? bindAddress,
   }) {
     return LanSyncServer(
-      repository: repository,
+      bundleStore: syncBundleRepository,
       deviceIdStore: deviceIdStore,
       peerStore: peerStore,
       portCandidates: portCandidates,
@@ -70,7 +73,7 @@ class TestRepositoryFixture {
     Duration timeout = const Duration(seconds: 8),
   }) {
     return LanSyncClient(
-      repository: repository,
+      bundleStore: syncBundleRepository,
       deviceIdStore: deviceIdStore,
       peerStore: peerStore,
       timeout: timeout,
@@ -84,7 +87,7 @@ class TestRepositoryFixture {
     ExportDirectoryProvider? exportDirectoryProvider,
   }) {
     return FileInteropService(
-      repository: repository,
+      bundleStore: syncBundleRepository,
       saveLocationPicker: saveLocationPicker,
       openFilePicker: openFilePicker,
       exportDirectoryPicker: exportDirectoryPicker,
@@ -104,8 +107,10 @@ class TestRepositoryFixture {
   }) {
     return AppState(
       repository: repository,
-      activityRepository: activityRepository,
-      entryRepository: timeEntryRepository,
+      activityCatalog: activityRepository,
+      activityCommands: activityRepository,
+      entryQueries: timeEntryRepository,
+      entryCommands: timeEntryRepository,
       syncService: syncService ?? createSyncService(),
       lanSyncServer: lanSyncServer ?? createLanSyncServer(),
       lanSyncClient: lanSyncClient ?? createLanSyncClient(),
@@ -188,6 +193,15 @@ Future<TestRepositoryFixture> buildTestRepositoryFixture({
     activityRepository: activityRepository,
   );
   final actionLogRepository = ActionLogRepository(database: database);
+  final syncBundleRepository = SyncBundleRepository(
+    database: database,
+    activityRepository: activityRepository,
+    settingsRepository: settingsRepository,
+    deviceIdStore: deviceIdStore,
+    timeEntryRepository: timeEntryRepository,
+    actionLogRepository: actionLogRepository,
+    activityCategoryRepository: activityCategoryRepository,
+  );
   final repository = TimeRepository(
     database: database,
     activityRepository: activityRepository,
@@ -196,6 +210,7 @@ Future<TestRepositoryFixture> buildTestRepositoryFixture({
     timeEntryRepository: timeEntryRepository,
     actionLogRepository: actionLogRepository,
     activityCategoryRepository: activityCategoryRepository,
+    syncBundleRepository: syncBundleRepository,
   );
   if (seedData) {
     await repository.ensureSeedData();
@@ -209,6 +224,7 @@ Future<TestRepositoryFixture> buildTestRepositoryFixture({
     deviceIdStore: deviceIdStore,
     timeEntryRepository: timeEntryRepository,
     actionLogRepository: actionLogRepository,
+    syncBundleRepository: syncBundleRepository,
     repository: repository,
     peerStore: SyncPeerStore(database: database),
     syncStatusStore: SyncStatusStore(database: database),

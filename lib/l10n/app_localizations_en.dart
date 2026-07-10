@@ -166,6 +166,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get color => 'Color';
 
   @override
+  String get primaryCategory => 'Primary category';
+
+  @override
+  String get uncategorized => 'Uncategorized';
+
+  @override
+  String get categoryName => 'Category name';
+
+  @override
+  String get categoryColor => 'Category color';
+
+  @override
+  String get createCategory => 'Create category';
+
+  @override
   String get recentlyUpdated => 'Recently updated';
 
   @override

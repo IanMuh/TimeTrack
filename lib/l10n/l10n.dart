@@ -6,5 +6,4 @@ import 'app_localizations.dart';
 ///
 /// Safe because [AppLocalizations.delegate] uses [SynchronousFuture]
 /// and localizations are always available synchronously in this app.
-AppLocalizations l10n(BuildContext context) =>
-    AppLocalizations.of(context)!;
+AppLocalizations l10n(BuildContext context) => AppLocalizations.of(context)!;

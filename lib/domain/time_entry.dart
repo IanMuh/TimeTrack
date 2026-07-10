@@ -60,10 +60,8 @@ class TimeEntry {
   }
 
   bool overlaps(TimeEntry other) {
-    final thisEnd =
-        endAt ?? AppConstants.maxDateTime;
-    final otherEnd =
-        other.endAt ?? AppConstants.maxDateTime;
+    final thisEnd = endAt ?? AppConstants.maxDateTime;
+    final otherEnd = other.endAt ?? AppConstants.maxDateTime;
     return startAt.isBefore(otherEnd) && other.startAt.isBefore(thisEnd);
   }
 
@@ -153,9 +151,7 @@ class TimeEntry {
         activityNameSnapshot: (map['activity_name'] as String?) ?? '',
         activityColorSnapshot: (map['activity_color'] as num?)?.toInt(),
         startAt: parseDateTime(map, 'start_at'),
-        endAt: map['end_at'] == null
-            ? null
-            : parseDateTime(map, 'end_at'),
+        endAt: map['end_at'] == null ? null : parseDateTime(map, 'end_at'),
         note: (map['note'] as String?) ?? '',
         deviceId: (map['device_id'] as String?) ?? 'unknown',
         updatedAt: parseDateTime(map, 'updated_at'),

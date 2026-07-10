@@ -3,17 +3,21 @@ import 'package:flutter/foundation.dart';
 import '../data/repository_interfaces.dart';
 import '../domain/action_log.dart';
 import '../domain/time_entry.dart';
+import 'app_state_result.dart';
 
 class EntryState extends ChangeNotifier {
   EntryState({
-    required ITimeEntryRepository entryRepository,
+    required ITimeEntryQueryRepository entryQueries,
+    required ITimeEntryCommandRepository entryCommands,
     required DateTime Function() now,
     required Future<void> Function() onFullRefresh,
-  })  : _entryRepo = entryRepository,
+  })  : _entryQueries = entryQueries,
+        _entryCommands = entryCommands,
         _now = now,
         _onFullRefresh = onFullRefresh;
 
-  final ITimeEntryRepository _entryRepo;
+  final ITimeEntryQueryRepository _entryQueries;
+  final ITimeEntryCommandRepository _entryCommands;
   final DateTime Function() _now;
   final Future<void> Function() _onFullRefresh;
 
@@ -23,7 +27,7 @@ class EntryState extends ChangeNotifier {
   String? errorMessage;
 
   Future<void> refresh(DateTime day, {bool notify = true}) async {
-    final runningResult = await _entryRepo.runningEntry();
+    final runningResult = await _entryQueries.runningEntry();
     runningEntry = runningResult.fold(
       onSuccess: (entry) => entry,
       onFailure: (msg) {
@@ -31,7 +35,7 @@ class EntryState extends ChangeNotifier {
         return runningEntry;
       },
     );
-    final entriesResult = await _entryRepo.entriesForDay(day);
+    final entriesResult = await _entryQueries.entriesForDay(day);
     dayEntries = entriesResult.fold(
       onSuccess: (list) => list,
       onFailure: (msg) {
@@ -57,15 +61,12 @@ class EntryState extends ChangeNotifier {
   }
 
   Future<void> saveEntry(TimeEntry entry) async {
-    final result = await _entryRepo.saveEntry(
+    final result = await _entryCommands.saveEntry(
       entry.copyWith(updatedAt: _now()),
       logEdit: true,
       cutOverlaps: true,
     );
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    unwrapAppStateResult(result);
     await _onFullRefresh();
   }
 
@@ -73,14 +74,11 @@ class EntryState extends ChangeNotifier {
     required String entryId,
     required DateTime splitAt,
   }) async {
-    final result = await _entryRepo.splitEntry(
+    final result = await _entryCommands.splitEntry(
       entryId: entryId,
       splitAt: splitAt,
     );
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    unwrapAppStateResult(result);
     await _onFullRefresh();
   }
 
@@ -88,15 +86,12 @@ class EntryState extends ChangeNotifier {
     if (entry.isRunning || !entry.startAt.isBefore(_now())) {
       return;
     }
-    final result = await _entryRepo.saveEntry(
+    final result = await _entryCommands.saveEntry(
       entry.copyWith(clearEndAt: true, updatedAt: _now()),
       logEdit: true,
       cutOverlaps: true,
     );
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    unwrapAppStateResult(result);
     await _onFullRefresh();
   }
 
@@ -106,25 +101,19 @@ class EntryState extends ChangeNotifier {
     required DateTime endAt,
     required String note,
   }) async {
-    final result = await _entryRepo.createManualEntry(
+    final result = await _entryCommands.createManualEntry(
       activityId: activityId,
       startAt: startAt,
       endAt: endAt,
       note: note,
     );
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    unwrapAppStateResult(result);
     await _onFullRefresh();
   }
 
   Future<void> deleteEntry(TimeEntry entry) async {
-    final result = await _entryRepo.deleteEntry(entry);
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final result = await _entryCommands.deleteEntry(entry);
+    unwrapAppStateResult(result);
     await _onFullRefresh();
   }
 
@@ -133,14 +122,11 @@ class EntryState extends ChangeNotifier {
     if (entry == null) {
       return;
     }
-    final result = await _entryRepo.saveEntry(
+    final result = await _entryCommands.saveEntry(
       entry.copyWith(endAt: endAt, updatedAt: _now()),
       logEdit: true,
     );
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    unwrapAppStateResult(result);
     await _onFullRefresh();
   }
 
@@ -148,30 +134,22 @@ class EntryState extends ChangeNotifier {
     required DateTime start,
     required DateTime end,
   }) async {
-    final result = await _entryRepo.entriesForRange(start, end);
-    return result.fold(
-      onSuccess: (list) => list,
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final result = await _entryQueries.entriesForRange(start, end);
+    return unwrapAppStateResult(result);
   }
 
   Future<List<TimeEntry>> overlaps(TimeEntry entry) async {
-    final result = await _entryRepo.overlappingEntries(entry);
-    return result.fold(
-      onSuccess: (list) => list,
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final result = await _entryQueries.overlappingEntries(entry);
+    return unwrapAppStateResult(result);
   }
 
   Future<EntryMergeCandidate?> mergeCandidate(
     String entryId,
     EntryMergeDirection direction,
   ) async {
-    final result = await _entryRepo.mergeCandidateForEntry(entryId, direction);
-    return result.fold(
-      onSuccess: (candidate) => candidate,
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final result =
+        await _entryQueries.mergeCandidateForEntry(entryId, direction);
+    return unwrapAppStateResult(result);
   }
 
   Future<void> mergeEntryWithNeighbor({
@@ -179,15 +157,12 @@ class EntryState extends ChangeNotifier {
     required EntryMergeDirection direction,
     required bool confirmed,
   }) async {
-    final result = await _entryRepo.mergeEntryWithNeighbor(
+    final result = await _entryCommands.mergeEntryWithNeighbor(
       entryId: entryId,
       direction: direction,
       confirmed: confirmed,
     );
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    unwrapAppStateResult(result);
     await _onFullRefresh();
   }
 }

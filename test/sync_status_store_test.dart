@@ -15,18 +15,18 @@ void main() {
     final database = LocalDatabase(database: db);
     final store = SyncStatusStore(database: database);
 
-    await store.markFailure(error: 'network down', target: 'lan');
+    await store.markFailure(error: 'network down', target: SyncTarget.lan);
     final firstFailure = await store.load();
     expect(firstFailure.lastError, 'network down');
-    expect(firstFailure.lastTarget, 'lan');
+    expect(firstFailure.lastTarget, SyncTarget.lan);
 
     final successAt = DateTime.utc(2026, 6, 24, 8, 30);
-    await store.markSuccess(at: successAt, target: 'cloud_lan');
+    await store.markSuccess(at: successAt, target: SyncTarget.cloudLan);
     final reloaded = await SyncStatusStore(database: database).load();
 
     expect(reloaded.lastSuccessfulSyncAt?.toUtc(), successAt);
     expect(reloaded.lastError, isNull);
-    expect(reloaded.lastTarget, 'cloud_lan');
+    expect(reloaded.lastTarget, SyncTarget.cloudLan);
   });
 
   test('sync failure keeps the previous successful timestamp', () async {
@@ -41,12 +41,12 @@ void main() {
     final store = SyncStatusStore(database: database);
     final successAt = DateTime.utc(2026, 6, 24, 8, 30);
 
-    await store.markSuccess(at: successAt, target: 'cloud');
-    await store.markFailure(error: 'timeout', target: 'cloud');
+    await store.markSuccess(at: successAt, target: SyncTarget.cloud);
+    await store.markFailure(error: 'timeout', target: SyncTarget.cloud);
     final reloaded = await store.load();
 
     expect(reloaded.lastSuccessfulSyncAt?.toUtc(), successAt);
     expect(reloaded.lastError, 'timeout');
-    expect(reloaded.lastTarget, 'cloud');
+    expect(reloaded.lastTarget, SyncTarget.cloud);
   });
 }

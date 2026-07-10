@@ -129,6 +129,102 @@ void main() {
     );
   });
 
+  test('category bundle merge keeps the newest category and link rows',
+      () async {
+    final target = await buildSyncRepo('target');
+    final older = DateTime(2026, 1, 1);
+    final newer = DateTime(2026, 1, 2);
+    const activityId = 'activity-1';
+    const categoryId = 'category-1';
+    const linkId = 'link-1';
+
+    await target.repository.upsertActivity(
+      Activity(
+        id: activityId,
+        userId: null,
+        name: 'work',
+        color: 0xff2563eb,
+        isFavorite: true,
+        updatedAt: older,
+        isDeleted: false,
+      ),
+    );
+    await target.activityCategoryRepository.upsertCategory(
+      ActivityCategory(
+        id: categoryId,
+        userId: null,
+        name: 'local old category',
+        color: 0xff0f766e,
+        updatedAt: older,
+        isDeleted: false,
+      ),
+    );
+    await target.activityCategoryRepository.upsertCategoryLink(
+      ActivityCategoryLink(
+        id: linkId,
+        userId: null,
+        activityId: activityId,
+        categoryId: categoryId,
+        isPrimary: false,
+        sortOrder: 3,
+        updatedAt: older,
+        isDeleted: false,
+      ),
+    );
+
+    await target.repository.mergeBundle(
+      SyncBundle(
+        schemaVersion: SyncBundle.currentSchemaVersion,
+        exportedAt: newer,
+        sourceDeviceId: 'source',
+        activities: const [],
+        categories: [
+          ActivityCategory(
+            id: categoryId,
+            userId: null,
+            name: 'remote new category',
+            color: 0xff7c3aed,
+            updatedAt: newer,
+            isDeleted: false,
+          ),
+        ],
+        categoryLinks: [
+          ActivityCategoryLink(
+            id: linkId,
+            userId: null,
+            activityId: activityId,
+            categoryId: categoryId,
+            isPrimary: true,
+            sortOrder: 0,
+            updatedAt: newer,
+            isDeleted: false,
+          ),
+        ],
+        timeEntries: const [],
+        actionLogs: const [],
+        profileSettings: ProfileSettings(
+          userId: null,
+          reminderMinutes: 45,
+          reminderIntervalMinutes: 10,
+          reminderMethod: ReminderMethod.dialog,
+          reminderTimeOfDayMinutes: 9 * 60,
+          timezone: 'UTC',
+          updatedAt: older,
+        ),
+      ),
+    );
+
+    final category = (await target.repository.categories())
+        .singleWhere((item) => item.id == categoryId);
+    final link = (await target.repository.activityCategoryLinks())
+        .singleWhere((item) => item.id == linkId);
+
+    expect(category.name, 'remote new category');
+    expect(category.color, 0xff7c3aed);
+    expect(link.isPrimary, isTrue);
+    expect(link.sortOrder, 0);
+  });
+
   test('v1 bundles decode with empty category collections', () {
     final decoded = const SyncBundleCodec().fromJson({
       'schema_version': 1,
@@ -321,7 +417,7 @@ void main() {
     final client = await buildSyncRepo('client');
     final peerStore = SyncPeerStore(database: client.database);
     final lanClient = LanSyncClient(
-      repository: client.repository,
+      bundleStore: client.syncBundleRepository,
       deviceIdStore: client.deviceIdStore,
       peerStore: peerStore,
     );
@@ -347,7 +443,7 @@ void main() {
     final hostPeerStore = SyncPeerStore(database: host.database);
     final clientPeerStore = SyncPeerStore(database: client.database);
     final server = LanSyncServer(
-      repository: host.repository,
+      bundleStore: host.syncBundleRepository,
       deviceIdStore: host.deviceIdStore,
       peerStore: hostPeerStore,
       portCandidates: const [0],
@@ -357,7 +453,7 @@ void main() {
     addTearDown(server.stop);
 
     final lanClient = LanSyncClient(
-      repository: client.repository,
+      bundleStore: client.syncBundleRepository,
       deviceIdStore: client.deviceIdStore,
       peerStore: clientPeerStore,
     );
@@ -407,7 +503,7 @@ void main() {
     await secondClient.repository.ensureSeedData();
 
     final server = LanSyncServer(
-      repository: host.repository,
+      bundleStore: host.syncBundleRepository,
       deviceIdStore: host.deviceIdStore,
       peerStore: SyncPeerStore(database: host.database),
       portCandidates: const [0],
@@ -417,12 +513,12 @@ void main() {
     addTearDown(server.stop);
 
     final firstLanClient = LanSyncClient(
-      repository: firstClient.repository,
+      bundleStore: firstClient.syncBundleRepository,
       deviceIdStore: firstClient.deviceIdStore,
       peerStore: SyncPeerStore(database: firstClient.database),
     );
     final secondLanClient = LanSyncClient(
-      repository: secondClient.repository,
+      bundleStore: secondClient.syncBundleRepository,
       deviceIdStore: secondClient.deviceIdStore,
       peerStore: SyncPeerStore(database: secondClient.database),
     );
@@ -454,7 +550,7 @@ void main() {
     await client.repository.ensureSeedData();
 
     final server = LanSyncServer(
-      repository: host.repository,
+      bundleStore: host.syncBundleRepository,
       deviceIdStore: host.deviceIdStore,
       peerStore: SyncPeerStore(database: host.database),
       portCandidates: const [0],
@@ -464,7 +560,7 @@ void main() {
     addTearDown(server.stop);
 
     final lanClient = LanSyncClient(
-      repository: client.repository,
+      bundleStore: client.syncBundleRepository,
       deviceIdStore: client.deviceIdStore,
       peerStore: SyncPeerStore(database: client.database),
     );
