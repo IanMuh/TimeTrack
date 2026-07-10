@@ -100,6 +100,70 @@ void main() {
       _storedDateTime(mergeAt),
     );
   });
+
+  test(
+      'switching to unassigned reuses the supplied timestamp for merge cleanup',
+      () async {
+    var clockCalls = 0;
+    final leakedAt = DateTime.utc(2099, 1, 1);
+    final fixture = await _buildClockFixture(clock: () {
+      clockCalls++;
+      return leakedAt;
+    });
+    addTearDown(fixture.close);
+
+    final work = await fixture.createActivity();
+    final unassigned =
+        await fixture.activityRepository.ensureUnassignedActivity();
+    final existingStart = DateTime.utc(2026, 1, 1, 8);
+    final switchAt = DateTime.utc(2026, 1, 1, 10);
+    await fixture.database.insert('time_entries', {
+      'id': 'unassigned-existing',
+      'user_id': null,
+      'activity_id': unassigned.id,
+      'start_at': existingStart.toIso8601String(),
+      'end_at': switchAt.toIso8601String(),
+      'note': '',
+      'device_id': 'test-device',
+      'updated_at': DateTime.utc(2026, 1, 1, 8).toIso8601String(),
+      'is_deleted': 0,
+    });
+
+    _unwrap(
+      await fixture.repository.switchToActivity(
+        work.id,
+        at: DateTime.utc(2026, 1, 1, 9),
+      ),
+    );
+    clockCalls = 0;
+
+    _unwrap(
+      await fixture.repository.switchToActivity(
+        unassigned.id,
+        at: switchAt,
+      ),
+    );
+
+    final rows = await fixture.database.query(
+      'time_entries',
+      columns: ['id', 'updated_at', 'is_deleted', 'end_at'],
+      where: 'activity_id = ?',
+      whereArgs: [unassigned.id],
+      orderBy: 'is_deleted asc, start_at asc',
+    );
+    final activeRows =
+        rows.where((row) => (row['is_deleted']! as num).toInt() == 0).toList();
+    final deletedRows =
+        rows.where((row) => (row['is_deleted']! as num).toInt() == 1).toList();
+
+    expect(clockCalls, 0);
+    expect(activeRows, hasLength(1));
+    expect(activeRows.single['id'], 'unassigned-existing');
+    expect(activeRows.single['end_at'], isNull);
+    expect(activeRows.single['updated_at'], _storedDateTime(switchAt));
+    expect(deletedRows, hasLength(1));
+    expect(deletedRows.single['updated_at'], _storedDateTime(switchAt));
+  });
 }
 
 Future<_ClockFixture> _buildClockFixture({

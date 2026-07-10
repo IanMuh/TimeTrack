@@ -28,7 +28,7 @@ class LocalDatabase {
     final dbPath = _databasePath ?? await _defaultDatabasePath();
     final db = await openDatabase(
       dbPath,
-      version: 9,
+      version: 10,
       onConfigure: _configure,
       onCreate: _create,
       onUpgrade: _upgrade,
@@ -74,15 +74,15 @@ class LocalDatabase {
     if (oldVersion < 8) {
       await createActivityCategorySchema(db);
     }
-    final repairedLegacyDrift = await _repairLegacySchemaDriftIfNeeded(db);
-    if (oldVersion < 9 && !repairedLegacyDrift) {
-      await createPerformanceIndexes(db);
+    if (oldVersion < 10) {
+      final repairedLegacyDrift = await _repairLegacySchemaDriftIfNeeded(db);
+      if (oldVersion < 9 && !repairedLegacyDrift) {
+        await createPerformanceIndexes(db);
+      }
     }
   }
 
-  static Future<void> ensureSchema(Database db) async {
-    await _repairLegacySchemaDriftIfNeeded(db);
-  }
+  static Future<void> ensureSchema(Database _) async {}
 
   static Future<void> repairLegacySchemaDrift(Database db) async {
     await createActionLogsSchema(db);

@@ -99,7 +99,7 @@ mixin TimeEntryRepositoryCommandLogic
       );
     });
     if (targetIsUnassigned) {
-      await mergeAdjacentUnassignedEntries(activityId);
+      await mergeAdjacentUnassignedEntries(activityId, updatedAt: now);
       return await _runningEntry() ?? next;
     }
     return next;
@@ -115,7 +115,7 @@ mixin TimeEntryRepositoryCommandLogic
       return;
     }
     if (running.activityId == unassigned.id) {
-      await mergeAdjacentUnassignedEntries(unassigned.id);
+      await mergeAdjacentUnassignedEntries(unassigned.id, updatedAt: now);
       return;
     }
     if (running.startAt.isAfter(now)) {

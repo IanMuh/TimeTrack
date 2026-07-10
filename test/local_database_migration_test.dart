@@ -119,16 +119,68 @@ void main() {
     expect(activityRows.single['name'], 'Version 8');
   });
 
+  test(
+      'opening version 9 drifted database repairs schema during v10 upgrade '
+      'without data loss', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'timetrack_v9_database_',
+    );
+    addTearDown(() async {
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    });
+    final dbPath = p.join(directory.path, 'timetrack.sqlite');
+
+    final legacyDb = await databaseFactoryFfi.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(singleInstance: false),
+    );
+    await LocalDatabase.createSchema(legacyDb);
+    for (final index in _performanceIndexes) {
+      await legacyDb.execute('drop index if exists $index');
+    }
+    await legacyDb.insert('activities', {
+      'id': 'v9-activity',
+      'user_id': null,
+      'name': 'Version 9',
+      'color': 0xff22c55e,
+      'is_favorite': 1,
+      'updated_at': DateTime(2026, 3, 1).toIso8601String(),
+      'is_deleted': 0,
+      'is_unassigned': 0,
+      'is_one_off': 0,
+    });
+    await legacyDb.execute('PRAGMA user_version = 9');
+    await legacyDb.close();
+
+    final database = LocalDatabase(databasePath: dbPath);
+    final db = await database.db;
+    addTearDown(db.close);
+
+    final indexes = await _indexNames(db);
+    final activityRows = await db.query(
+      'activities',
+      where: 'id = ?',
+      whereArgs: const ['v9-activity'],
+    );
+
+    expect(indexes, containsAll(_performanceIndexes));
+    expect(activityRows.single['name'], 'Version 9');
+  });
+
   test('versioned upgrades guard legacy drift repair behind schema detection',
       () {
     final source = File('lib/data/local_database.dart').readAsStringSync();
     final upgradeBody = _methodBody(source, '_upgrade');
     final ensureBody = _methodBody(source, 'ensureSchema');
 
+    expect(source, contains('version: 10,'));
     expect(
       source,
       contains('Future<bool> _repairLegacySchemaDriftIfNeeded('),
     );
+    expect(upgradeBody, contains('if (oldVersion < 10)'));
     expect(
       upgradeBody,
       contains('if (oldVersion < 9 && !repairedLegacyDrift)'),
@@ -140,7 +192,7 @@ void main() {
     );
     expect(
       ensureBody,
-      contains('await _repairLegacySchemaDriftIfNeeded(db);'),
+      isNot(contains('await _repairLegacySchemaDriftIfNeeded(db);')),
     );
     expect(upgradeBody, isNot(contains('await repairLegacySchemaDrift(db);')));
     expect(ensureBody, isNot(contains('await repairLegacySchemaDrift(db);')));
