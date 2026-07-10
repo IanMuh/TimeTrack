@@ -15,6 +15,8 @@ import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/activity_category.dart';
 import 'package:timetrack/domain/time_entry.dart';
 import 'package:timetrack/l10n/app_localizations.dart';
+import 'package:timetrack/ui/activity_color_picker.dart';
+import 'package:timetrack/ui/activity_editor_dialog.dart';
 import 'package:timetrack/ui/home_page.dart';
 import 'package:timetrack/ui/settings_page.dart';
 import 'package:timetrack/ui/stats_page.dart';
@@ -147,7 +149,7 @@ void main() {
     final state = _FakeAppState()..interopMessage = '已导出：$exportPath';
     state.syncStatus = SyncStatus(
       lastSuccessfulSyncAt: DateTime(2026, 6, 24, 9, 15),
-      lastTarget: 'lan',
+      lastTarget: SyncTarget.lan,
     );
     addTearDown(state.dispose);
 
@@ -910,8 +912,10 @@ class _FakeAppState extends AppState {
   _FakeAppState()
       : super(
           repository: _repository,
-          activityRepository: _activityRepository,
-          entryRepository: _timeEntryRepository,
+          activityCatalog: _activityRepository,
+          activityCommands: _activityRepository,
+          entryQueries: _timeEntryRepository,
+          entryCommands: _timeEntryRepository,
           syncService: SyncService(
             activityRepository: _activityRepository,
             settingsRepository: _settingsRepository,
@@ -920,19 +924,19 @@ class _FakeAppState extends AppState {
             client: null,
           ),
           lanSyncServer: LanSyncServer(
-            repository: _repository,
+            bundleStore: _repository,
             deviceIdStore: _deviceIdStore,
             peerStore: _peerStore,
             portCandidates: const [0],
           ),
           lanSyncClient: LanSyncClient(
-            repository: _repository,
+            bundleStore: _repository,
             deviceIdStore: _deviceIdStore,
             peerStore: _peerStore,
             timeout: const Duration(milliseconds: 50),
           ),
           fileInteropService: FileInteropService(
-            repository: _repository,
+            bundleStore: _repository,
           ),
         ) {
     now = DateTime(2026, 6, 16, 12);

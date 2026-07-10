@@ -380,6 +380,36 @@ abstract class AppLocalizations {
   /// **'颜色'**
   String get color;
 
+  /// No description provided for @primaryCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'主分类'**
+  String get primaryCategory;
+
+  /// No description provided for @uncategorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'未分类'**
+  String get uncategorized;
+
+  /// No description provided for @categoryName.
+  ///
+  /// In zh, this message translates to:
+  /// **'分类名称'**
+  String get categoryName;
+
+  /// No description provided for @categoryColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'分类颜色'**
+  String get categoryColor;
+
+  /// No description provided for @createCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建分类'**
+  String get createCategory;
+
   /// No description provided for @recentlyUpdated.
   ///
   /// In zh, this message translates to:

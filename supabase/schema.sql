@@ -112,6 +112,86 @@ create index if not exists action_logs_user_occurred_idx
 create index if not exists action_logs_user_updated_idx
   on public.action_logs(user_id, updated_at);
 
+create index if not exists time_entries_activity_soft_delete_idx
+  on public.time_entries(activity_id, user_id, is_deleted);
+
+create index if not exists activity_category_links_activity_soft_delete_idx
+  on public.activity_category_links(activity_id, user_id, is_deleted);
+
+create index if not exists activity_category_links_category_soft_delete_idx
+  on public.activity_category_links(category_id, user_id, is_deleted);
+
+create or replace function public.soft_delete_activity_children()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  update public.time_entries
+  set
+    is_deleted = true,
+    updated_at = greatest(public.time_entries.updated_at, new.updated_at)
+  where activity_id = new.id
+    and user_id = new.user_id
+    and is_deleted = false;
+
+  update public.activity_category_links
+  set
+    is_deleted = true,
+    updated_at = greatest(
+      public.activity_category_links.updated_at,
+      new.updated_at
+    )
+  where activity_id = new.id
+    and user_id = new.user_id
+    and is_deleted = false;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists activities_soft_delete_children
+  on public.activities;
+create trigger activities_soft_delete_children
+  after update of is_deleted on public.activities
+  for each row
+  when (old.is_deleted is distinct from new.is_deleted and new.is_deleted)
+  execute function public.soft_delete_activity_children();
+
+create or replace function public.soft_delete_activity_category_children()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  update public.activity_category_links
+  set
+    is_deleted = true,
+    updated_at = greatest(
+      public.activity_category_links.updated_at,
+      new.updated_at
+    )
+  where category_id = new.id
+    and user_id = new.user_id
+    and is_deleted = false;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists activity_categories_soft_delete_children
+  on public.activity_categories;
+create trigger activity_categories_soft_delete_children
+  after update of is_deleted on public.activity_categories
+  for each row
+  when (old.is_deleted is distinct from new.is_deleted and new.is_deleted)
+  execute function public.soft_delete_activity_category_children();
+
+revoke execute on function public.soft_delete_activity_children()
+  from PUBLIC, anon, authenticated;
+revoke execute on function public.soft_delete_activity_category_children()
+  from PUBLIC, anon, authenticated;
+
 alter table public.activities enable row level security;
 alter table public.activity_categories enable row level security;
 alter table public.activity_category_links enable row level security;
@@ -119,104 +199,176 @@ alter table public.time_entries enable row level security;
 alter table public.profiles enable row level security;
 alter table public.action_logs enable row level security;
 
+grant usage on schema public to authenticated;
+grant select, insert, update on table
+  public.activities,
+  public.activity_categories,
+  public.activity_category_links,
+  public.time_entries,
+  public.action_logs,
+  public.profiles
+  to authenticated;
+
 drop policy if exists "Users can read own activities" on public.activities;
 create policy "Users can read own activities"
   on public.activities for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can insert own activities" on public.activities;
 create policy "Users can insert own activities"
   on public.activities for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can update own activities" on public.activities;
 create policy "Users can update own activities"
   on public.activities for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id))
+  with check (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can read own activity categories"
   on public.activity_categories;
 create policy "Users can read own activity categories"
   on public.activity_categories for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can insert own activity categories"
   on public.activity_categories;
 create policy "Users can insert own activity categories"
   on public.activity_categories for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can update own activity categories"
   on public.activity_categories;
 create policy "Users can update own activity categories"
   on public.activity_categories for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id))
+  with check (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can read own activity category links"
   on public.activity_category_links;
 create policy "Users can read own activity category links"
   on public.activity_category_links for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can insert own activity category links"
   on public.activity_category_links;
 create policy "Users can insert own activity category links"
   on public.activity_category_links for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check (
+    ((select auth.uid()) = user_id)
+    and exists (select 1 from public.activities where id = activity_id
+      and user_id = (select auth.uid()))
+    and exists (select 1 from public.activity_categories where id = category_id
+      and user_id = (select auth.uid()))
+  );
 
 drop policy if exists "Users can update own activity category links"
   on public.activity_category_links;
 create policy "Users can update own activity category links"
   on public.activity_category_links for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id))
+  with check (
+    ((select auth.uid()) = user_id)
+    and exists (select 1 from public.activities where id = activity_id
+      and user_id = (select auth.uid()))
+    and exists (select 1 from public.activity_categories where id = category_id
+      and user_id = (select auth.uid()))
+  );
 
 drop policy if exists "Users can read own entries" on public.time_entries;
 create policy "Users can read own entries"
   on public.time_entries for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can insert own entries" on public.time_entries;
 create policy "Users can insert own entries"
   on public.time_entries for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check (
+    ((select auth.uid()) = user_id)
+    and exists (select 1 from public.activities where id = activity_id
+      and user_id = (select auth.uid()))
+  );
 
 drop policy if exists "Users can update own entries" on public.time_entries;
 create policy "Users can update own entries"
   on public.time_entries for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id))
+  with check (
+    ((select auth.uid()) = user_id)
+    and exists (select 1 from public.activities where id = activity_id
+      and user_id = (select auth.uid()))
+  );
 
 drop policy if exists "Users can read own action logs" on public.action_logs;
 create policy "Users can read own action logs"
   on public.action_logs for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can insert own action logs" on public.action_logs;
 create policy "Users can insert own action logs"
   on public.action_logs for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check (
+    ((select auth.uid()) = user_id)
+    and (
+      activity_id is null
+      or exists (select 1 from public.activities where id = activity_id
+        and user_id = (select auth.uid()))
+    )
+    and (
+      entry_id is null
+      or exists (select 1 from public.time_entries where id = entry_id
+        and user_id = (select auth.uid()))
+    )
+  );
 
 drop policy if exists "Users can update own action logs" on public.action_logs;
 create policy "Users can update own action logs"
   on public.action_logs for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id))
+  with check (
+    ((select auth.uid()) = user_id)
+    and (
+      activity_id is null
+      or exists (select 1 from public.activities where id = activity_id
+        and user_id = (select auth.uid()))
+    )
+    and (
+      entry_id is null
+      or exists (select 1 from public.time_entries where id = entry_id
+        and user_id = (select auth.uid()))
+    )
+  );
 
 drop policy if exists "Users can read own profile" on public.profiles;
 create policy "Users can read own profile"
   on public.profiles for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can insert own profile" on public.profiles;
 create policy "Users can insert own profile"
   on public.profiles for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check (((select auth.uid()) = user_id));
 
 drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
   on public.profiles for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using (((select auth.uid()) = user_id))
+  with check (((select auth.uid()) = user_id));

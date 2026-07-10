@@ -242,7 +242,8 @@ class DayRangeSelector extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: previousTooltip ?? AppLocalizations.of(context)!.previousDay,
+            tooltip:
+                previousTooltip ?? AppLocalizations.of(context)!.previousDay,
             onPressed: onPreviousDay,
             icon: const Icon(Icons.chevron_left),
           ),

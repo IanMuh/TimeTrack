@@ -4,6 +4,9 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:timetrack/data/file_interop_service.dart';
+import 'package:timetrack/data/sync_bundle.dart';
+import 'package:timetrack/data/sync_bundle_store.dart';
+import 'package:timetrack/domain/profile_settings.dart';
 import 'test_fixtures.dart';
 
 Future<TestRepositoryFixture> buildFileInteropFixture() async {
@@ -20,6 +23,30 @@ Future<TestRepositoryFixture> buildFileInteropFixture() async {
 }
 
 void main() {
+  test('file export only requires a sync bundle store', () async {
+    final exportDir =
+        await Directory.systemTemp.createTemp('timetrack-export-');
+    addTearDown(() => exportDir.delete(recursive: true));
+    final exportPath = p.join(exportDir.path, 'narrow-store.timetrack.json');
+    final bundleStore = _FakeSyncBundleStore(_emptyBundle('narrow-store'));
+
+    final service = FileInteropService(
+      bundleStore: bundleStore,
+      saveLocationPicker: ({
+        List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
+        String? suggestedName,
+      }) async {
+        return FileSaveLocation(exportPath);
+      },
+    );
+
+    final path = await service.exportToFile();
+
+    expect(path, exportPath);
+    expect(bundleStore.exportCount, 1);
+    expect(await File(exportPath).readAsString(), contains('narrow-store'));
+  });
+
   test('file export writes to save dialog path when available', () async {
     final fixture = await buildFileInteropFixture();
     addTearDown(fixture.close);
@@ -30,7 +57,7 @@ void main() {
     var directoryPickerCalled = false;
 
     final service = FileInteropService(
-      repository: fixture.repository,
+      bundleStore: fixture.syncBundleRepository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,
@@ -65,7 +92,7 @@ void main() {
     bool? pickedCanCreateDirectories;
 
     final service = FileInteropService(
-      repository: fixture.repository,
+      bundleStore: fixture.syncBundleRepository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,
@@ -102,7 +129,7 @@ void main() {
     var directoryPickerCalled = false;
 
     final service = FileInteropService(
-      repository: fixture.repository,
+      bundleStore: fixture.syncBundleRepository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,
@@ -137,7 +164,7 @@ void main() {
     addTearDown(() => exportDir.delete(recursive: true));
 
     final service = FileInteropService(
-      repository: fixture.repository,
+      bundleStore: fixture.syncBundleRepository,
       saveLocationPicker: ({
         List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
         String? suggestedName,
@@ -161,4 +188,81 @@ void main() {
     expect(path, startsWith(exportDir.path));
     expect(await File(path!).readAsString(), contains('export me'));
   });
+
+  test('file import reads the selected bundle and merges it', () async {
+    final importDir =
+        await Directory.systemTemp.createTemp('timetrack-import-');
+    addTearDown(() => importDir.delete(recursive: true));
+    final importPath = p.join(importDir.path, 'chosen.timetrack.json');
+    final bundle = _emptyBundle('import-source');
+    await File(importPath)
+        .writeAsString(const SyncBundleCodec().encode(bundle));
+    final bundleStore = _FakeSyncBundleStore(bundle);
+
+    final service = FileInteropService(
+      bundleStore: bundleStore,
+      openFilePicker: ({
+        List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
+      }) async {
+        return XFile(importPath);
+      },
+    );
+
+    final path = await service.importFromFile();
+
+    expect(path, importPath);
+    expect(bundleStore.mergedBundle?.sourceDeviceId, 'import-source');
+  });
+
+  test('file import rejects invalid bundle data before merging', () async {
+    final importDir =
+        await Directory.systemTemp.createTemp('timetrack-import-invalid-');
+    addTearDown(() => importDir.delete(recursive: true));
+    final importPath = p.join(importDir.path, 'invalid.timetrack.json');
+    await File(importPath).writeAsString('[]');
+    final bundleStore = _FakeSyncBundleStore(_emptyBundle('unused'));
+
+    final service = FileInteropService(
+      bundleStore: bundleStore,
+      openFilePicker: ({
+        List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
+      }) async {
+        return XFile(importPath);
+      },
+    );
+
+    expect(service.importFromFile, throwsFormatException);
+    expect(bundleStore.mergedBundle, isNull);
+  });
+}
+
+class _FakeSyncBundleStore implements SyncBundleStore {
+  _FakeSyncBundleStore(this.bundle);
+
+  final SyncBundle bundle;
+  var exportCount = 0;
+  SyncBundle? mergedBundle;
+
+  @override
+  Future<SyncBundle> exportBundle() async {
+    exportCount += 1;
+    return bundle;
+  }
+
+  @override
+  Future<void> mergeBundle(SyncBundle bundle) async {
+    mergedBundle = bundle;
+  }
+}
+
+SyncBundle _emptyBundle(String sourceDeviceId) {
+  return SyncBundle(
+    schemaVersion: SyncBundle.currentSchemaVersion,
+    exportedAt: DateTime(2026, 1, 1),
+    sourceDeviceId: sourceDeviceId,
+    activities: const [],
+    timeEntries: const [],
+    actionLogs: const [],
+    profileSettings: ProfileSettings.defaults(),
+  );
 }

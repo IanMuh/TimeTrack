@@ -56,5 +56,6 @@ class DeviceIdStore implements IDeviceIdStore {
 
   /// Returns cached value if available, without hitting the database.
   /// Falls back to 'local-device' if nothing is cached.
-  String get cachedOrFallback => _deviceIdOverride ?? _cachedDeviceId ?? 'local-device';
+  String get cachedOrFallback =>
+      _deviceIdOverride ?? _cachedDeviceId ?? 'local-device';
 }

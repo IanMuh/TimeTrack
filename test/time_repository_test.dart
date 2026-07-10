@@ -1,9 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timetrack/app/app_state.dart';
+import 'package:timetrack/core/result.dart';
 import 'package:timetrack/data/activity_repository.dart';
 import 'package:timetrack/data/device_id_store.dart';
 import 'package:timetrack/data/local_database.dart';
+import 'package:timetrack/data/repository_result.dart';
+import 'package:timetrack/data/repository_undo.dart';
 import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/time_repository.dart';
 import 'package:timetrack/domain/action_log.dart';
@@ -18,6 +21,32 @@ class RepositoryFixture {
 
   final TimeRepository repository;
   final Database database;
+}
+
+class _FailingActivitiesRepository extends ActivityRepository {
+  _FailingActivitiesRepository({required super.database});
+
+  @override
+  Future<AppResult<List<Activity>>> activities({
+    bool includeDeleted = false,
+  }) async {
+    return const AppFailure<List<Activity>>('activity boom');
+  }
+}
+
+TimeRepository _repositoryWithActivityRepository(
+  TestRepositoryFixture fixture,
+  ActivityRepository activityRepository,
+) {
+  return TimeRepository(
+    database: fixture.database,
+    activityRepository: activityRepository,
+    settingsRepository: fixture.settingsRepository,
+    deviceIdStore: fixture.deviceIdStore,
+    timeEntryRepository: fixture.timeEntryRepository,
+    actionLogRepository: fixture.actionLogRepository,
+    activityCategoryRepository: fixture.activityCategoryRepository,
+  );
 }
 
 Future<RepositoryFixture> buildRepositoryFixture() async {
@@ -38,6 +67,171 @@ String _planText(List<Map<String, Object?>> rows) {
 }
 
 void main() {
+  test('repository result unwrap returns successful values', () {
+    final value = unwrapRepositoryResult(const AppSuccess(7));
+
+    expect(value, 7);
+  });
+
+  test('repository result unwrap converts failures to typed StateError', () {
+    expect(
+      () => unwrapRepositoryResult<int>(
+        const AppFailure<int>('activity boom'),
+      ),
+      throwsA(
+        isA<RepositoryException>()
+            .having(
+              (error) => error.message,
+              'message',
+              'activity boom',
+            )
+            .having(
+              (error) => error.failure.message,
+              'failure.message',
+              'activity boom',
+            ),
+      ),
+    );
+  });
+
+  test('repository facade converts AppResult failures to StateError', () async {
+    final fixture = await buildTestRepositoryFixture();
+    addTearDown(fixture.close);
+    final repository = _repositoryWithActivityRepository(
+      fixture,
+      _FailingActivitiesRepository(database: fixture.database),
+    );
+
+    expect(
+      repository.activities,
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'activity boom',
+        ),
+      ),
+    );
+  });
+
+  test('repository facade failure is typed and StateError compatible',
+      () async {
+    final fixture = await buildTestRepositoryFixture();
+    addTearDown(fixture.close);
+    final repository = _repositoryWithActivityRepository(
+      fixture,
+      _FailingActivitiesRepository(database: fixture.database),
+    );
+
+    await expectLater(
+      repository.activities,
+      throwsA(
+        isA<RepositoryException>()
+            .having(
+              (error) => error.message,
+              'message',
+              'activity boom',
+            )
+            .having(
+              (error) => error.failure.message,
+              'failure.message',
+              'activity boom',
+            ),
+      ),
+    );
+  });
+
+  test('repository facade preserves AppResult failure message', () async {
+    final fixture = await buildTestRepositoryFixture();
+    addTearDown(fixture.close);
+    final repository = _repositoryWithActivityRepository(
+      fixture,
+      _FailingActivitiesRepository(database: fixture.database),
+    );
+
+    await expectLater(
+      repository.activities,
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'activity boom',
+        ),
+      ),
+    );
+  });
+
+  test('repository undo and redo restore category link rows', () async {
+    final repository = await buildRepository();
+    final activity = await repository.createActivity(
+      name: '专注',
+      color: 0xff0f766e,
+    );
+    final before = await repository.undoSnapshot();
+
+    final category = await repository.createCategory(
+      name: '工作',
+      color: 0xff2563eb,
+    );
+    await repository.setActivityCategories(
+      activityId: activity.id,
+      primaryCategoryId: category.id,
+      secondaryCategoryIds: const [],
+    );
+    final after = await repository.undoSnapshot();
+    final changeSet = before.diff(label: '编辑分类', after: after);
+
+    expect(changeSet.categories, hasLength(1));
+    expect(changeSet.categoryLinks, hasLength(1));
+
+    await repository.applyUndoChangeSet(
+      changeSet,
+      direction: RepositoryUndoDirection.undo,
+    );
+
+    expect(await repository.categories(), isEmpty);
+    expect(await repository.activityCategoryLinks(), isEmpty);
+    final deletedCategories = await repository.categories(includeDeleted: true);
+    expect(deletedCategories.single.isDeleted, isTrue);
+    final deletedLinks =
+        await repository.activityCategoryLinks(includeDeleted: true);
+    expect(deletedLinks.single.isDeleted, isTrue);
+
+    await repository.applyUndoChangeSet(
+      changeSet,
+      direction: RepositoryUndoDirection.redo,
+    );
+
+    final restoredCategories = await repository.categories();
+    expect(restoredCategories.single.name, '工作');
+    final restoredLinks = await repository.activityCategoryLinks();
+    expect(restoredLinks.single.activityId, activity.id);
+    expect(restoredLinks.single.categoryId, category.id);
+    expect(restoredLinks.single.isPrimary, isTrue);
+
+    final logs = await repository.allActionLogs();
+    expect(
+      logs,
+      contains(
+        isA<ActionLog>().having(
+          (log) => log.message,
+          'message',
+          contains('撤销：编辑分类'),
+        ),
+      ),
+    );
+    expect(
+      logs,
+      contains(
+        isA<ActionLog>().having(
+          (log) => log.message,
+          'message',
+          contains('重做：编辑分类'),
+        ),
+      ),
+    );
+  });
+
   test('seed data includes immutable unassigned activity', () async {
     final repository = await buildRepository();
 
@@ -131,6 +325,89 @@ void main() {
     expect(await repository.runningEntry(), isNotNull);
     expect(logs.map((log) => log.actionType),
         [ActionType.switch_, ActionType.switch_]);
+  });
+
+  test('deleting an entry uses one timestamp for row and action log', () async {
+    final fixture = await buildRepositoryFixture();
+    final repository = fixture.repository;
+    final db = fixture.database;
+    final activity = (await repository.activities()).firstWhere(
+      (item) => !item.isUnassigned,
+    );
+    final entry = await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: '',
+    );
+
+    await repository.deleteEntry(entry);
+
+    final entryRows = await db.query(
+      'time_entries',
+      where: 'id = ?',
+      whereArgs: [entry.id],
+    );
+    final deleteLogRows = await db.query(
+      'action_logs',
+      where: 'entry_id = ? and action_type = ?',
+      whereArgs: [entry.id, ActionType.delete.storageValue],
+    );
+
+    expect(entryRows.single['is_deleted'], 1);
+    expect(deleteLogRows, hasLength(1));
+    expect(
+      deleteLogRows.single['occurred_at'],
+      entryRows.single['updated_at'],
+    );
+    expect(
+      deleteLogRows.single['updated_at'],
+      deleteLogRows.single['occurred_at'],
+    );
+  });
+
+  test('saving an edited entry uses one timestamp for row and action log',
+      () async {
+    final fixture = await buildRepositoryFixture();
+    final repository = fixture.repository;
+    final db = fixture.database;
+    final activity = (await repository.activities()).firstWhere(
+      (item) => !item.isUnassigned,
+    );
+    final entry = await repository.createManualEntry(
+      activityId: activity.id,
+      startAt: DateTime(2026, 1, 1, 9),
+      endAt: DateTime(2026, 1, 1, 10),
+      note: '',
+    );
+    final editedAt = DateTime(2026, 1, 1, 11, 30, 12, 345);
+
+    await repository.saveEntry(
+      entry.copyWith(note: 'edited', updatedAt: editedAt),
+      logEdit: true,
+    );
+
+    final entryRows = await db.query(
+      'time_entries',
+      where: 'id = ?',
+      whereArgs: [entry.id],
+    );
+    final editLogRows = await db.query(
+      'action_logs',
+      where: 'entry_id = ? and action_type = ?',
+      whereArgs: [entry.id, ActionType.edit.storageValue],
+    );
+
+    expect(entryRows.single['note'], 'edited');
+    expect(editLogRows, hasLength(1));
+    expect(
+      editLogRows.single['occurred_at'],
+      entryRows.single['updated_at'],
+    );
+    expect(
+      editLogRows.single['updated_at'],
+      editLogRows.single['occurred_at'],
+    );
   });
 
   test('common range queries use performance indexes', () async {

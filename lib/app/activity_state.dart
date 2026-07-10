@@ -4,20 +4,27 @@ import '../core/app_constants.dart';
 import '../data/repository_interfaces.dart';
 import '../domain/activity.dart';
 import '../domain/time_entry.dart';
+import 'app_state_result.dart';
 
 class ActivityState extends ChangeNotifier {
   ActivityState({
-    required IActivityRepository activityRepository,
-    required ITimeEntryRepository entryRepository,
+    required IActivityCatalogRepository activityCatalog,
+    required IActivityCommandRepository activityCommands,
+    required ITimeEntryQueryRepository entryQueries,
+    required ITimeEntryCommandRepository entryCommands,
     required Future<void> Function() onFullRefresh,
     required Future<void> Function() onEntryRefresh,
-  })  : _activityRepo = activityRepository,
-        _entryRepo = entryRepository,
+  })  : _activityCatalog = activityCatalog,
+        _activityCommands = activityCommands,
+        _entryQueries = entryQueries,
+        _entryCommands = entryCommands,
         _onFullRefresh = onFullRefresh,
         _onEntryRefresh = onEntryRefresh;
 
-  final IActivityRepository _activityRepo;
-  final ITimeEntryRepository _entryRepo;
+  final IActivityCatalogRepository _activityCatalog;
+  final IActivityCommandRepository _activityCommands;
+  final ITimeEntryQueryRepository _entryQueries;
+  final ITimeEntryCommandRepository _entryCommands;
   final Future<void> Function() _onFullRefresh;
   final Future<void> Function() _onEntryRefresh;
 
@@ -33,7 +40,7 @@ class ActivityState extends ChangeNotifier {
   }
 
   Future<void> refresh({bool notify = true}) async {
-    final result = await _activityRepo.activities();
+    final result = await _activityCatalog.activities();
     _setActivities(result.fold(
       onSuccess: (list) => list,
       onFailure: (msg) {
@@ -88,30 +95,21 @@ class ActivityState extends ChangeNotifier {
   }
 
   Future<void> switchTo(Activity activity) async {
-    final result = await _entryRepo.switchToActivity(activity.id);
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final result = await _entryCommands.switchToActivity(activity.id);
+    unwrapAppStateResult(result);
     await _onEntryRefresh();
   }
 
   Future<void> stopCurrent() async {
-    final result = await _entryRepo.stopRunning();
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final result = await _entryCommands.stopRunning();
+    unwrapAppStateResult(result);
     await _onEntryRefresh();
   }
 
   Future<Activity> createActivity(String name, int color) async {
     final result =
-        await _activityRepo.createActivity(name: name, color: color);
-    final activity = result.fold(
-      onSuccess: (a) => a,
-      onFailure: (msg) => throw StateError(msg),
-    );
+        await _activityCommands.createActivity(name: name, color: color);
+    final activity = unwrapAppStateResult(result);
     await refresh(notify: false);
     await _onFullRefresh();
     return activity;
@@ -119,7 +117,7 @@ class ActivityState extends ChangeNotifier {
 
   Future<List<Activity>> oneOffActivitySuggestions() async {
     try {
-      final result = await _activityRepo.oneOffActivities();
+      final result = await _activityCatalog.oneOffActivities();
       return result.fold(
         onSuccess: (list) => list,
         onFailure: (_) => [],
@@ -135,21 +133,15 @@ class ActivityState extends ChangeNotifier {
     Activity? reuseActivity,
   }) async {
     final activityResult = reuseActivity == null
-        ? await _activityRepo.createActivity(
+        ? await _activityCommands.createActivity(
             name: name,
             color: color,
             isOneOff: true,
           )
-        : await _activityRepo.restoreOneOffActivity(reuseActivity);
-    final activity = activityResult.fold(
-      onSuccess: (a) => a,
-      onFailure: (msg) => throw StateError(msg),
-    );
-    final switchResult = await _entryRepo.switchToActivity(activity.id);
-    switchResult.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+        : await _activityCommands.restoreOneOffActivity(reuseActivity);
+    final activity = unwrapAppStateResult(activityResult);
+    final switchResult = await _entryCommands.switchToActivity(activity.id);
+    unwrapAppStateResult(switchResult);
     await refresh(notify: false);
     await _onEntryRefresh();
     return activity;
@@ -162,16 +154,13 @@ class ActivityState extends ChangeNotifier {
     Activity? reuseActivity,
   }) async {
     final activityResult = reuseActivity == null
-        ? await _activityRepo.createActivity(
+        ? await _activityCommands.createActivity(
             name: name,
             color: color,
             isOneOff: isOneOff,
           )
-        : await _activityRepo.restoreOneOffActivity(reuseActivity);
-    final activity = activityResult.fold(
-      onSuccess: (a) => a,
-      onFailure: (msg) => throw StateError(msg),
-    );
+        : await _activityCommands.restoreOneOffActivity(reuseActivity);
+    final activity = unwrapAppStateResult(activityResult);
     await refresh(notify: false);
     await _onFullRefresh();
     return activity;
@@ -185,15 +174,12 @@ class ActivityState extends ChangeNotifier {
     if (activity.isUnassigned) {
       return unassignedActivity ?? activity;
     }
-    final result = await _activityRepo.updateActivity(
+    final result = await _activityCommands.updateActivity(
       activity: activity,
       name: name,
       color: color,
     );
-    final updated = result.fold(
-      onSuccess: (a) => a,
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final updated = unwrapAppStateResult(result);
     await refresh(notify: false);
     await _onFullRefresh();
     return updated;
@@ -203,23 +189,17 @@ class ActivityState extends ChangeNotifier {
     if (activity.isUnassigned) {
       return;
     }
-    final runningResult = await _entryRepo.runningEntry();
+    final runningResult = await _entryQueries.runningEntry();
     final running = runningResult.fold(
       onSuccess: (r) => r,
       onFailure: (_) => null,
     );
     if (running?.activityId == activity.id) {
-      final stopResult = await _entryRepo.stopRunning();
-      stopResult.fold(
-        onSuccess: (_) {},
-        onFailure: (msg) => throw StateError(msg),
-      );
+      final stopResult = await _entryCommands.stopRunning();
+      unwrapAppStateResult(stopResult);
     }
-    final result = await _activityRepo.deleteActivity(activity);
-    result.fold(
-      onSuccess: (_) {},
-      onFailure: (msg) => throw StateError(msg),
-    );
+    final result = await _activityCommands.deleteActivity(activity);
+    unwrapAppStateResult(result);
     await refresh(notify: false);
     await _onFullRefresh();
   }

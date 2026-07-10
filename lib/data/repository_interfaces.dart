@@ -5,7 +5,7 @@ import '../domain/activity_category.dart';
 import '../domain/profile_settings.dart';
 import '../domain/time_entry.dart';
 
-abstract class IActivityRepository {
+abstract class IActivityCatalogRepository {
   Future<AppResult<List<Activity>>> activities({
     bool includeDeleted = false,
   });
@@ -15,7 +15,9 @@ abstract class IActivityRepository {
   });
 
   Future<AppResult<Activity>> unassignedActivity();
+}
 
+abstract class IActivityCommandRepository {
   Future<AppResult<Activity>> createActivity({
     required String name,
     required int color,
@@ -32,7 +34,9 @@ abstract class IActivityRepository {
   Future<AppResult<Activity>> restoreOneOffActivity(Activity activity);
 
   Future<AppResult<void>> deleteActivity(Activity activity);
+}
 
+abstract class IActivitySyncRepository {
   Future<AppResult<void>> upsertActivity(Activity activity);
 
   Future<AppResult<void>> replaceActivityIfRemoteNewer(Activity remote);
@@ -40,19 +44,46 @@ abstract class IActivityRepository {
   Future<AppResult<List<Activity>>> activitiesSince(DateTime since);
 }
 
-abstract class ISettingsRepository {
+abstract class IActivityRepository
+    implements
+        IActivityCatalogRepository,
+        IActivityCommandRepository,
+        IActivitySyncRepository {}
+
+abstract class ISettingsReadRepository {
   Future<AppResult<ProfileSettings>> settings();
+}
 
+abstract class ISettingsWriteRepository {
   Future<AppResult<void>> saveSettings(ProfileSettings settings);
+}
 
+abstract class ISettingsSyncRepository implements ISettingsReadRepository {
   Future<AppResult<void>> replaceSettingsIfRemoteNewer(ProfileSettings remote);
 }
 
-abstract class IActivityCategoryRepository {
+abstract class ISettingsRepository
+    implements
+        ISettingsReadRepository,
+        ISettingsWriteRepository,
+        ISettingsSyncRepository {}
+
+abstract class IActivityCategoryCatalogRepository {
   Future<AppResult<List<ActivityCategory>>> categories({
     bool includeDeleted = false,
   });
 
+  Future<AppResult<List<ActivityCategoryLink>>> activityCategoryLinks({
+    bool includeDeleted = false,
+  });
+
+  Future<AppResult<List<ActivityCategoryLink>>> linksForActivity(
+    String activityId, {
+    bool includeDeleted = false,
+  });
+}
+
+abstract class IActivityCategoryCommandRepository {
   Future<AppResult<ActivityCategory>> createCategory({
     required String name,
     required int color,
@@ -67,22 +98,15 @@ abstract class IActivityCategoryRepository {
 
   Future<AppResult<void>> deleteCategory(ActivityCategory category);
 
-  Future<AppResult<List<ActivityCategoryLink>>> activityCategoryLinks({
-    bool includeDeleted = false,
-  });
-
-  Future<AppResult<List<ActivityCategoryLink>>> linksForActivity(
-    String activityId, {
-    bool includeDeleted = false,
-  });
-
   Future<AppResult<List<ActivityCategoryLink>>> setActivityCategories({
     required String activityId,
     required String? primaryCategoryId,
     required List<String> secondaryCategoryIds,
     String? userId,
   });
+}
 
+abstract class IActivityCategorySyncRepository {
   Future<AppResult<List<ActivityCategory>>> categoriesSince(DateTime since);
 
   Future<AppResult<List<ActivityCategoryLink>>> categoryLinksSince(
@@ -97,6 +121,12 @@ abstract class IActivityCategoryRepository {
     ActivityCategoryLink remote,
   );
 }
+
+abstract class IActivityCategoryRepository
+    implements
+        IActivityCategoryCatalogRepository,
+        IActivityCategoryCommandRepository,
+        IActivityCategorySyncRepository {}
 
 abstract class IDeviceIdStore {
   Future<String> currentDeviceId();
@@ -130,9 +160,27 @@ class EntryMergeCandidate {
 // ITimeEntryRepository
 // ---------------------------------------------------------------------------
 
-abstract class ITimeEntryRepository {
+abstract class ITimeEntryQueryRepository {
   Future<AppResult<TimeEntry?>> runningEntry();
 
+  Future<AppResult<List<TimeEntry>>> entriesForDay(DateTime day);
+
+  Future<AppResult<List<TimeEntry>>> entriesForRange(
+    DateTime start,
+    DateTime end,
+  );
+
+  Future<AppResult<List<TimeEntry>>> allEntries();
+
+  Future<AppResult<EntryMergeCandidate?>> mergeCandidateForEntry(
+    String entryId,
+    EntryMergeDirection direction,
+  );
+
+  Future<AppResult<List<TimeEntry>>> overlappingEntries(TimeEntry entry);
+}
+
+abstract class ITimeEntryCommandRepository {
   Future<AppResult<TimeEntry>> switchToActivity(
     String activityId, {
     DateTime? at,
@@ -161,38 +209,29 @@ abstract class ITimeEntryRepository {
 
   Future<AppResult<void>> deleteEntry(TimeEntry entry);
 
-  Future<AppResult<List<TimeEntry>>> entriesForDay(DateTime day);
-
-  Future<AppResult<List<TimeEntry>>> entriesForRange(
-    DateTime start,
-    DateTime end,
-  );
-
-  Future<AppResult<List<TimeEntry>>> entriesSince(DateTime since);
-
-  Future<AppResult<List<TimeEntry>>> allEntries();
-
-  Future<AppResult<EntryMergeCandidate?>> mergeCandidateForEntry(
-    String entryId,
-    EntryMergeDirection direction,
-  );
-
   Future<AppResult<TimeEntry?>> mergeEntryWithNeighbor({
     required String entryId,
     required EntryMergeDirection direction,
     required bool confirmed,
   });
+}
 
-  Future<AppResult<List<TimeEntry>>> overlappingEntries(TimeEntry entry);
-
+abstract class ITimeEntrySyncRepository {
+  Future<AppResult<List<TimeEntry>>> entriesSince(DateTime since);
   Future<AppResult<void>> replaceEntryIfRemoteNewer(TimeEntry remote);
 }
+
+abstract class ITimeEntryRepository
+    implements
+        ITimeEntryQueryRepository,
+        ITimeEntryCommandRepository,
+        ITimeEntrySyncRepository {}
 
 // ---------------------------------------------------------------------------
 // IActionLogRepository
 // ---------------------------------------------------------------------------
 
-abstract class IActionLogRepository {
+abstract class IActionLogQueryRepository {
   Future<AppResult<List<ActionLog>>> actionLogsForDay(DateTime day);
 
   Future<AppResult<List<ActionLog>>> actionLogsForRange(
@@ -200,10 +239,10 @@ abstract class IActionLogRepository {
     DateTime end,
   );
 
-  Future<AppResult<List<ActionLog>>> actionLogsSince(DateTime since);
-
   Future<AppResult<List<ActionLog>>> allActionLogs();
+}
 
+abstract class IActionLogCommandRepository {
   Future<AppResult<void>> addActionLog({
     required ActionType actionType,
     required String? activityId,
@@ -211,6 +250,15 @@ abstract class IActionLogRepository {
     required DateTime occurredAt,
     required String message,
   });
+}
 
+abstract class IActionLogSyncRepository {
+  Future<AppResult<List<ActionLog>>> actionLogsSince(DateTime since);
   Future<AppResult<void>> replaceActionLogIfRemoteNewer(ActionLog remote);
 }
+
+abstract class IActionLogRepository
+    implements
+        IActionLogQueryRepository,
+        IActionLogCommandRepository,
+        IActionLogSyncRepository {}

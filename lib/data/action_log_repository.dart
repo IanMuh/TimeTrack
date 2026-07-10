@@ -7,7 +7,11 @@ import '../domain/action_log.dart';
 import 'local_database.dart';
 import 'repository_interfaces.dart';
 
-class ActionLogRepository implements IActionLogRepository {
+class ActionLogRepository
+    implements
+        IActionLogQueryRepository,
+        IActionLogCommandRepository,
+        IActionLogSyncRepository {
   ActionLogRepository({
     required LocalDatabase database,
     String? deviceId,
@@ -22,7 +26,7 @@ class ActionLogRepository implements IActionLogRepository {
   String? _cachedDeviceId;
 
   // -------------------------------------------------------------------------
-  // IActionLogRepository — AppResult-wrapped public API
+  // Action log repository — AppResult-wrapped public API
   // -------------------------------------------------------------------------
 
   @override

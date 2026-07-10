@@ -70,13 +70,16 @@ class _LoginPageState extends State<LoginPage> {
                           if (mounted) {
                             setState(() => _sending = false);
                             messenger.showSnackBar(
-                              SnackBar(content: Text(l10n.sendFailed(e.toString()))),
+                              SnackBar(
+                                  content: Text(l10n.sendFailed(e.toString()))),
                             );
                           }
                         }
                       },
                 icon: const Icon(Icons.mark_email_read_outlined),
-                label: Text(_sending ? AppLocalizations.of(context)!.sending : AppLocalizations.of(context)!.sendCode),
+                label: Text(_sending
+                    ? AppLocalizations.of(context)!.sending
+                    : AppLocalizations.of(context)!.sendCode),
               );
               if (compact) {
                 return Column(
@@ -128,13 +131,16 @@ class _LoginPageState extends State<LoginPage> {
                         if (mounted) {
                           setState(() => _verifying = false);
                           messenger.showSnackBar(
-                            SnackBar(content: Text(l10n.verifyFailed(e.toString()))),
+                            SnackBar(
+                                content: Text(l10n.verifyFailed(e.toString()))),
                           );
                         }
                       }
                     },
               icon: const Icon(Icons.verified_outlined),
-              label: Text(_verifying ? AppLocalizations.of(context)!.verifying : AppLocalizations.of(context)!.verifyLogin),
+              label: Text(_verifying
+                  ? AppLocalizations.of(context)!.verifying
+                  : AppLocalizations.of(context)!.verifyLogin),
             ),
           ],
         ],

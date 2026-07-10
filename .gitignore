@@ -4,6 +4,7 @@
 .packages
 build/
 coverage/
+.omo/
 *.iml
 .idea/
 .vscode/

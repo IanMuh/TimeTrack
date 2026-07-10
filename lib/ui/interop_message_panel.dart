@@ -85,9 +85,13 @@ class _InteropMessageDetails {
       );
     }
     return _InteropMessageDetails(
-      title: message.contains(l10n.failed) ? l10n.operationFailed : l10n.interopStatus,
+      title: message.contains(l10n.failed)
+          ? l10n.operationFailed
+          : l10n.interopStatus,
       body: message,
-      icon: message.contains(l10n.failed) ? Icons.error_outline : Icons.info_outline,
+      icon: message.contains(l10n.failed)
+          ? Icons.error_outline
+          : Icons.info_outline,
       isError: message.contains(l10n.failed),
     );
   }

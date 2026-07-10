@@ -2,6 +2,31 @@ import 'package:sqflite/sqflite.dart';
 
 import 'local_database.dart';
 
+enum SyncTarget {
+  none('none'),
+  cloud('cloud'),
+  lan('lan'),
+  cloudLan('cloud_lan');
+
+  const SyncTarget(this.storageValue);
+
+  final String storageValue;
+
+  bool get includesCloud => this == cloud || this == cloudLan;
+
+  static SyncTarget? fromStorageValue(String? value) {
+    final normalized = value?.trim();
+    return switch (
+        normalized == null || normalized.isEmpty ? null : normalized) {
+      'none' => SyncTarget.none,
+      'cloud' => SyncTarget.cloud,
+      'lan' => SyncTarget.lan,
+      'cloud_lan' => SyncTarget.cloudLan,
+      _ => null,
+    };
+  }
+}
+
 class SyncStatus {
   const SyncStatus({
     this.lastSuccessfulSyncAt,
@@ -11,7 +36,7 @@ class SyncStatus {
 
   final DateTime? lastSuccessfulSyncAt;
   final String? lastError;
-  final String? lastTarget;
+  final SyncTarget? lastTarget;
 
   bool get hasError => lastError != null && lastError!.isNotEmpty;
 }
@@ -55,13 +80,13 @@ class SyncStatusStore {
     return SyncStatus(
       lastSuccessfulSyncAt: _parseDateTime(values[lastSuccessfulSyncAtKey]),
       lastError: _blankToNull(values[lastSyncErrorKey]),
-      lastTarget: _blankToNull(values[lastSyncTargetKey]),
+      lastTarget: SyncTarget.fromStorageValue(values[lastSyncTargetKey]),
     );
   }
 
   Future<SyncStatus> markSuccess({
     required DateTime at,
-    required String target,
+    required SyncTarget target,
   }) async {
     final status = SyncStatus(
       lastSuccessfulSyncAt: at.toUtc(),
@@ -76,7 +101,7 @@ class SyncStatusStore {
     final db = await _database!.db;
     await db.transaction((txn) async {
       await _upsert(txn, lastSuccessfulSyncAtKey, at.toUtc().toIso8601String());
-      await _upsert(txn, lastSyncTargetKey, target);
+      await _upsert(txn, lastSyncTargetKey, target.storageValue);
       await txn.delete(
         'app_metadata',
         where: 'key = ?',
@@ -88,7 +113,7 @@ class SyncStatusStore {
 
   Future<SyncStatus> markFailure({
     required String error,
-    required String target,
+    required SyncTarget target,
   }) async {
     final previous = await load();
     final status = SyncStatus(
@@ -105,7 +130,7 @@ class SyncStatusStore {
     final db = await _database!.db;
     await db.transaction((txn) async {
       await _upsert(txn, lastSyncErrorKey, error);
-      await _upsert(txn, lastSyncTargetKey, target);
+      await _upsert(txn, lastSyncTargetKey, target.storageValue);
     });
     return status;
   }

@@ -123,8 +123,7 @@ class ProfileSettings {
     try {
       return ProfileSettings(
         userId: map['user_id'] as String?,
-        reminderMinutes:
-            (map['reminder_minutes'] as num?)?.toInt() ?? 45,
+        reminderMinutes: (map['reminder_minutes'] as num?)?.toInt() ?? 45,
         reminderIntervalMinutes:
             (map['reminder_interval_minutes'] as num?)?.toInt() ?? 10,
         reminderMethod: ReminderMethod.fromStorageValue(map['reminder_method']),

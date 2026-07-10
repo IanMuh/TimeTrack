@@ -6,7 +6,11 @@ import '../domain/activity_category.dart';
 import 'local_database.dart';
 import 'repository_interfaces.dart';
 
-class ActivityCategoryRepository implements IActivityCategoryRepository {
+class ActivityCategoryRepository
+    implements
+        IActivityCategoryCatalogRepository,
+        IActivityCategoryCommandRepository,
+        IActivityCategorySyncRepository {
   ActivityCategoryRepository({
     required LocalDatabase database,
     Uuid? uuid,

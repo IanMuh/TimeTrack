@@ -5,7 +5,11 @@ import '../domain/profile_settings.dart';
 import 'local_database.dart';
 import 'repository_interfaces.dart';
 
-class SettingsRepository implements ISettingsRepository {
+class SettingsRepository
+    implements
+        ISettingsReadRepository,
+        ISettingsWriteRepository,
+        ISettingsSyncRepository {
   SettingsRepository({
     required LocalDatabase database,
   }) : _database = database;
@@ -64,7 +68,8 @@ class SettingsRepository implements ISettingsRepository {
     await _saveSettingsImpl(db, settings);
   }
 
-  Future<void> _saveSettingsImpl(DatabaseExecutor db, ProfileSettings settings) async {
+  Future<void> _saveSettingsImpl(
+      DatabaseExecutor db, ProfileSettings settings) async {
     await db.insert(
       'profile_settings',
       settings.toLocalMap(),

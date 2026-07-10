@@ -7,7 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'sync_bundle.dart';
-import 'time_repository.dart';
+import 'sync_bundle_store.dart';
 
 typedef SaveLocationPicker = Future<FileSaveLocation?> Function({
   List<XTypeGroup> acceptedTypeGroups,
@@ -28,12 +28,12 @@ typedef ExportDirectoryProvider = Future<Directory> Function();
 
 class FileInteropService {
   FileInteropService({
-    required TimeRepository repository,
+    required SyncBundleStore bundleStore,
     SaveLocationPicker? saveLocationPicker,
     OpenFilePicker? openFilePicker,
     ExportDirectoryPicker? exportDirectoryPicker,
     ExportDirectoryProvider? exportDirectoryProvider,
-  })  : _repository = repository,
+  })  : _bundleStore = bundleStore,
         _saveLocationPicker = saveLocationPicker ?? _defaultSaveLocationPicker,
         _openFilePicker = openFilePicker ?? _defaultOpenFilePicker,
         _exportDirectoryPicker =
@@ -47,7 +47,7 @@ class FileInteropService {
     mimeTypes: ['application/json'],
   );
 
-  final TimeRepository _repository;
+  final SyncBundleStore _bundleStore;
   final SaveLocationPicker _saveLocationPicker;
   final OpenFilePicker _openFilePicker;
   final ExportDirectoryPicker _exportDirectoryPicker;
@@ -62,7 +62,7 @@ class FileInteropService {
       return null;
     }
 
-    final json = _codec.encode(await _repository.exportBundle());
+    final json = _codec.encode(await _bundleStore.exportBundle());
     await File(path).writeAsString(json, encoding: utf8);
     return path;
   }
@@ -76,7 +76,7 @@ class FileInteropService {
     }
 
     final bundle = _codec.decode(await file.readAsString());
-    await _repository.mergeBundle(bundle);
+    await _bundleStore.mergeBundle(bundle);
     return file.path;
   }
 
