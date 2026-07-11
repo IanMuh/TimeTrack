@@ -134,7 +134,10 @@ mixin TimeEntryRepositoryNormalizationLogic
     }
   }
 
-  Future<void> mergeAdjacentUnassignedEntries(String activityId) async {
+  Future<void> mergeAdjacentUnassignedEntries(
+    String activityId, {
+    DateTime? updatedAt,
+  }) async {
     final db = await _database.db;
     final rows = await db.query(
       'time_entries',
@@ -146,7 +149,7 @@ mixin TimeEntryRepositoryNormalizationLogic
       return;
     }
 
-    final now = _now();
+    final now = updatedAt ?? _now();
     final entries = rows.map(TimeEntry.fromMap).toList();
     var survivor = entries.first;
     var survivorChanged = false;
@@ -190,7 +193,7 @@ mixin TimeEntryRepositoryNormalizationLogic
     final activity = await _activityRepo.ensureUnassignedActivity();
     final running = await _runningEntry();
     if (running?.activityId == activity.id) {
-      await mergeAdjacentUnassignedEntries(activity.id);
+      await mergeAdjacentUnassignedEntries(activity.id, updatedAt: at);
       return;
     }
     await _switchToActivity(activity.id, at: at);
