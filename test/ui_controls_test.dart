@@ -485,6 +485,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('showActivityEditorDialog keeps compact edit controls readable',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final state = _FakeAppState();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () => showActivityEditorDialog(
+                  context,
+                  state,
+                  activity: state.activities.first,
+                ),
+                child: const Text('open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final nameField = find.widgetWithText(TextField, '名称');
+    final scrollView = find.byType(DialogContentScrollView);
+    expect(nameField, findsOneWidget);
+    expect(scrollView, findsOneWidget);
+    expect(
+      tester.getTopLeft(nameField).dy,
+      greaterThan(tester.getTopLeft(scrollView).dy + 6),
+    );
+
+    final saveButton = find.widgetWithText(FilledButton, '保存');
+    expect(saveButton, findsOneWidget);
+    expect(tester.getSize(saveButton).width, greaterThan(160));
+    expect(tester.getSize(find.text('保存')).width, greaterThan(20));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'showActivityEditorDialog creates and assigns activity categories',
       (tester) async {

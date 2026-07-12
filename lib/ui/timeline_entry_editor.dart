@@ -133,7 +133,7 @@ Future<void> showEntryEditor(
                 : AppLocalizations.of(context)!.editEntryTitle),
             content: SizedBox(
               width: dialogContentWidth(context, maxWidth: 460),
-              child: SingleChildScrollView(
+              child: DialogContentScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -838,7 +838,7 @@ Future<Activity?> _showCreateEntryActivityDialog(
             title: Text(AppLocalizations.of(context)!.createActivityTitle),
             content: SizedBox(
               width: dialogContentWidth(context, maxWidth: 420),
-              child: SingleChildScrollView(
+              child: DialogContentScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,

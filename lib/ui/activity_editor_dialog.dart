@@ -140,7 +140,7 @@ Future<Activity?> showActivityEditorDialog(
                 : AppLocalizations.of(context)!.editActivityTitle),
             content: SizedBox(
               width: dialogContentWidth(context, maxWidth: 420),
-              child: SingleChildScrollView(
+              child: DialogContentScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -364,46 +364,66 @@ class _ActivityEditorActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final deleteButton = TextButton.icon(
+      onPressed: onDelete,
+      icon: const Icon(Icons.delete_outline),
+      label: Text(
+        l10n.delete,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+    final cancelButton = TextButton(
+      onPressed: onCancel,
+      child: Text(
+        l10n.cancel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+    final saveButton = FilledButton.icon(
+      onPressed: onSave,
+      icon: Icon(saveIcon),
+      label: Text(
+        saveLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+    final compact =
+        showDelete && dialogContentWidth(context, maxWidth: 420) < 360;
+
+    if (compact) {
+      return SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: deleteButton),
+                const SizedBox(width: 8),
+                Expanded(child: cancelButton),
+              ],
+            ),
+            const SizedBox(height: 8),
+            saveButton,
+          ],
+        ),
+      );
+    }
+
     return SizedBox(
       width: double.infinity,
       child: Row(
         children: [
           if (showDelete) ...[
-            Expanded(
-              child: TextButton.icon(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-                label: Text(
-                  l10n.delete,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
+            Expanded(child: deleteButton),
             const SizedBox(width: 8),
           ],
-          Expanded(
-            child: TextButton(
-              onPressed: onCancel,
-              child: Text(
-                l10n.cancel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
+          Expanded(child: cancelButton),
           const SizedBox(width: 8),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: onSave,
-              icon: Icon(saveIcon),
-              label: Text(
-                saveLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
+          Expanded(child: saveButton),
         ],
       ),
     );

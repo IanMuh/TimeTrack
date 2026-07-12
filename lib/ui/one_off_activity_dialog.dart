@@ -76,7 +76,7 @@ Future<Activity?> showOneOffActivityDialog(
             title: Text(AppLocalizations.of(context)!.oneOffActivity),
             content: SizedBox(
               width: dialogContentWidth(context, maxWidth: 420),
-              child: SingleChildScrollView(
+              child: DialogContentScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
