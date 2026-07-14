@@ -66,10 +66,10 @@ void main() {
     await _pumpHome(tester, fixture, width: 390);
 
     expect(find.text('当前正在做'), findsOneWidget);
-    expect(find.text('本地模式：可在设置中开启局域网互通或导入导出'), findsOneWidget);
+    expect(find.text('本地模式：设置里可开启互通或导入导出'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('当前正在做')).dy,
-      lessThan(tester.getTopLeft(find.text('本地模式：可在设置中开启局域网互通或导入导出')).dy),
+      lessThan(tester.getTopLeft(find.text('本地模式：设置里可开启互通或导入导出')).dy),
     );
     expect(find.byTooltip('排序依据'), findsOneWidget);
     expect(_activitySortDropdownFinder(), findsNothing);
@@ -78,6 +78,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_activitySortDropdownFinder(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('current status only shows stop action while recording',
+      (tester) async {
+    final clock = ValueNotifier(DateTime(2026, 1, 2, 12));
+    addTearDown(clock.dispose);
+    var stopCount = 0;
+
+    Future<void> pumpStatus(Activity? runningActivity) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: CurrentStatusCard(
+              runningActivity: runningActivity,
+              clockNotifier: clock,
+              runningDurationAt: (_) => const Duration(minutes: 12),
+              onStop: () => stopCount += 1,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await pumpStatus(null);
+    expect(find.text('停止当前事项'), findsNothing);
+
+    await pumpStatus(
+      Activity(
+        id: 'work',
+        userId: null,
+        name: '工作',
+        color: 0xff0d9488,
+        isFavorite: true,
+        updatedAt: DateTime(2026, 1, 2),
+        isDeleted: false,
+      ),
+    );
+    expect(find.text('停止当前事项'), findsOneWidget);
+
+    await tester.tap(find.text('停止当前事项'));
+    expect(stopCount, 1);
     expect(tester.takeException(), isNull);
   });
 }

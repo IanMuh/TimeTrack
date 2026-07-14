@@ -318,15 +318,17 @@ class _CompactHistoryMenu extends StatelessWidget {
         final undoLabel = state.undoLabel;
         final redoLabel = state.redoLabel;
         return Material(
-          elevation: 3,
-          color: colorScheme.primaryContainer,
-          shape: const CircleBorder(),
+          elevation: 0,
+          color: colorScheme.surface,
+          shape: CircleBorder(
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
           child: PopupMenuButton<_HistoryAction>(
             tooltip:
                 '${AppLocalizations.of(context)!.undoHint} / ${AppLocalizations.of(context)!.redoHint}',
             icon: Icon(
               Icons.history,
-              color: colorScheme.onPrimaryContainer,
+              color: colorScheme.onSurfaceVariant,
             ),
             onSelected: (action) {
               switch (action) {
