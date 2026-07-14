@@ -100,13 +100,19 @@ class CurrentStatusCard extends StatelessWidget {
                       );
                     },
                   ),
-                SizedBox(height: compact ? 12 : 18),
-                FilledButton.icon(
-                  onPressed: onStop,
-                  icon: const Icon(Icons.stop_circle_outlined),
-                  label:
-                      Text(AppLocalizations.of(context)!.stopCurrentActivity),
-                ),
+                if (runningActivity != null) ...[
+                  SizedBox(height: compact ? 12 : 18),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.error,
+                      foregroundColor: colorScheme.onError,
+                    ),
+                    onPressed: onStop,
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label:
+                        Text(AppLocalizations.of(context)!.stopCurrentActivity),
+                  ),
+                ],
               ],
             ),
           ),

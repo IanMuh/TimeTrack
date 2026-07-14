@@ -515,7 +515,7 @@ abstract class AppLocalizations {
   /// No description provided for @localModeHint.
   ///
   /// In zh, this message translates to:
-  /// **'本地模式：可在设置中开启局域网互通或导入导出'**
+  /// **'本地模式：设置里可开启互通或导入导出'**
   String get localModeHint;
 
   /// No description provided for @selectDate.

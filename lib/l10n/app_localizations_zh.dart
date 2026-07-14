@@ -238,7 +238,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lanPeerPaired => '已配对局域网主机';
 
   @override
-  String get localModeHint => '本地模式：可在设置中开启局域网互通或导入导出';
+  String get localModeHint => '本地模式：设置里可开启互通或导入导出';
 
   @override
   String get selectDate => '选择日期';

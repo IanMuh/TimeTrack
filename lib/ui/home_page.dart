@@ -118,6 +118,26 @@ class _HomePageState extends State<HomePage> {
                     setState(() => _activitySortOrder = value);
                   },
                 );
+                final tools = <Widget>[
+                  if (compact)
+                    IconButton.outlined(
+                      tooltip: l10n.sortBy,
+                      onPressed: () {
+                        setState(() {
+                          _showCompactSortControls = !_showCompactSortControls;
+                        });
+                      },
+                      icon: Icon(_showCompactSortControls
+                          ? Icons.expand_less
+                          : Icons.sort),
+                    ),
+                  if (state.hasSyncTarget)
+                    IconButton.outlined(
+                      tooltip: l10n.sync,
+                      onPressed: state.sync,
+                      icon: const Icon(Icons.sync),
+                    ),
+                ];
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -127,29 +147,9 @@ class _HomePageState extends State<HomePage> {
                               pendingActivity.id == runningActivity?.id
                           ? l10n.quickSwitchHint
                           : l10n.quickSwitchSelected(pendingActivity.name),
-                      trailing: Wrap(
-                        spacing: 8,
-                        children: [
-                          if (compact)
-                            IconButton.filledTonal(
-                              tooltip: l10n.sortBy,
-                              onPressed: () {
-                                setState(() {
-                                  _showCompactSortControls =
-                                      !_showCompactSortControls;
-                                });
-                              },
-                              icon: Icon(_showCompactSortControls
-                                  ? Icons.expand_less
-                                  : Icons.sort),
-                            ),
-                          IconButton.filledTonal(
-                            tooltip: l10n.sync,
-                            onPressed: state.hasSyncTarget ? state.sync : null,
-                            icon: const Icon(Icons.sync),
-                          ),
-                        ],
-                      ),
+                      trailing: tools.isEmpty
+                          ? null
+                          : Wrap(spacing: 8, children: tools),
                     ),
                     if (!compact || _showCompactSortControls) ...[
                       const SizedBox(height: 10),

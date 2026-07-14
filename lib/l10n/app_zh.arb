@@ -147,7 +147,7 @@
   "syncing": "正在同步",
   "cloudSyncActive": "已登录并开启云同步",
   "lanPeerPaired": "已配对局域网主机",
-  "localModeHint": "本地模式：可在设置中开启局域网互通或导入导出",
+  "localModeHint": "本地模式：设置里可开启互通或导入导出",
   "selectDate": "选择日期",
   "previousDay": "前一天",
   "nextDay": "后一天",
