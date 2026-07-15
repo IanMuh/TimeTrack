@@ -239,6 +239,7 @@ class _AppShellState extends State<AppShell> {
                       if (showRail) ...[
                         _DesktopNavigationRail(
                           selectedIndex: _index,
+                          sizeClass: sizeClass,
                           destinations: _buildDestinations(context),
                           onDestinationSelected: _selectDestination,
                           historyControls: UndoRedoControls(
@@ -380,12 +381,14 @@ class _CompactHistoryMenu extends StatelessWidget {
 class _DesktopNavigationRail extends StatelessWidget {
   const _DesktopNavigationRail({
     required this.selectedIndex,
+    required this.sizeClass,
     required this.destinations,
     required this.onDestinationSelected,
     required this.historyControls,
   });
 
   final int selectedIndex;
+  final AdaptiveSizeClass sizeClass;
   final List<_AppDestination> destinations;
   final ValueChanged<int> onDestinationSelected;
   final Widget historyControls;
@@ -393,33 +396,37 @@ class _DesktopNavigationRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final expanded = sizeClass == AdaptiveSizeClass.expanded;
+    final railWidth = expanded ? 88.0 : 76.0;
     return Container(
-      width: 96,
+      width: railWidth,
       color: colorScheme.surface,
       child: Column(
         children: [
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Container(
-            width: 44,
-            height: 44,
+            width: expanded ? 42 : 38,
+            height: expanded ? 42 : 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: colorScheme.primary,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.timer,
               color: Colors.white,
-              size: 22,
+              size: 21,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Expanded(
             child: NavigationRail(
               selectedIndex: selectedIndex,
               onDestinationSelected: onDestinationSelected,
-              labelType: NavigationRailLabelType.all,
-              minWidth: 96,
+              labelType: expanded
+                  ? NavigationRailLabelType.all
+                  : NavigationRailLabelType.selected,
+              minWidth: railWidth,
               groupAlignment: -0.95,
               destinations: [
                 for (final destination in destinations)
@@ -432,7 +439,8 @@ class _DesktopNavigationRail extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 14),
+            padding:
+                EdgeInsets.fromLTRB(expanded ? 8 : 6, 0, expanded ? 8 : 6, 12),
             child: historyControls,
           ),
         ],

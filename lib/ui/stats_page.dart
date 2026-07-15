@@ -100,6 +100,11 @@ class _StatsPageState extends State<StatsPage> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _StatsMetrics(
+                      totalDuration: stats.totalDuration,
+                      longestBlock: stats.longestBlock,
+                    ),
+                    const SectionGap(height: 12),
                     _StatsCharts(
                       state: state,
                       range: range,
@@ -117,11 +122,6 @@ class _StatsPageState extends State<StatsPage> {
                           _showCompactStatsFilters = !_showCompactStatsFilters;
                         });
                       },
-                    ),
-                    const SectionGap(),
-                    _StatsMetrics(
-                      totalDuration: stats.totalDuration,
-                      longestBlock: stats.longestBlock,
                     ),
                   ],
                 );
@@ -498,7 +498,7 @@ class _StatsCharts extends StatelessWidget {
                 const SizedBox(height: 10),
                 controls,
               ],
-              const SectionGap(),
+              const SectionGap(height: 12),
               dayTotalsCard,
             ],
           );
@@ -507,10 +507,10 @@ class _StatsCharts extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              controls,
-              const SectionGap(),
               distributionCard,
-              const SectionGap(),
+              const SectionGap(height: 12),
+              controls,
+              const SectionGap(height: 12),
               dayTotalsCard,
             ],
           );
@@ -524,7 +524,7 @@ class _StatsCharts extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   controls,
-                  const SectionGap(),
+                  const SectionGap(height: 12),
                   distributionCard,
                 ],
               ),
@@ -587,7 +587,7 @@ class _StatsControls extends StatelessWidget {
             onSelectionChanged: (value) => onDimensionChanged(value.first),
           );
     return QuietPanel(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -653,7 +653,7 @@ class RangeDistributionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QuietPanel(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -747,7 +747,7 @@ class DayTotalsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QuietPanel(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -793,7 +793,7 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QuietPanel(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

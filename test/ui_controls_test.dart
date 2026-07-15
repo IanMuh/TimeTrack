@@ -578,43 +578,43 @@ void main() {
           of: categoryColorPicker,
           matching: find.byTooltip('选择颜色 #DC2626'),
         ),
-        findsOneWidget);
+        findsNothing);
     expect(
         find.descendant(
           of: categoryColorPicker,
           matching: find.byTooltip('选择颜色 #EA580C'),
         ),
-        findsOneWidget);
+        findsNothing);
     expect(
         find.descendant(
           of: categoryColorPicker,
           matching: find.byTooltip('选择颜色 #CA8A04'),
         ),
-        findsOneWidget);
+        findsNothing);
     expect(
         find.descendant(
           of: categoryColorPicker,
           matching: find.byTooltip('选择颜色 #16A34A'),
         ),
-        findsOneWidget);
+        findsNothing);
     expect(
         find.descendant(
           of: categoryColorPicker,
           matching: find.byTooltip('选择颜色 #0891B2'),
         ),
-        findsOneWidget);
+        findsNothing);
     expect(
         find.descendant(
           of: categoryColorPicker,
           matching: find.byTooltip('选择颜色 #2563EB'),
         ),
-        findsOneWidget);
+        findsNothing);
     expect(
         find.descendant(
           of: categoryColorPicker,
           matching: find.byTooltip('选择颜色 #9333EA'),
         ),
-        findsOneWidget);
+        findsNothing);
     await tester.enterText(
       find.widgetWithText(TextField, '分类名称'),
       '深度',
@@ -805,6 +805,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('SettingsPage layers LAN and file interop actions separately',
+      (tester) async {
+    final state = _FakeAppState();
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 900,
+            child: SettingsPage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('设备互通'));
+    await tester.pumpAndSettle();
+
+    final hostPanel = _nearestQuietPanel(find.text('局域网主机'));
+    final clientPanel = _nearestQuietPanel(find.text('连接局域网主机'));
+    final importPanel = _nearestQuietPanel(find.text('导入文件'));
+    final exportPanel = _nearestQuietPanel(find.text('导出文件'));
+
+    expect(identical(hostPanel, clientPanel), isFalse);
+    expect(identical(importPanel, hostPanel), isFalse);
+    expect(identical(importPanel, clientPanel), isFalse);
+    expect(identical(importPanel, exportPanel), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('showActivityEditorDialog edits existing activity categories',
       (tester) async {
     final state = _FakeAppState();
@@ -955,6 +991,19 @@ void main() {
     expect(find.text('深度工作'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+}
+
+Element _nearestQuietPanel(Finder finder) {
+  final target = finder.evaluate().single;
+  Element? panel;
+  target.visitAncestorElements((ancestor) {
+    if (ancestor.widget is QuietPanel) {
+      panel = ancestor;
+      return false;
+    }
+    return true;
+  });
+  return panel!;
 }
 
 class _FakeAppState extends AppState {

@@ -15,7 +15,7 @@ AdaptiveSizeClass adaptiveSizeClassFor(double width) {
   return AdaptiveSizeClass.expanded;
 }
 
-class AdaptivePage extends StatelessWidget {
+class AdaptivePage extends StatefulWidget {
   const AdaptivePage({
     required this.children,
     this.maxWidth = 1120,
@@ -26,6 +26,19 @@ class AdaptivePage extends StatelessWidget {
   final List<Widget> children;
   final double maxWidth;
   final PageStorageKey<String>? pageKey;
+
+  @override
+  State<AdaptivePage> createState() => _AdaptivePageState();
+}
+
+class _AdaptivePageState extends State<AdaptivePage> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +58,10 @@ class AdaptivePage extends StatelessWidget {
             color: Theme.of(context).scaffoldBackgroundColor,
           ),
           child: Scrollbar(
+            controller: _scrollController,
             child: ListView(
-              key: pageKey,
+              key: widget.pageKey,
+              controller: _scrollController,
               padding: EdgeInsets.symmetric(
                 horizontal: horizontalPadding,
                 vertical: verticalPadding,
@@ -54,10 +69,10 @@ class AdaptivePage extends StatelessWidget {
               children: [
                 Center(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    constraints: BoxConstraints(maxWidth: widget.maxWidth),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
+                      children: widget.children,
                     ),
                   ),
                 ),

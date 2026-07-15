@@ -32,7 +32,7 @@ class CurrentStatusCard extends StatelessWidget {
         return QuietPanel(
           padding: EdgeInsets.zero,
           child: Padding(
-            padding: EdgeInsets.all(compact ? 16 : 22),
+            padding: EdgeInsets.all(compact ? 15 : 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -64,7 +64,7 @@ class CurrentStatusCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: compact ? 8 : 12),
+                SizedBox(height: compact ? 8 : 10),
                 Text(
                   runningActivity?.name ??
                       AppLocalizations.of(context)!.notStartedRecord,
@@ -101,7 +101,7 @@ class CurrentStatusCard extends StatelessWidget {
                     },
                   ),
                 if (runningActivity != null) ...[
-                  SizedBox(height: compact ? 12 : 18),
+                  SizedBox(height: compact ? 12 : 16),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: colorScheme.error,

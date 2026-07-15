@@ -67,9 +67,15 @@ void main() {
 
     expect(find.text('当前正在做'), findsOneWidget);
     expect(find.text('本地模式：设置里可开启互通或导入导出'), findsOneWidget);
+    expect(find.text('快捷切换'), findsOneWidget);
+    expect(find.byType(ActivitySwitchButton), findsNWidgets(2));
     expect(
       tester.getTopLeft(find.text('当前正在做')).dy,
       lessThan(tester.getTopLeft(find.text('本地模式：设置里可开启互通或导入导出')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('快捷切换')).dy,
+      lessThan(tester.getTopLeft(find.byType(ActivitySwitchButton).first).dy),
     );
     expect(find.byTooltip('排序依据'), findsOneWidget);
     expect(_activitySortDropdownFinder(), findsNothing);
@@ -78,6 +84,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_activitySortDropdownFinder(), findsOneWidget);
+    expect(find.byType(ActivitySwitchButton), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 

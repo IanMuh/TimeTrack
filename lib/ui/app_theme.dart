@@ -76,7 +76,7 @@ class TimeTrackTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           side: const BorderSide(color: outline),
         ),
       ),
@@ -125,7 +125,7 @@ class TimeTrackTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(44, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -136,7 +136,7 @@ class TimeTrackTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(44, 44),
           foregroundColor: accent,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           side: const BorderSide(color: outline),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -148,7 +148,7 @@ class TimeTrackTheme {
         style: TextButton.styleFrom(
           minimumSize: const Size(44, 44),
           foregroundColor: accent,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -249,7 +249,7 @@ class TimeTrackTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           side: const BorderSide(color: darkOutline),
         ),
       ),
@@ -302,7 +302,7 @@ class TimeTrackTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(44, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -313,7 +313,7 @@ class TimeTrackTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(44, 44),
           foregroundColor: accent,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           side: const BorderSide(color: darkOutline),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -325,7 +325,7 @@ class TimeTrackTheme {
         style: TextButton.styleFrom(
           minimumSize: const Size(44, 44),
           foregroundColor: accent,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

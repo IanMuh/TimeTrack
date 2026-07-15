@@ -100,7 +100,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stats metrics render below charts and daily totals',
+  testWidgets('stats summary metrics render before charts and daily totals',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -109,19 +109,20 @@ void main() {
     await _pumpStats(tester, state, width: 920);
     await tester.pumpAndSettle();
 
-    final metricsTop = tester.getTopLeft(find.text('范围总记录')).dy;
+    final totalSummaryTop = tester.getTopLeft(find.text('范围总记录')).dy;
+    final longestSummaryTop = tester.getTopLeft(find.text('最长连续')).dy;
 
     expect(
-      metricsTop,
-      greaterThan(tester.getBottomLeft(find.byType(RangeDistributionCard)).dy),
+      totalSummaryTop,
+      lessThan(tester.getTopLeft(find.byType(RangeDistributionCard)).dy),
     );
     expect(
-      metricsTop,
-      greaterThan(tester.getBottomLeft(find.byType(DayTotalsCard)).dy),
+      totalSummaryTop,
+      lessThan(tester.getTopLeft(find.byType(DayTotalsCard)).dy),
     );
     expect(
-      tester.getTopLeft(find.text('最长连续')).dy,
-      greaterThan(tester.getBottomLeft(find.byType(DayTotalsCard)).dy),
+      longestSummaryTop,
+      lessThan(tester.getTopLeft(find.byType(RangeDistributionCard)).dy),
     );
     expect(tester.takeException(), isNull);
   });
@@ -135,6 +136,11 @@ void main() {
     await _pumpStats(tester, state, width: 390);
 
     expect(find.text('统计'), findsOneWidget);
+    expect(find.text('范围总记录'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('范围总记录')).dy,
+      lessThan(tester.getTopLeft(find.text('今天分布')).dy),
+    );
     expect(find.text('暂无数据'), findsWidgets);
     expect(find.text('筛选'), findsOneWidget);
     expect(find.text('统计维度'), findsNothing);

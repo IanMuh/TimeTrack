@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import '../data/sync_status_store.dart';
 import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'interop_message_panel.dart';
@@ -34,7 +35,7 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
     }
 
     return QuietPanel(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -54,11 +55,17 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
           LayoutBuilder(
             builder: (context, constraints) {
               final expanded = constraints.maxWidth >= expandedBreakpoint;
-              final host = _LanHostPanel(state: state);
-              final client = _LanClientPanel(
-                state: state,
-                addressController: _addressController,
-                codeController: _codeController,
+              final host = QuietPanel(
+                padding: const EdgeInsets.all(14),
+                child: _LanHostPanel(state: state),
+              );
+              final client = QuietPanel(
+                padding: const EdgeInsets.all(14),
+                child: _LanClientPanel(
+                  state: state,
+                  addressController: _addressController,
+                  codeController: _codeController,
+                ),
               );
               if (!expanded) {
                 return Column(
@@ -80,31 +87,10 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
               );
             },
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              FilledButton.icon(
-                onPressed: state.importInteropFile,
-                icon: const Icon(Icons.upload_file_outlined),
-                label: Text(AppLocalizations.of(context)!.importFile),
-              ),
-              OutlinedButton.icon(
-                onPressed: state.exportInteropFile,
-                icon: const Icon(Icons.download_outlined),
-                label: Text(AppLocalizations.of(context)!.exportFile),
-              ),
-              FilledButton.icon(
-                onPressed:
-                    state.hasSyncTarget && !state.isSyncing ? state.sync : null,
-                icon: const Icon(Icons.sync),
-                label: Text(state.isSyncing
-                    ? AppLocalizations.of(context)!.syncing
-                    : AppLocalizations.of(context)!.syncNow),
-              ),
-            ],
-          ),
+          const SizedBox(height: 14),
+          _FileInteropPanel(state: state),
+          const SizedBox(height: 14),
+          _InteropSyncPanel(state: state),
           if (state.interopMessage != null) ...[
             const SizedBox(height: 12),
             InteropMessagePanel(message: state.interopMessage!),
@@ -113,6 +99,91 @@ class _InteropSettingsCardState extends State<InteropSettingsCard> {
       ),
     );
   }
+}
+
+class _FileInteropPanel extends StatelessWidget {
+  const _FileInteropPanel({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return QuietPanel(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(
+            title: '${l10n.importFile} / ${l10n.exportFile}',
+            subtitle: l10n.deviceInteropHint,
+            icon: Icons.file_upload_outlined,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: state.importInteropFile,
+                icon: const Icon(Icons.upload_file_outlined),
+                label: Text(l10n.importFile),
+              ),
+              OutlinedButton.icon(
+                onPressed: state.exportInteropFile,
+                icon: const Icon(Icons.download_outlined),
+                label: Text(l10n.exportFile),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InteropSyncPanel extends StatelessWidget {
+  const _InteropSyncPanel({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return QuietPanel(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Expanded(
+            child: SectionTitle(
+              title: l10n.syncNow,
+              subtitle: state.hasSyncTarget
+                  ? l10n.syncTargetLabel(_formatSyncTarget(context, state))
+                  : null,
+              icon: Icons.sync,
+            ),
+          ),
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            onPressed:
+                state.hasSyncTarget && !state.isSyncing ? state.sync : null,
+            icon: const Icon(Icons.sync),
+            label: Text(state.isSyncing ? l10n.syncing : l10n.syncNow),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatSyncTarget(BuildContext context, AppState state) {
+  final l10n = AppLocalizations.of(context)!;
+  return switch (state.currentSyncTarget) {
+    SyncTarget.cloudLan => l10n.syncTargetCloudLan,
+    SyncTarget.cloud => l10n.syncTargetCloud,
+    SyncTarget.lan => l10n.syncTargetLan,
+    SyncTarget.none => l10n.syncTargetNone,
+  };
 }
 
 class _LanHostPanel extends StatelessWidget {

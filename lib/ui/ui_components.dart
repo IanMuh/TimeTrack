@@ -73,7 +73,7 @@ class PageHeader extends StatelessWidget {
 class QuietPanel extends StatelessWidget {
   const QuietPanel({
     required this.child,
-    this.padding = const EdgeInsets.all(18),
+    this.padding = const EdgeInsets.all(16),
     this.color,
     super.key,
   });
@@ -113,8 +113,8 @@ class SectionTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (icon != null) ...[
-          IconBadge(icon: icon!, color: colorScheme.primary),
-          const SizedBox(width: 12),
+          IconBadge(icon: icon!, color: colorScheme.primary, size: 34),
+          const SizedBox(width: 10),
         ],
         Expanded(
           child: Column(

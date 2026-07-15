@@ -125,16 +125,19 @@ class TimelineHeader extends StatelessWidget {
           zoom: zoom,
           onZoomChanged: onZoomChanged,
         );
+        final displayOptions = _TimelineDisplayOptions(
+          key: ValueKey(
+            'timeline-display-options-${compact ? 'compact' : 'wide'}-$mode',
+          ),
+          showRecordControls: showRecordControls,
+          densitySelector: densitySelector,
+          spanSelector: spanSelector,
+          displaySelector: displaySelector,
+          detailControl: displayMode == TimelineDisplayMode.segmentedDay
+              ? segmentControl
+              : zoomControl,
+        );
         if (compact) {
-          final displayOptions = _TimelineDisplayOptions(
-            showRecordControls: showRecordControls,
-            densitySelector: densitySelector,
-            spanSelector: spanSelector,
-            displaySelector: displaySelector,
-            detailControl: displayMode == TimelineDisplayMode.segmentedDay
-                ? segmentControl
-                : zoomControl,
-          );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -160,6 +163,7 @@ class TimelineHeader extends StatelessWidget {
           );
         }
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
@@ -171,10 +175,6 @@ class TimelineHeader extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: modeSelector),
-                if (showRecordControls) ...[
-                  const SizedBox(width: 12),
-                  densitySelector,
-                ],
                 const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: onAddEntry,
@@ -183,22 +183,8 @@ class TimelineHeader extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                spanSelector,
-                if (showRecordControls) ...[
-                  const SizedBox(width: 16),
-                  displaySelector,
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: displayMode == TimelineDisplayMode.segmentedDay
-                        ? segmentControl
-                        : zoomControl,
-                  ),
-                ],
-              ],
-            ),
+            const SizedBox(height: 10),
+            displayOptions,
           ],
         );
       },
@@ -206,13 +192,14 @@ class TimelineHeader extends StatelessWidget {
   }
 }
 
-class _TimelineDisplayOptions extends StatelessWidget {
+class _TimelineDisplayOptions extends StatefulWidget {
   const _TimelineDisplayOptions({
     required this.showRecordControls,
     required this.densitySelector,
     required this.spanSelector,
     required this.displaySelector,
     required this.detailControl,
+    super.key,
   });
 
   final bool showRecordControls;
@@ -222,24 +209,35 @@ class _TimelineDisplayOptions extends StatelessWidget {
   final Widget detailControl;
 
   @override
+  State<_TimelineDisplayOptions> createState() =>
+      _TimelineDisplayOptionsState();
+}
+
+class _TimelineDisplayOptionsState extends State<_TimelineDisplayOptions> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     return QuietPanel(
       padding: EdgeInsets.zero,
       child: ExpansionTile(
         leading: const Icon(Icons.tune),
         title: Text(AppLocalizations.of(context)!.displayOptions),
+        onExpansionChanged: (value) => setState(() => _expanded = value),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          spanSelector,
-          if (showRecordControls) ...[
-            const SizedBox(height: 10),
-            densitySelector,
-            const SizedBox(height: 10),
-            displaySelector,
-            const SizedBox(height: 10),
-            detailControl,
-          ],
-        ],
+        children: _expanded
+            ? [
+                widget.spanSelector,
+                if (widget.showRecordControls) ...[
+                  const SizedBox(height: 10),
+                  widget.densitySelector,
+                  const SizedBox(height: 10),
+                  widget.displaySelector,
+                  const SizedBox(height: 10),
+                  widget.detailControl,
+                ],
+              ]
+            : const [],
       ),
     );
   }

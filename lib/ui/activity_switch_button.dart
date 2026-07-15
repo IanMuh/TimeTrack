@@ -30,7 +30,7 @@ class ActivitySwitchButton extends StatelessWidget {
     return Material(
       color: selected ? color : color.withValues(alpha: pending ? 0.16 : 0.08),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: active
               ? color.withValues(alpha: selected ? 0.0 : 0.42)
@@ -53,7 +53,7 @@ class ActivitySwitchButton extends StatelessWidget {
           ),
         },
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           onDoubleTap: onDoubleTap,
           child: Semantics(
@@ -68,7 +68,7 @@ class ActivitySwitchButton extends StatelessWidget {
                     : AppLocalizations.of(context)!
                         .switchToSemantics(activity.name),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
                   Icon(
@@ -99,7 +99,7 @@ class ActivitySwitchButton extends StatelessWidget {
                     ),
                   if (activity.isUnassigned)
                     SizedBox.square(
-                      dimension: 40,
+                      dimension: 36,
                       child: Tooltip(
                         message: AppLocalizations.of(context)!
                             .systemActivityCannotEdit,

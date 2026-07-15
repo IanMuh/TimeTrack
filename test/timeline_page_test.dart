@@ -448,7 +448,12 @@ void main() {
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
 
+    expect(find.text('显示选项'), findsOneWidget);
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
+
     expect(find.byType(Slider), findsNothing);
+    expect(find.text('单行缩放'), findsNothing);
     expect(find.text('可缩放时间线'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -498,6 +503,8 @@ void main() {
     ];
 
     await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('分段显示'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('增加分段'));

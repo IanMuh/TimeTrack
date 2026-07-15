@@ -17,6 +17,7 @@ import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/time_entry.dart';
 import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/app_shell.dart';
+import 'package:timetrack/ui/settings_page.dart';
 
 class _ShellTestState extends AppState {
   _ShellTestState()
@@ -267,6 +268,22 @@ void main() {
     expect(find.byTooltip('重做：删除时间段 Ctrl+Y'), findsOneWidget);
   });
 
+  testWidgets('medium desktop rail uses lighter density and selected labels',
+      (tester) async {
+    final state = _ShellTestState();
+    addTearDown(state.dispose);
+
+    await _pumpShell(tester, state, width: 700);
+
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(rail.minWidth ?? 72, lessThanOrEqualTo(80));
+    expect(rail.labelType, NavigationRailLabelType.selected);
+    expect(find.byTooltip('撤销 Ctrl+Z'), findsOneWidget);
+    expect(find.byTooltip('重做 Ctrl+Y'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shell shows undo and redo controls on compact layout',
       (tester) async {
     final state = _ShellTestState();
@@ -431,7 +448,7 @@ void main() {
     await tester.tap(settingsAction);
     await tester.pumpAndSettle();
 
-    expect(find.text('版本更新'), findsOneWidget);
+    expect(find.byType(VersionUpdateSettingsCard), findsOneWidget);
     expect(find.text('当前版本'), findsOneWidget);
   });
 }

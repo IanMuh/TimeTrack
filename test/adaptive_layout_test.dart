@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/l10n/app_localizations.dart';
@@ -57,6 +58,49 @@ void main() {
     expect(find.text('Body'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('AdaptivePage scrollbar handles mouse wheel scrolls', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 500,
+            child: AdaptivePage(
+              children: [
+                for (var index = 0; index < 40; index++)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text('Row $index'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+    await gesture.addPointer(location: const Offset(460, 250));
+    await tester.pump();
+
+    tester.binding.handlePointerEvent(
+      const PointerScrollEvent(
+        position: Offset(460, 250),
+        scrollDelta: Offset(0, 320),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('shared page header keeps actions visible at narrow widths', (
     tester,
@@ -141,7 +185,18 @@ void main() {
     await pumpAtWidth(920);
     expect(find.text('时间轴'), findsOneWidget);
     expect(find.text('记录'), findsOneWidget);
+    expect(find.text('补记'), findsOneWidget);
+    expect(find.text('显示选项'), findsOneWidget);
+    expect(find.text('详细'), findsNothing);
+    expect(find.text('7日'), findsNothing);
+    expect(find.text('单行缩放'), findsNothing);
+
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('详细'), findsOneWidget);
     expect(find.text('7日'), findsOneWidget);
+    expect(find.text('单行缩放'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -36,7 +36,7 @@ class _TimelineEntryListSection extends StatelessWidget {
           onMetricChanged: onSortMetricChanged,
           onOrderChanged: onSortOrderChanged,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _EntryList(
           state: state,
           entries: entries,
@@ -284,19 +284,19 @@ class TimelineEntryCard extends StatelessWidget {
             label: AppLocalizations.of(context)!
                 .editEntrySemantics(state.activityNameForEntry(entry)),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 5,
-                    height: 64,
+                    height: 56,
                     decoration: BoxDecoration(
                       color: color,
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: _TimelineEntryContent(
                       title: state.activityNameForEntry(entry),
@@ -396,14 +396,14 @@ class ActionLogCard extends StatelessWidget {
       activity?.color ?? AppConstants.defaultActivityColor,
     );
     return QuietPanel(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 18,
+            radius: 16,
             backgroundColor: color.withValues(alpha: 0.14),
-            child: Icon(_logIcon(log.actionType), color: color, size: 18),
+            child: Icon(_logIcon(log.actionType), color: color, size: 17),
           ),
           const SizedBox(width: 12),
           Expanded(
