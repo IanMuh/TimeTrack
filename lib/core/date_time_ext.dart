@@ -12,7 +12,7 @@ String formatDurationCompact(Duration duration) {
   final hours = totalMinutes ~/ 60;
   final minutes = totalMinutes % 60;
   if (hours == 0) {
-    return '$minutes 分钟';
+    return '${minutes}m';
   }
-  return '$hours 小时 $minutes 分钟';
+  return '${hours}h ${minutes}m';
 }

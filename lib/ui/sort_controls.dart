@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 enum SortOrder { ascending, descending }
 
 class SortOrderSegmentedButton extends StatelessWidget {
@@ -14,17 +16,18 @@ class SortOrderSegmentedButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return SegmentedButton<SortOrder>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: SortOrder.ascending,
-          icon: Icon(Icons.north),
-          label: Text('顺序'),
+          icon: const Icon(Icons.north),
+          label: Text(l10n.sortAscending),
         ),
         ButtonSegment(
           value: SortOrder.descending,
-          icon: Icon(Icons.south),
-          label: Text('倒序'),
+          icon: const Icon(Icons.south),
+          label: Text(l10n.sortDescending),
         ),
       ],
       selected: {value},

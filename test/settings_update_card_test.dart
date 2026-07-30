@@ -45,9 +45,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Reminders'), findsOneWidget);
+      expect(
+        find.text('Use gentle prompts to confirm long-running activities.'),
+        findsOneWidget,
+      );
       expect(find.text('Timeline'), findsOneWidget);
       expect(find.text('Activity categories'), findsNothing);
       expect(find.text('Cloud sync'), findsOneWidget);
+      expect(
+        find.text('App runs in local mode when Supabase is not configured.'),
+        findsOneWidget,
+      );
       expect(find.text('Device sharing'), findsOneWidget);
       expect(find.text('Version update'), findsOneWidget);
 

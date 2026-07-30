@@ -105,7 +105,7 @@ class _CoverageSegment extends StatelessWidget {
         interval.end.difference(dayStart).inSeconds.clamp(0, 86400) / 86400;
     final left = width * startRatio;
     final segmentWidth = (width * (endRatio - startRatio)).clamp(2.0, width);
-    final activityName = state.activityNameForEntry(entry);
+    final activityName = activityNameForEntryDisplay(context, state, entry);
     final activityColor = state.activityColorForEntry(entry);
     final endText = interval.isRunningNow
         ? AppLocalizations.of(context)!.inProgress
@@ -773,7 +773,7 @@ class _TimelineBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activityName = state.activityNameForEntry(entry);
+    final activityName = activityNameForEntryDisplay(context, state, entry);
     final color = Color(state.activityColorForEntry(entry));
     final textColor = TimelineBlockColor.textOn(color);
     final timeText =
@@ -880,11 +880,15 @@ class _EntriesTimelineView extends StatelessWidget {
       onSortOrderChanged: onSortOrderChanged,
       emptyText: emptyText,
     );
+    final listGap = adaptiveSizeClassFor(MediaQuery.sizeOf(context).width) ==
+            AdaptiveSizeClass.compact
+        ? 16.0
+        : 112.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         timeline,
-        const SectionGap(),
+        SizedBox(height: listGap),
         list,
       ],
     );

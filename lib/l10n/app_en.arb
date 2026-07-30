@@ -43,6 +43,7 @@
     }
   },
   "quickSwitch": "Quick Switch",
+  "switchActivity": "Switch",
   "quickSwitchHint": "Tap to select, tap again to confirm switch.",
   "quickSwitchSelected": "Selected {name}, tap again to switch.",
   "@quickSwitchSelected": {
@@ -56,6 +57,8 @@
   "notStarted": "Not started",
   "recording": "Recording",
   "notStartedRecord": "Not started",
+  "sessions": "Sessions",
+  "timerBarSwitchHint": "Tap to switch activity",
   "selectActivityToStart": "Pick an activity to start tracking today.",
   "elapsedDuration": "Elapsed {duration}",
   "@elapsedDuration": {
@@ -168,6 +171,16 @@
   "displayOptions": "Display options",
   "singleLineZoom": "Single-line zoom",
   "segmentedDayDisplay": "Segmented day",
+  "timelineDecreaseSegments": "Decrease segments",
+  "timelineIncreaseSegments": "Increase segments",
+  "timelineSegmentsPerDay": "{count} segments/day",
+  "@timelineSegmentsPerDay": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "futureDayBanner": "{date} hasn't arrived yet. Records will appear here after the day actually occurs.",
   "@futureDayBanner": {
     "placeholders": {
@@ -289,6 +302,24 @@
   "dailyTotal": "Daily total",
   "dailyTotalHint": "Track your recording rhythm across the week or custom range.",
   "recordHint": "Total duration will be listed by date once records exist.",
+  "statsCountTimes": "x",
+  "sortAscending": "Ascending",
+  "sortDescending": "Descending",
+  "entrySortLabel": "Sort entries",
+  "actionSortLabel": "Sort actions",
+  "sortStartTime": "Start time",
+  "sortDuration": "Duration",
+  "sortActivityName": "Activity",
+  "sortColor": "Color",
+  "sortOccurredAt": "Occurred at",
+  "sortActionType": "Action type",
+  "sortDevice": "Device",
+  "interopExportedPrefix": "Exported: ",
+  "interopImportedPrefix": "Imported: ",
+  "interopExportCanceled": "Export canceled.",
+  "interopImportCanceled": "Import canceled.",
+  "interopExportFailedPrefix": "Export failed: ",
+  "interopImportFailedPrefix": "Import failed: ",
   "settings": "Settings",
   "settingsSubtitle": "Reminders, sync, and device sharing always stay local-first.",
   "settingsSections": "Back to settings sections",
@@ -300,6 +331,17 @@
   "@minutesFormat": {
     "placeholders": {
       "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursMinutesFormat": "{hours} hr {minutes} min",
+  "@hoursMinutesFormat": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
         "type": "int"
       }
     }

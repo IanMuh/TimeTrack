@@ -285,6 +285,10 @@ Future<void> _pumpTimeline(
     ),
   );
   await tester.pump();
+  // TimelinePage loads range data asynchronously; give the future a chance
+  // to complete before assertions run.
+  await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+  await tester.pump();
 }
 
 Future<void> _tapAndPumpUntil(
@@ -408,6 +412,8 @@ void main() {
     );
 
     expect(state.selectedDay.isSameDate(today), isTrue);
+    expect(find.text('范围总记录'), findsOneWidget);
+    expect(find.text('最长连续'), findsOneWidget);
     expect(find.text('可缩放时间线'), findsOneWidget);
     expect(find.byType(TimelineEntryCard), findsWidgets);
     expect(find.text('记录列表'), findsOneWidget);
@@ -432,6 +438,10 @@ void main() {
       await _pumpTimeline(tester, state, width: width);
 
       expect(
+        tester.getTopLeft(find.text('范围总记录')).dy,
+        lessThan(tester.getTopLeft(find.text('可缩放时间线')).dy),
+      );
+      expect(
         tester.getTopLeft(find.text('可缩放时间线')).dy,
         lessThan(tester.getTopLeft(find.text('记录列表')).dy),
       );
@@ -448,7 +458,12 @@ void main() {
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
 
+    expect(find.text('显示选项'), findsOneWidget);
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
+
     expect(find.byType(Slider), findsNothing);
+    expect(find.text('单行缩放'), findsNothing);
     expect(find.text('可缩放时间线'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -498,6 +513,8 @@ void main() {
     ];
 
     await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('显示选项'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('分段显示'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('增加分段'));
@@ -562,9 +579,11 @@ void main() {
       ];
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(
-      find.byType(DropdownButtonFormField<TimelineEntrySortMetric>),
-    );
+    final entrySort =
+        find.byType(DropdownButtonFormField<TimelineEntrySortMetric>);
+    await tester.ensureVisible(entrySort);
+    await tester.pumpAndSettle();
+    await tester.tap(entrySort);
     await tester.pumpAndSettle();
     await tester.tap(find.text('时长').last);
     await tester.pumpAndSettle();
@@ -576,9 +595,15 @@ void main() {
       lessThan(tester.getTopLeft(find.text('20 分钟')).dy),
     );
 
+    await tester.ensureVisible(find.text('指令'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('指令'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<ActionLogSortMetric>));
+    final actionSort =
+        find.byType(DropdownButtonFormField<ActionLogSortMetric>);
+    await tester.ensureVisible(actionSort);
+    await tester.pumpAndSettle();
+    await tester.tap(actionSort);
     await tester.pumpAndSettle();
     await tester.tap(find.text('设备').last);
     await tester.pumpAndSettle();
@@ -657,12 +682,12 @@ void main() {
 
     expect(
       find.ancestor(
-        of: find.text('未安排'),
+        of: find.text('未分配'),
         matching: find.byType(TimelineEntryCard),
       ),
       findsOneWidget,
     );
-    expect(find.text('24 小时 0 分钟'), findsOneWidget);
+    expect(find.text('24 小时 0 分钟'), findsWidgets);
     expect(find.text('00:00:00 - 24:00:00'), findsOneWidget);
     expect(find.text('这一天还没有记录。'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -686,7 +711,7 @@ void main() {
 
     await _pumpTimeline(tester, state, width: 390);
     final gapCard = find.ancestor(
-      of: find.text('未安排'),
+      of: find.text('未分配'),
       matching: find.byType(TimelineEntryCard),
     );
     expect(gapCard, findsOneWidget);
@@ -791,7 +816,7 @@ void main() {
 
     await _pumpTimeline(tester, state, width: 390);
     final gapCard = find.ancestor(
-      of: find.text('未安排'),
+      of: find.text('未分配'),
       matching: find.byType(TimelineEntryCard),
     );
     await _tapEntryEditButtonInCard(tester, gapCard);
@@ -1459,6 +1484,63 @@ void main() {
     await _pumpTimeline(tester, state, width: 920);
 
     expect(find.textContaining('尚未到来'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sort controls use localized strings in English locale',
+      (tester) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+
+    state.dayActionLogs = [
+      ActionLog(
+        id: 'log',
+        userId: null,
+        actionType: ActionType.stop,
+        activityId: 'work',
+        entryId: null,
+        message: 'stop',
+        occurredAt: DateTime(2026, 1, 2, 11),
+        deviceId: 'test-device',
+        updatedAt: DateTime(2026, 1, 2, 11),
+        isDeleted: false,
+      ),
+    ];
+
+    tester.view.physicalSize = const Size(920, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 1200,
+            child: TimelinePage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Records'), findsOneWidget);
+    expect(find.text('Sort entries'), findsOneWidget);
+    expect(find.text('Start time'), findsOneWidget);
+    expect(find.text('Ascending'), findsOneWidget);
+    expect(find.text('Descending'), findsOneWidget);
+
+    await tester.tap(find.text('Actions'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sort actions'), findsOneWidget);
+    expect(find.text('Occurred at'), findsOneWidget);
+    expect(find.text('Ascending'), findsOneWidget);
+    expect(find.text('Descending'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

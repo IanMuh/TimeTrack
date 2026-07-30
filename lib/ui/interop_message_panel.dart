@@ -68,8 +68,8 @@ class _InteropMessageDetails {
 
   static _InteropMessageDetails from(BuildContext context, String message) {
     final l10n = AppLocalizations.of(context)!;
-    const exportedPrefix = '已导出：';
-    const importedPrefix = '已导入：';
+    final exportedPrefix = l10n.interopExportedPrefix;
+    final importedPrefix = l10n.interopImportedPrefix;
     if (message.startsWith(exportedPrefix)) {
       return _InteropMessageDetails(
         title: l10n.exported,

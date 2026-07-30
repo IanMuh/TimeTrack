@@ -9,12 +9,14 @@ class ActivityColorPicker extends StatelessWidget {
     required this.selectedColor,
     required this.onColorChanged,
     this.palette = activityPalette,
+    this.showPalette = true,
     super.key,
   });
 
   final int selectedColor;
   final ValueChanged<int> onColorChanged;
   final List<int> palette;
+  final bool showPalette;
 
   @override
   Widget build(BuildContext context) {
@@ -22,25 +24,27 @@ class ActivityColorPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            for (final colorValue in palette)
-              IconButton(
-                tooltip: AppLocalizations.of(context)!
-                    .selectColorTooltip(_formatHexColor(colorValue)),
-                onPressed: () => onColorChanged(colorValue),
-                icon: Icon(
-                  selectedColor == colorValue
-                      ? Icons.check_circle
-                      : Icons.circle,
-                  color: Color(colorValue),
+        if (showPalette) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final colorValue in palette)
+                IconButton(
+                  tooltip: AppLocalizations.of(context)!
+                      .selectColorTooltip(_formatHexColor(colorValue)),
+                  onPressed: () => onColorChanged(colorValue),
+                  icon: Icon(
+                    selectedColor == colorValue
+                        ? Icons.check_circle
+                        : Icons.circle,
+                    color: Color(colorValue),
+                  ),
                 ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
         ExpansionTile(
           tilePadding: EdgeInsets.zero,
           childrenPadding: EdgeInsets.zero,

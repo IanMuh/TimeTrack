@@ -311,6 +311,7 @@ class _ActivityCategoryEditor extends StatelessWidget {
             selectedColor: selectedCategoryColor,
             onColorChanged: onCategoryColorChanged,
             palette: categoryPalette,
+            showPalette: false,
           ),
         ),
         const SizedBox(height: 10),

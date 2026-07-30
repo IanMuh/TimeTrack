@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timetrack/app/app_state.dart';
@@ -62,6 +63,10 @@ Future<void> _pumpStats(
     ),
   );
   await tester.pump();
+  // StatsPage loads range stats asynchronously; give the future a chance
+  // to complete before assertions run.
+  await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+  await tester.pump();
 }
 
 Future<void> _disposeStatsFixture(
@@ -70,6 +75,14 @@ Future<void> _disposeStatsFixture(
 ) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.runAsync(fixture.dispose);
+}
+
+double _textTop(WidgetTester tester, String text) {
+  return tester.getTopLeft(find.text(text)).dy;
+}
+
+double _textLeft(WidgetTester tester, String text) {
+  return tester.getTopLeft(find.text(text)).dx;
 }
 
 void main() {
@@ -88,6 +101,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shows loading indicator while stats load', (tester) async {
+    final fixture = (await tester.runAsync(_buildFixture))!;
+    final state = fixture.state;
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
+
+    tester.view.physicalSize = const Size(920, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 920,
+            height: 900,
+            child: StatsPage(state: state),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.hourglass_empty), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('default preset shows today labels', (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -100,7 +143,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stats metrics render below charts and daily totals',
+  testWidgets('stats summary metrics render before chart and secondary content',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -109,20 +152,27 @@ void main() {
     await _pumpStats(tester, state, width: 920);
     await tester.pumpAndSettle();
 
-    final metricsTop = tester.getTopLeft(find.text('范围总记录')).dy;
+    expect(_textTop(tester, '范围总记录'), lessThan(_textTop(tester, '今天分布')));
+    expect(_textTop(tester, '最长连续'), lessThan(_textTop(tester, '今天分布')));
+    expect(_textTop(tester, '范围总记录'), lessThan(_textTop(tester, '统计维度')));
+    expect(_textTop(tester, '最长连续'), lessThan(_textTop(tester, '每日累计')));
+    expect(tester.takeException(), isNull);
+  });
 
+  testWidgets('expanded stats layout keeps chart before secondary content',
+      (tester) async {
+    final fixture = (await tester.runAsync(_buildFixture))!;
+    final state = fixture.state;
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
+
+    await _pumpStats(tester, state, width: 920);
+    await tester.pumpAndSettle();
+
+    expect(_textTop(tester, '今天分布'), lessThan(_textTop(tester, '统计维度')));
     expect(
-      metricsTop,
-      greaterThan(tester.getBottomLeft(find.byType(RangeDistributionCard)).dy),
-    );
-    expect(
-      metricsTop,
-      greaterThan(tester.getBottomLeft(find.byType(DayTotalsCard)).dy),
-    );
-    expect(
-      tester.getTopLeft(find.text('最长连续')).dy,
-      greaterThan(tester.getBottomLeft(find.byType(DayTotalsCard)).dy),
-    );
+        _textTop(tester, '今天分布'), lessThanOrEqualTo(_textTop(tester, '每日累计')));
+    expect(_textLeft(tester, '今天分布'), lessThan(_textLeft(tester, '每日累计')));
+    expect(find.text('筛选'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -132,13 +182,26 @@ void main() {
     final state = fixture.state;
     addTearDown(() => _disposeStatsFixture(tester, fixture));
 
-    await _pumpStats(tester, state, width: 390);
+    await _pumpStats(tester, state, width: 320);
 
     expect(find.text('统计'), findsOneWidget);
+    expect(find.text('范围总记录'), findsOneWidget);
+    expect(
+      (tester.getTopLeft(find.text('今天')).dy -
+              tester.getTopLeft(find.text('01-02')).dy)
+          .abs(),
+      lessThan(40),
+    );
+    expect(
+      tester.getTopLeft(find.text('范围总记录')).dy,
+      lessThan(tester.getTopLeft(find.text('今天分布')).dy),
+    );
     expect(find.text('暂无数据'), findsWidgets);
     expect(find.text('筛选'), findsOneWidget);
+    expect(_textTop(tester, '今天分布'), lessThan(_textTop(tester, '筛选')));
     expect(find.text('统计维度'), findsNothing);
     expect(find.text('每日累计'), findsOneWidget);
+    expect(_textTop(tester, '筛选'), lessThan(_textTop(tester, '每日累计')));
     expect(tester.takeException(), isNull);
   });
 
@@ -148,7 +211,7 @@ void main() {
     final state = fixture.state;
     addTearDown(() => _disposeStatsFixture(tester, fixture));
 
-    await _pumpStats(tester, state, width: 390);
+    await _pumpStats(tester, state, width: 320);
 
     await tester.ensureVisible(find.text('筛选'));
     await tester.tap(find.text('筛选'));
@@ -187,6 +250,89 @@ void main() {
     expect(find.text('顺序'), findsNothing);
     expect(find.text('倒序'), findsNothing);
     expect(find.text('工作'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('RangeDistributionCard legend count suffix is localized', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildFixture))!;
+    final state = fixture.state;
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: RangeDistributionCard(
+            state: state,
+            title: 'Today distribution',
+            rows: const [
+              StatsGroupRow(
+                id: 'work',
+                label: 'Work',
+                totalDuration: Duration(hours: 1),
+                count: 3,
+                color: 0xff2563eb,
+              ),
+            ],
+            totalMinutes: 60,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('次'), findsNothing);
+    expect(find.text('1 hr 0 min · 3x'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('RangeDistributionCard keeps compact legend beside chart', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_buildFixture))!;
+    final state = fixture.state;
+    addTearDown(() => _disposeStatsFixture(tester, fixture));
+    tester.view.physicalSize = const Size(320, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: RangeDistributionCard(
+              state: state,
+              title: '今天分布',
+              rows: const [
+                StatsGroupRow(
+                  id: 'work',
+                  label: '工作',
+                  totalDuration: Duration(hours: 1),
+                  count: 3,
+                  color: 0xff2563eb,
+                ),
+              ],
+              totalMinutes: 60,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final chartRect = tester.getRect(find.byType(PieChart));
+    final legendRect = tester.getRect(find.text('工作'));
+    expect(legendRect.left, greaterThan(chartRect.right));
+    expect(find.text('1小时 · 3次'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

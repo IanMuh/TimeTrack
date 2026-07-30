@@ -266,6 +266,12 @@ abstract class AppLocalizations {
   /// **'快捷切换'**
   String get quickSwitch;
 
+  /// No description provided for @switchActivity.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换'**
+  String get switchActivity;
+
   /// No description provided for @quickSwitchHint.
   ///
   /// In zh, this message translates to:
@@ -301,6 +307,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未开始记录'**
   String get notStartedRecord;
+
+  /// No description provided for @sessions.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录数'**
+  String get sessions;
+
+  /// No description provided for @timerBarSwitchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'点按切换事项'**
+  String get timerBarSwitchHint;
 
   /// No description provided for @selectActivityToStart.
   ///
@@ -637,6 +655,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分段显示'**
   String get segmentedDayDisplay;
+
+  /// No description provided for @timelineDecreaseSegments.
+  ///
+  /// In zh, this message translates to:
+  /// **'减少分段'**
+  String get timelineDecreaseSegments;
+
+  /// No description provided for @timelineIncreaseSegments.
+  ///
+  /// In zh, this message translates to:
+  /// **'增加分段'**
+  String get timelineIncreaseSegments;
+
+  /// No description provided for @timelineSegmentsPerDay.
+  ///
+  /// In zh, this message translates to:
+  /// **'每天 {count} 段'**
+  String timelineSegmentsPerDay(int count);
 
   /// No description provided for @futureDayBanner.
   ///
@@ -1034,6 +1070,114 @@ abstract class AppLocalizations {
   /// **'有记录后会按日期列出总时长。'**
   String get recordHint;
 
+  /// No description provided for @statsCountTimes.
+  ///
+  /// In zh, this message translates to:
+  /// **'次'**
+  String get statsCountTimes;
+
+  /// No description provided for @sortAscending.
+  ///
+  /// In zh, this message translates to:
+  /// **'顺序'**
+  String get sortAscending;
+
+  /// No description provided for @sortDescending.
+  ///
+  /// In zh, this message translates to:
+  /// **'倒序'**
+  String get sortDescending;
+
+  /// No description provided for @entrySortLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录排序'**
+  String get entrySortLabel;
+
+  /// No description provided for @actionSortLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'指令排序'**
+  String get actionSortLabel;
+
+  /// No description provided for @sortStartTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始时间'**
+  String get sortStartTime;
+
+  /// No description provided for @sortDuration.
+  ///
+  /// In zh, this message translates to:
+  /// **'时长'**
+  String get sortDuration;
+
+  /// No description provided for @sortActivityName.
+  ///
+  /// In zh, this message translates to:
+  /// **'事项'**
+  String get sortActivityName;
+
+  /// No description provided for @sortColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'颜色'**
+  String get sortColor;
+
+  /// No description provided for @sortOccurredAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'发生时间'**
+  String get sortOccurredAt;
+
+  /// No description provided for @sortActionType.
+  ///
+  /// In zh, this message translates to:
+  /// **'指令类型'**
+  String get sortActionType;
+
+  /// No description provided for @sortDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备'**
+  String get sortDevice;
+
+  /// No description provided for @interopExportedPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出：'**
+  String get interopExportedPrefix;
+
+  /// No description provided for @interopImportedPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入：'**
+  String get interopImportedPrefix;
+
+  /// No description provided for @interopExportCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消导出。'**
+  String get interopExportCanceled;
+
+  /// No description provided for @interopImportCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消导入。'**
+  String get interopImportCanceled;
+
+  /// No description provided for @interopExportFailedPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出失败：'**
+  String get interopExportFailedPrefix;
+
+  /// No description provided for @interopImportFailedPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入失败：'**
+  String get interopImportFailedPrefix;
+
   /// No description provided for @settings.
   ///
   /// In zh, this message translates to:
@@ -1081,6 +1225,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count} 分钟'**
   String minutesFormat(int count);
+
+  /// No description provided for @hoursMinutesFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'{hours} 小时 {minutes} 分钟'**
+  String hoursMinutesFormat(int hours, int minutes);
 
   /// No description provided for @reminderSettings.
   ///

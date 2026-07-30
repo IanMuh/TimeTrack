@@ -36,7 +36,7 @@ class _TimelineEntryListSection extends StatelessWidget {
           onMetricChanged: onSortMetricChanged,
           onOrderChanged: onSortOrderChanged,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _EntryList(
           state: state,
           entries: entries,
@@ -137,16 +137,17 @@ class _TimelineEntrySortControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return _SortControlRow<TimelineEntrySortMetric>(
-      label: '记录排序',
+      label: l10n.entrySortLabel,
       value: metric,
       values: TimelineEntrySortMetric.values,
       order: order,
       labelFor: (value) => switch (value) {
-        TimelineEntrySortMetric.startTime => '开始时间',
-        TimelineEntrySortMetric.duration => '时长',
-        TimelineEntrySortMetric.activityName => '事项',
-        TimelineEntrySortMetric.color => '颜色',
+        TimelineEntrySortMetric.startTime => l10n.sortStartTime,
+        TimelineEntrySortMetric.duration => l10n.sortDuration,
+        TimelineEntrySortMetric.activityName => l10n.sortActivityName,
+        TimelineEntrySortMetric.color => l10n.sortColor,
       },
       onMetricChanged: onMetricChanged,
       onOrderChanged: onOrderChanged,
@@ -169,16 +170,17 @@ class _ActionLogSortControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return _SortControlRow<ActionLogSortMetric>(
-      label: '指令排序',
+      label: l10n.actionSortLabel,
       value: metric,
       values: ActionLogSortMetric.values,
       order: order,
       labelFor: (value) => switch (value) {
-        ActionLogSortMetric.occurredAt => '发生时间',
-        ActionLogSortMetric.actionType => '指令类型',
-        ActionLogSortMetric.activityName => '事项',
-        ActionLogSortMetric.device => '设备',
+        ActionLogSortMetric.occurredAt => l10n.sortOccurredAt,
+        ActionLogSortMetric.actionType => l10n.sortActionType,
+        ActionLogSortMetric.activityName => l10n.sortActivityName,
+        ActionLogSortMetric.device => l10n.sortDevice,
       },
       onMetricChanged: onMetricChanged,
       onOrderChanged: onOrderChanged,
@@ -214,8 +216,9 @@ class _SortControlRow<T extends Object> extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         SizedBox(
-          width: compact ? double.infinity : 190,
+          width: compact ? double.infinity : 220,
           child: DropdownButtonFormField<T>(
+            isExpanded: true,
             initialValue: value,
             decoration: InputDecoration(
               labelText: label,
@@ -281,26 +284,27 @@ class TimelineEntryCard extends StatelessWidget {
           onTap: openEditor,
           child: Semantics(
             button: true,
-            label: AppLocalizations.of(context)!
-                .editEntrySemantics(state.activityNameForEntry(entry)),
+            label: AppLocalizations.of(context)!.editEntrySemantics(
+                activityNameForEntryDisplay(context, state, entry)),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 5,
-                    height: 64,
+                    height: 56,
                     decoration: BoxDecoration(
                       color: color,
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: _TimelineEntryContent(
-                      title: state.activityNameForEntry(entry),
-                      duration: formatDurationCompact(interval.duration),
+                      title: activityNameForEntryDisplay(context, state, entry),
+                      duration:
+                          formatDurationForDisplay(context, interval.duration),
                       timeText: timeText,
                       note: entry.note,
                     ),
@@ -396,14 +400,14 @@ class ActionLogCard extends StatelessWidget {
       activity?.color ?? AppConstants.defaultActivityColor,
     );
     return QuietPanel(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 18,
+            radius: 16,
             backgroundColor: color.withValues(alpha: 0.14),
-            child: Icon(_logIcon(log.actionType), color: color, size: 18),
+            child: Icon(_logIcon(log.actionType), color: color, size: 17),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -424,7 +428,8 @@ class ActionLogCard extends StatelessWidget {
                       Text(
                         activity == null
                             ? log.message
-                            : '${log.message}: ${activity.name}',
+                            : '${log.message}: '
+                                '${activityNameForDisplay(context, activity)}',
                         style: Theme.of(context)
                             .textTheme
                             .titleSmall

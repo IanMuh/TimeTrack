@@ -22,26 +22,34 @@ class InteropState {
 
   String? message;
 
-  Future<void> exportFile() async {
+  Future<void> exportFile({
+    required String exportedPrefix,
+    required String canceledMessage,
+    required String failedPrefix,
+  }) async {
     try {
       final path = await _exportToFile();
-      message = path == null ? '已取消导出。' : '已导出：$path';
+      message = path == null ? canceledMessage : '$exportedPrefix$path';
     } catch (error) {
-      message = '导出失败：$error';
+      message = '$failedPrefix$error';
     }
   }
 
-  Future<bool> importFile() async {
+  Future<bool> importFile({
+    required String importedPrefix,
+    required String canceledMessage,
+    required String failedPrefix,
+  }) async {
     try {
       final path = await _importFromFile();
       if (path == null) {
-        message = '已取消导入。';
+        message = canceledMessage;
         return false;
       }
-      message = '已导入：$path';
+      message = '$importedPrefix$path';
       return true;
     } catch (error) {
-      message = '导入失败：$error';
+      message = '$failedPrefix$error';
       return false;
     }
   }

@@ -42,7 +42,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context, _) {
         return AdaptivePage(
           pageKey: const PageStorageKey('settings-page'),
-          maxWidth: 920,
+          maxWidth: 1040,
           children: [
             PageHeader(
               title: AppLocalizations.of(context)!.settings,
@@ -51,7 +51,9 @@ class _SettingsPageState extends State<SettingsPage> {
             const SectionGap(),
             LayoutBuilder(
               builder: (context, constraints) {
-                final expanded = constraints.maxWidth >= expandedBreakpoint;
+                final expanded =
+                    MediaQuery.sizeOf(context).width >= expandedBreakpoint ||
+                        constraints.maxWidth >= expandedBreakpoint;
                 final sections = _settingsSections(context);
                 if (!expanded) {
                   final selected = _selectedCompactSection ??
@@ -76,16 +78,28 @@ class _SettingsPageState extends State<SettingsPage> {
                     children: [
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: IconButton.filledTonal(
-                          tooltip:
+                        child: Tooltip(
+                          message:
                               AppLocalizations.of(context)!.settingsSections,
-                          onPressed: () {
-                            setState(() {
-                              _selectedCompactSection = null;
-                              _compactSectionListRequested = true;
-                            });
-                          },
-                          icon: const Icon(Icons.arrow_back),
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _selectedCompactSection = null;
+                                _compactSectionListRequested = true;
+                              });
+                            },
+                            icon: const Icon(Icons.arrow_back, size: 18),
+                            label: Text(
+                              AppLocalizations.of(context)!.settingsSections,
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(44, 40),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -97,7 +111,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 220,
+                      width: 284,
                       child: _SettingsSectionList(
                         sections: sections,
                         selected: _effectiveExpandedSection(state),
@@ -109,7 +123,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 20),
                     Expanded(
                       child: _sectionWidget(
                           _effectiveExpandedSection(state), state),
@@ -130,26 +144,31 @@ class _SettingsPageState extends State<SettingsPage> {
       _SettingsSectionInfo(
         section: _SettingsSection.reminders,
         label: l10n.reminderSettings,
+        hint: l10n.reminderSettingsHint,
         icon: Icons.notifications_outlined,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.timeline,
         label: l10n.timelineSettings,
+        hint: l10n.timelineSettingsHint,
         icon: Icons.timeline,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.cloudSync,
         label: l10n.cloudSync,
+        hint: l10n.cloudSyncHint,
         icon: Icons.cloud_sync_outlined,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.interop,
         label: l10n.deviceInterop,
+        hint: l10n.deviceInteropHint,
         icon: Icons.devices_other_outlined,
       ),
       _SettingsSectionInfo(
         section: _SettingsSection.updates,
         label: l10n.versionUpdate,
+        hint: l10n.versionUpdateHint,
         icon: Icons.system_update_alt_outlined,
       ),
     ];

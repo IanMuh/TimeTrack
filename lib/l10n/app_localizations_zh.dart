@@ -97,6 +97,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get quickSwitch => '快捷切换';
 
   @override
+  String get switchActivity => '切换';
+
+  @override
   String get quickSwitchHint => '轻点选择，再点一次确认切换。';
 
   @override
@@ -115,6 +118,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notStartedRecord => '未开始记录';
+
+  @override
+  String get sessions => '记录数';
+
+  @override
+  String get timerBarSwitchHint => '点按切换事项';
 
   @override
   String get selectActivityToStart => '选择一个事项开始记录今天的时间。';
@@ -299,6 +308,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get segmentedDayDisplay => '分段显示';
+
+  @override
+  String get timelineDecreaseSegments => '减少分段';
+
+  @override
+  String get timelineIncreaseSegments => '增加分段';
+
+  @override
+  String timelineSegmentsPerDay(int count) {
+    return '每天 $count 段';
+  }
 
   @override
   String futureDayBanner(String date) {
@@ -513,6 +533,60 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recordHint => '有记录后会按日期列出总时长。';
 
   @override
+  String get statsCountTimes => '次';
+
+  @override
+  String get sortAscending => '顺序';
+
+  @override
+  String get sortDescending => '倒序';
+
+  @override
+  String get entrySortLabel => '记录排序';
+
+  @override
+  String get actionSortLabel => '指令排序';
+
+  @override
+  String get sortStartTime => '开始时间';
+
+  @override
+  String get sortDuration => '时长';
+
+  @override
+  String get sortActivityName => '事项';
+
+  @override
+  String get sortColor => '颜色';
+
+  @override
+  String get sortOccurredAt => '发生时间';
+
+  @override
+  String get sortActionType => '指令类型';
+
+  @override
+  String get sortDevice => '设备';
+
+  @override
+  String get interopExportedPrefix => '已导出：';
+
+  @override
+  String get interopImportedPrefix => '已导入：';
+
+  @override
+  String get interopExportCanceled => '已取消导出。';
+
+  @override
+  String get interopImportCanceled => '已取消导入。';
+
+  @override
+  String get interopExportFailedPrefix => '导出失败：';
+
+  @override
+  String get interopImportFailedPrefix => '导入失败：';
+
+  @override
   String get settings => '设置';
 
   @override
@@ -536,6 +610,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String minutesFormat(int count) {
     return '$count 分钟';
+  }
+
+  @override
+  String hoursMinutesFormat(int hours, int minutes) {
+    return '$hours 小时 $minutes 分钟';
   }
 
   @override

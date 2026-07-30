@@ -74,6 +74,7 @@ class _StatsPageState extends State<StatsPage> {
         final range = _rangeFor(state.now);
         return AdaptivePage(
           pageKey: const PageStorageKey('stats-page'),
+          onRefresh: state.refresh,
           children: [
             StatsHeader(
               range: range,
@@ -83,10 +84,29 @@ class _StatsPageState extends State<StatsPage> {
               onPreviousDay: () => _shiftCustomDay(-1),
               onNextDay: () => _shiftCustomDay(1),
             ),
-            const SectionGap(),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SectionGap(
+                  height: constraints.maxWidth < compactBreakpoint ? 10 : 16,
+                );
+              },
+            ),
             FutureBuilder<TimeRangeStats>(
               future: _statsForRange(range),
               builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Icon(
+                        Icons.hourglass_empty,
+                        size: 32,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  );
+                }
                 final stats = snapshot.data ??
                     const TimeRangeStats(
                       totalsByActivity: {},
@@ -100,6 +120,11 @@ class _StatsPageState extends State<StatsPage> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _StatsMetrics(
+                      totalDuration: stats.totalDuration,
+                      longestBlock: stats.longestBlock,
+                    ),
+                    const SectionGap(height: 12),
                     _StatsCharts(
                       state: state,
                       range: range,
@@ -117,11 +142,6 @@ class _StatsPageState extends State<StatsPage> {
                           _showCompactStatsFilters = !_showCompactStatsFilters;
                         });
                       },
-                    ),
-                    const SectionGap(),
-                    _StatsMetrics(
-                      totalDuration: stats.totalDuration,
-                      longestBlock: stats.longestBlock,
                     ),
                   ],
                 );
@@ -256,19 +276,20 @@ class StatsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final header = PageHeader(
-      title: AppLocalizations.of(context)!.stats,
-      subtitle: AppLocalizations.of(context)!.statsSubtitle(range.label),
-      trailing: StatusPill(
-        label: range.label,
-        icon: Icons.insights_outlined,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    );
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < compactBreakpoint;
+        final header = PageHeader(
+          title: AppLocalizations.of(context)!.stats,
+          subtitle: AppLocalizations.of(context)!.statsSubtitle(range.label),
+          trailing: compact
+              ? null
+              : StatusPill(
+                  label: range.label,
+                  icon: Icons.insights_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+        );
         final controls = _StatsPresetControl(
           selectedPreset: selectedPreset,
           compact: compact,
@@ -280,6 +301,8 @@ class StatsHeader extends StatelessWidget {
           onPreviousDay: onPreviousDay,
           onDateTap: onPickCustomDay,
           onNextDay: onNextDay,
+          dense: compact,
+          shortDateLabel: compact,
         );
 
         if (compact) {
@@ -287,10 +310,14 @@ class StatsHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               header,
-              const SizedBox(height: 12),
-              controls,
-              const SizedBox(height: 10),
-              dayStepper,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(flex: 4, child: controls),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 6, child: dayStepper),
+                ],
+              ),
             ],
           );
         }
@@ -338,9 +365,10 @@ class _StatsPresetControl extends StatelessWidget {
     if (compact) {
       return DropdownButtonFormField<StatsPreset>(
         initialValue: selectedPreset,
-        decoration: InputDecoration(
-          labelText: AppLocalizations.of(context)!.range,
-          prefixIcon: const Icon(Icons.date_range),
+        isExpanded: true,
+        isDense: true,
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         ),
         items: [
           for (final preset in StatsPreset.values)
@@ -398,21 +426,24 @@ class _StatsMetrics extends StatelessWidget {
         final compact = constraints.maxWidth < compactBreakpoint;
         final cards = [
           _MetricCard(
+            icon: Icons.timer_outlined,
             label: AppLocalizations.of(context)!.totalRangeRecords,
-            value: formatDurationCompact(totalDuration),
+            value: formatDurationForDisplay(context, totalDuration),
+            color: Theme.of(context).colorScheme.primary,
           ),
           _MetricCard(
+            icon: Icons.auto_graph_outlined,
             label: AppLocalizations.of(context)!.longestStreak,
-            value: formatDurationCompact(longestBlock),
+            value: formatDurationForDisplay(context, longestBlock),
+            color: Theme.of(context).colorScheme.secondary,
           ),
         ];
         if (compact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          return Row(
             children: [
-              cards[0],
-              const SizedBox(height: 12),
-              cards[1],
+              Expanded(child: cards[0]),
+              const SizedBox(width: 8),
+              Expanded(child: cards[1]),
             ],
           );
         }
@@ -498,7 +529,7 @@ class _StatsCharts extends StatelessWidget {
                 const SizedBox(height: 10),
                 controls,
               ],
-              const SectionGap(),
+              const SectionGap(height: 12),
               dayTotalsCard,
             ],
           );
@@ -507,10 +538,10 @@ class _StatsCharts extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              controls,
-              const SectionGap(),
               distributionCard,
-              const SectionGap(),
+              const SectionGap(height: 12),
+              controls,
+              const SectionGap(height: 12),
               dayTotalsCard,
             ],
           );
@@ -523,9 +554,9 @@ class _StatsCharts extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  controls,
-                  const SectionGap(),
                   distributionCard,
+                  const SectionGap(height: 12),
+                  controls,
                 ],
               ),
             ),
@@ -587,7 +618,7 @@ class _StatsControls extends StatelessWidget {
             onSelectionChanged: (value) => onDimensionChanged(value.first),
           );
     return QuietPanel(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -653,7 +684,7 @@ class RangeDistributionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QuietPanel(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -664,39 +695,46 @@ class RangeDistributionCard extends StatelessWidget {
                 : AppLocalizations.of(context)!.activityColorLegend,
             icon: Icons.pie_chart_outline,
           ),
-          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return SizedBox(height: constraints.maxWidth < 520 ? 10 : 20);
+            },
+          ),
           LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 520;
+              final chartExtent = compact ? 104.0 : 144.0;
               final chart = SizedBox(
-                height: compact ? 220 : 260,
+                height: rows.isEmpty
+                    ? (compact ? 132 : 176)
+                    : (compact ? 108 : 152),
                 child: rows.isEmpty
-                    ? EmptyState(
+                    ? _StatsEmptyCanvas(
                         icon: Icons.pie_chart_outline,
                         title: AppLocalizations.of(context)!.noData,
                         message:
                             AppLocalizations.of(context)!.startRecordingHint,
                       )
-                    : PieChart(
-                        PieChartData(
-                          sectionsSpace: 2,
-                          centerSpaceRadius: compact ? 44 : 54,
-                          sections: [
-                            for (final row in rows)
-                              PieChartSectionData(
-                                value: row.totalDuration.inMinutes
-                                    .clamp(1, 1 << 31)
-                                    .toDouble(),
-                                title:
-                                    '${(row.totalDuration.inMinutes / totalMinutes * 100).round()}%',
-                                radius: compact ? 74 : 88,
-                                titleStyle: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                color: Color(row.color),
-                              ),
-                          ],
+                    : Center(
+                        child: SizedBox.square(
+                          dimension: chartExtent,
+                          child: PieChart(
+                            PieChartData(
+                              sectionsSpace: 2,
+                              centerSpaceRadius: compact ? 20 : 30,
+                              sections: [
+                                for (final row in rows)
+                                  PieChartSectionData(
+                                    value: row.totalDuration.inMinutes
+                                        .clamp(1, 1 << 31)
+                                        .toDouble(),
+                                    title: '',
+                                    radius: compact ? 32 : 42,
+                                    color: Color(row.color),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
               );
@@ -706,17 +744,40 @@ class RangeDistributionCard extends StatelessWidget {
                     _LegendRow(
                       color: Color(item.color),
                       label: item.label,
-                      value: '${formatDurationCompact(item.totalDuration)}'
-                          ' · ${item.count}次',
+                      value:
+                          '${formatDurationForDisplay(context, item.totalDuration)}'
+                          ' · ${item.count}${AppLocalizations.of(context)!.statsCountTimes}',
                     ),
                 ],
               );
               if (compact) {
+                if (rows.isEmpty) {
+                  return chart;
+                }
                 return Column(
                   children: [
-                    chart,
-                    const SizedBox(height: 12),
-                    legend,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(width: 118, child: chart),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              for (final item in rows)
+                                _CompactLegendRow(
+                                  color: Color(item.color),
+                                  label: item.label,
+                                  value: '${_formatDurationTerse(
+                                    context,
+                                    item.totalDuration,
+                                  )} · ${item.count}${AppLocalizations.of(context)!.statsCountTimes}',
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 );
               }
@@ -747,7 +808,7 @@ class DayTotalsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QuietPanel(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -758,7 +819,7 @@ class DayTotalsCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (dayTotals.isEmpty)
-            EmptyState(
+            _StatsEmptyCanvas(
               icon: Icons.event_busy_outlined,
               title: AppLocalizations.of(context)!.noData,
               message: AppLocalizations.of(context)!.recordHint,
@@ -772,7 +833,7 @@ class DayTotalsCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: Text(formatDurationCompact(item.value)),
+                trailing: Text(formatDurationForDisplay(context, item.value)),
               ),
         ],
       ),
@@ -785,33 +846,209 @@ class DayTotalsCard extends StatelessWidget {
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value});
+  const _MetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return QuietPanel(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dense = constraints.maxWidth < 220;
+        return QuietPanel(
+          padding: EdgeInsets.all(dense ? 9 : 14),
+          child: dense
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        IconBadge(icon: icon, color: color, size: 30),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        softWrap: false,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    IconBadge(icon: icon, color: color, size: 38),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+        );
+      },
+    );
+  }
+}
+
+class _StatsEmptyCanvas extends StatelessWidget {
+  const _StatsEmptyCanvas({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tight = constraints.maxHeight < 140;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.74),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colorScheme.outlineVariant),
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(tight ? 10 : 14),
+              child: tight
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconBadge(
+                          icon: icon,
+                          color: colorScheme.primary,
+                          size: 32,
+                        ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                message,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconBadge(
+                          icon: icon,
+                          color: colorScheme.primary,
+                          size: 34,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -851,9 +1088,88 @@ class _LegendRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.labelLarge,
+          Text(value, style: Theme.of(context).textTheme.labelLarge),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatDurationTerse(BuildContext context, Duration duration) {
+  final totalMinutes = duration.inMinutes;
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  final languageCode = Localizations.localeOf(context).languageCode;
+  if (languageCode == 'zh') {
+    if (hours == 0) {
+      return '$minutes分';
+    }
+    if (minutes == 0) {
+      return '$hours小时';
+    }
+    return '$hours小时$minutes分';
+  }
+  if (hours == 0) {
+    return '${minutes}m';
+  }
+  if (minutes == 0) {
+    return '${hours}h';
+  }
+  return '${hours}h ${minutes}m';
+}
+
+class _CompactLegendRow extends StatelessWidget {
+  const _CompactLegendRow({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
