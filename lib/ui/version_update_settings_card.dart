@@ -22,63 +22,70 @@ class VersionUpdateSettingsCard extends StatelessWidget {
         : l10n.updateErrorLabel(state.updateErrorMessage!);
     final statusColor = _updateStatusColor(context, state.updateStatus);
 
-    return QuietPanel(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionTitle(
-            title: l10n.versionUpdate,
-            subtitle: l10n.versionUpdateHint,
-            icon: Icons.system_update_alt_outlined,
-          ),
-          const SizedBox(height: 14),
-          _UpdateInfoRow(
-            label: l10n.currentVersion,
-            value: state.currentAppVersion.isEmpty
-                ? l10n.versionUnknown
-                : state.currentAppVersion,
-          ),
-          if (update != null) ...[
-            const SizedBox(height: 10),
-            _UpdateInfoRow(
-              label: l10n.latestVersion,
-              value: update.latestVersion.toString(),
-            ),
-          ],
-          const SizedBox(height: 12),
-          StatusPill(
-            label: statusText,
-            icon: _updateStatusIcon(state.updateStatus),
-            color: statusColor,
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360;
+        final showDownloadAction = update != null || !compact;
+        return QuietPanel(
+          padding: EdgeInsets.all(compact ? 16 : 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FilledButton.icon(
-                onPressed: isChecking
-                    ? null
-                    : () {
-                        unawaited(state.checkForUpdates());
-                      },
-                icon: const Icon(Icons.refresh_outlined),
-                label: Text(l10n.checkUpdates),
+              SectionTitle(
+                title: l10n.versionUpdate,
+                subtitle: l10n.versionUpdateHint,
+                icon: Icons.system_update_alt_outlined,
               ),
-              OutlinedButton.icon(
-                onPressed: update == null
-                    ? null
-                    : () {
-                        unawaited(state.openUpdateDownload());
-                      },
-                icon: const Icon(Icons.open_in_new_outlined),
-                label: Text(l10n.openDownloadPage),
+              SizedBox(height: compact ? 12 : 14),
+              _UpdateInfoRow(
+                label: l10n.currentVersion,
+                value: state.currentAppVersion.isEmpty
+                    ? l10n.versionUnknown
+                    : state.currentAppVersion,
+              ),
+              if (update != null) ...[
+                const SizedBox(height: 10),
+                _UpdateInfoRow(
+                  label: l10n.latestVersion,
+                  value: update.latestVersion.toString(),
+                ),
+              ],
+              const SizedBox(height: 12),
+              StatusPill(
+                label: statusText,
+                icon: _updateStatusIcon(state.updateStatus),
+                color: statusColor,
+              ),
+              SizedBox(height: compact ? 12 : 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: compact ? 8 : 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed: isChecking
+                        ? null
+                        : () {
+                            unawaited(state.checkForUpdates());
+                          },
+                    icon: const Icon(Icons.refresh_outlined),
+                    label: Text(l10n.checkUpdates),
+                  ),
+                  if (showDownloadAction)
+                    OutlinedButton.icon(
+                      onPressed: update == null
+                          ? null
+                          : () {
+                              unawaited(state.openUpdateDownload());
+                            },
+                      icon: const Icon(Icons.open_in_new_outlined),
+                      label: Text(l10n.openDownloadPage),
+                    ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

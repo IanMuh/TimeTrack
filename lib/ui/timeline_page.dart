@@ -18,6 +18,7 @@ import 'adaptive_layout.dart';
 import 'activity_color_picker.dart';
 import 'activity_colors.dart';
 import 'activity_editor_dialog.dart';
+import 'snackbar_helper.dart';
 import 'sort_controls.dart';
 import 'ui_components.dart';
 
@@ -112,6 +113,22 @@ _VisibleEntryInterval _visibleEntryInterval(
     end: visibleEnd,
     isRunningNow: isRunningNow,
   );
+}
+
+Duration _visibleEntryDurationForRange(
+  TimeEntry entry,
+  DateTime rangeStart,
+  DateTime rangeEnd,
+  DateTime now,
+) {
+  final rawEnd = entry.endAt ?? now;
+  final visibleStart =
+      entry.startAt.isBefore(rangeStart) ? rangeStart : entry.startAt;
+  final visibleEnd = rawEnd.isAfter(rangeEnd) ? rangeEnd : rawEnd;
+  if (!visibleEnd.isAfter(visibleStart)) {
+    return Duration.zero;
+  }
+  return visibleEnd.difference(visibleStart);
 }
 
 class TimelinePage extends StatefulWidget {
@@ -220,6 +237,7 @@ class _TimelinePageState extends State<TimelinePage> {
         final rangeEnd = rangeStart.add(Duration(days: _span.days));
         return AdaptivePage(
           pageKey: const PageStorageKey('timeline-page'),
+          onRefresh: state.refresh,
           children: [
             TimelineHeader(
               selectedDay: state.selectedDay,
@@ -248,8 +266,21 @@ class _TimelinePageState extends State<TimelinePage> {
             FutureBuilder<_TimelineRangeData>(
               future: _rangeDataFor(state, rangeStart, rangeEnd),
               builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Icon(
+                        Icons.hourglass_empty,
+                        size: 32,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  );
+                }
                 final data = snapshot.data ?? const _TimelineRangeData.empty();
-                return switch (_mode) {
+                final content = switch (_mode) {
                   TimelineViewMode.entries => _EntriesTimelineView(
                       state: state,
                       entries: _sortedEntries(state, data.entries),
@@ -287,6 +318,21 @@ class _TimelinePageState extends State<TimelinePage> {
                           : AppLocalizations.of(context)!.emptyRangeActions,
                     ),
                 };
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TimelineRangeSummaryCard(
+                      state: state,
+                      entries: data.entries,
+                      logs: data.logs,
+                      rangeStart: rangeStart,
+                      rangeEnd: rangeEnd,
+                      mode: _mode,
+                    ),
+                    const SectionGap(height: 12),
+                    content,
+                  ],
+                );
               },
             ),
           ],

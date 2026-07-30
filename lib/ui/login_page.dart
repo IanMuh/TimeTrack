@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
 import '../l10n/app_localizations.dart';
+import 'snackbar_helper.dart';
 import 'ui_components.dart';
 
 class LoginPage extends StatefulWidget {
@@ -56,7 +57,6 @@ class _LoginPageState extends State<LoginPage> {
                     ? null
                     : () async {
                         setState(() => _sending = true);
-                        final messenger = ScaffoldMessenger.of(context);
                         final l10n = AppLocalizations.of(context)!;
                         try {
                           await widget.state.sendMagicLink(_controller.text);
@@ -66,15 +66,15 @@ class _LoginPageState extends State<LoginPage> {
                               _sending = false;
                             });
                           }
-                        } catch (e) {
-                          if (mounted) {
-                            setState(() => _sending = false);
-                            messenger.showSnackBar(
-                              SnackBar(
-                                  content: Text(l10n.sendFailed(e.toString()))),
-                            );
-                          }
-                        }
+                       } catch (e) {
+                         if (context.mounted) {
+                           setState(() => _sending = false);
+                           showErrorSnackBar(
+                             context,
+                             message: l10n.sendFailed(e.toString()),
+                           );
+                         }
+                       }
                       },
                 icon: const Icon(Icons.mark_email_read_outlined),
                 label: Text(_sending
@@ -116,10 +116,9 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: _verifying
                   ? null
                   : () async {
-                      setState(() => _verifying = true);
-                      final messenger = ScaffoldMessenger.of(context);
-                      final l10n = AppLocalizations.of(context)!;
-                      try {
+                       setState(() => _verifying = true);
+                       final l10n = AppLocalizations.of(context)!;
+                       try {
                         await widget.state.verifyEmailOtp(
                           email: _controller.text,
                           token: _tokenController.text,
@@ -127,15 +126,15 @@ class _LoginPageState extends State<LoginPage> {
                         if (mounted) {
                           setState(() => _verifying = false);
                         }
-                      } catch (e) {
-                        if (mounted) {
-                          setState(() => _verifying = false);
-                          messenger.showSnackBar(
-                            SnackBar(
-                                content: Text(l10n.verifyFailed(e.toString()))),
-                          );
-                        }
-                      }
+                       } catch (e) {
+                         if (context.mounted) {
+                           setState(() => _verifying = false);
+                           showErrorSnackBar(
+                             context,
+                             message: l10n.verifyFailed(e.toString()),
+                           );
+                         }
+                       }
                     },
               icon: const Icon(Icons.verified_outlined),
               label: Text(_verifying

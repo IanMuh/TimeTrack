@@ -94,7 +94,8 @@ void main() {
     }
 
     await pumpAtWidth(390);
-    expect(find.text('范围'), findsOneWidget);
+    expect(find.text('本周'), findsOneWidget);
+    expect(find.text('范围'), findsNothing);
     expect(find.text('06-15 - 06-21'), findsOneWidget);
     expect(find.text('选择日期'), findsNothing);
     expect(find.byTooltip('前一天'), findsOneWidget);
@@ -712,7 +713,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '临时事项'));
+    final temporaryActivityButton = find.widgetWithText(OutlinedButton, '临时事项');
+    await tester.ensureVisible(temporaryActivityButton);
+    await tester.pumpAndSettle();
+    await tester.tap(temporaryActivityButton);
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AlertDialog, '临时事项'), findsOneWidget);
 
@@ -743,7 +747,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '临时事项'));
+    final temporaryActivityButton = find.widgetWithText(OutlinedButton, '临时事项');
+    await tester.ensureVisible(temporaryActivityButton);
+    await tester.pumpAndSettle();
+    await tester.tap(temporaryActivityButton);
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AlertDialog, '临时事项'), findsOneWidget);
     expect(find.text('一次性会议'), findsNothing);
@@ -805,7 +812,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('SettingsPage layers LAN and file interop actions separately',
+  testWidgets('SettingsPage layers LAN, file, and sync actions separately',
       (tester) async {
     final state = _FakeAppState();
     addTearDown(state.dispose);
@@ -833,11 +840,25 @@ void main() {
     final clientPanel = _nearestQuietPanel(find.text('连接局域网主机'));
     final importPanel = _nearestQuietPanel(find.text('导入文件'));
     final exportPanel = _nearestQuietPanel(find.text('导出文件'));
+    final syncPanel =
+        _nearestQuietPanel(find.widgetWithText(FilledButton, '立即同步'));
 
     expect(identical(hostPanel, clientPanel), isFalse);
     expect(identical(importPanel, hostPanel), isFalse);
     expect(identical(importPanel, clientPanel), isFalse);
     expect(identical(importPanel, exportPanel), isTrue);
+    expect(identical(syncPanel, hostPanel), isFalse);
+    expect(identical(syncPanel, clientPanel), isFalse);
+    expect(identical(syncPanel, importPanel), isFalse);
+    expect(_quietPanelAncestorCount(find.text('局域网主机')), 1);
+    expect(_quietPanelAncestorCount(find.text('连接局域网主机')), 1);
+    expect(_quietPanelAncestorCount(find.text('导入文件')), 1);
+    expect(
+      _quietPanelAncestorCount(
+        find.widgetWithText(FilledButton, '立即同步'),
+      ),
+      1,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -939,7 +960,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(DropdownButtonFormField<ActivitySortMetric>));
+    final sortDropdown =
+        find.byType(DropdownButtonFormField<ActivitySortMetric>);
+    await tester.ensureVisible(sortDropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(sortDropdown);
     await tester.pumpAndSettle();
     await tester.tap(find.text('颜色').last);
     await tester.pumpAndSettle();
@@ -1004,6 +1029,18 @@ Element _nearestQuietPanel(Finder finder) {
     return true;
   });
   return panel!;
+}
+
+int _quietPanelAncestorCount(Finder finder) {
+  final target = finder.evaluate().single;
+  var count = 0;
+  target.visitAncestorElements((ancestor) {
+    if (ancestor.widget is QuietPanel) {
+      count += 1;
+    }
+    return true;
+  });
+  return count;
 }
 
 class _FakeAppState extends AppState {

@@ -98,6 +98,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickSwitch => 'Quick Switch';
 
   @override
+  String get switchActivity => 'Switch';
+
+  @override
   String get quickSwitchHint => 'Tap to select, tap again to confirm switch.';
 
   @override
@@ -116,6 +119,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notStartedRecord => 'Not started';
+
+  @override
+  String get sessions => 'Sessions';
+
+  @override
+  String get timerBarSwitchHint => 'Tap to switch activity';
 
   @override
   String get selectActivityToStart =>
@@ -302,6 +311,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get segmentedDayDisplay => 'Segmented day';
+
+  @override
+  String get timelineDecreaseSegments => 'Decrease segments';
+
+  @override
+  String get timelineIncreaseSegments => 'Increase segments';
+
+  @override
+  String timelineSegmentsPerDay(int count) {
+    return '$count segments/day';
+  }
 
   @override
   String futureDayBanner(String date) {
@@ -526,6 +546,60 @@ class AppLocalizationsEn extends AppLocalizations {
       'Total duration will be listed by date once records exist.';
 
   @override
+  String get statsCountTimes => 'x';
+
+  @override
+  String get sortAscending => 'Ascending';
+
+  @override
+  String get sortDescending => 'Descending';
+
+  @override
+  String get entrySortLabel => 'Sort entries';
+
+  @override
+  String get actionSortLabel => 'Sort actions';
+
+  @override
+  String get sortStartTime => 'Start time';
+
+  @override
+  String get sortDuration => 'Duration';
+
+  @override
+  String get sortActivityName => 'Activity';
+
+  @override
+  String get sortColor => 'Color';
+
+  @override
+  String get sortOccurredAt => 'Occurred at';
+
+  @override
+  String get sortActionType => 'Action type';
+
+  @override
+  String get sortDevice => 'Device';
+
+  @override
+  String get interopExportedPrefix => 'Exported: ';
+
+  @override
+  String get interopImportedPrefix => 'Imported: ';
+
+  @override
+  String get interopExportCanceled => 'Export canceled.';
+
+  @override
+  String get interopImportCanceled => 'Import canceled.';
+
+  @override
+  String get interopExportFailedPrefix => 'Export failed: ';
+
+  @override
+  String get interopImportFailedPrefix => 'Import failed: ';
+
+  @override
   String get settings => 'Settings';
 
   @override
@@ -551,6 +625,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String minutesFormat(int count) {
     return '$count min';
+  }
+
+  @override
+  String hoursMinutesFormat(int hours, int minutes) {
+    return '$hours hr $minutes min';
   }
 
   @override

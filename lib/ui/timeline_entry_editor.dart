@@ -595,12 +595,14 @@ Future<void> _mergeEntryWithNeighbor(
     return;
   }
   if (candidate == null) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.noAdjacentRecord)),
+    showErrorSnackBar(
+      context,
+      message: AppLocalizations.of(context)!.noAdjacentRecord,
     );
     return;
   }
-  final neighborName = state.activityNameForEntry(candidate.neighbor);
+  final neighborName =
+      activityNameForEntryDisplay(context, state, candidate.neighbor);
   if (candidate.requiresConfirmation) {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -615,7 +617,7 @@ Future<void> _mergeEntryWithNeighbor(
           content: Text(
             AppLocalizations.of(context)!.mergeConfirm(
               neighborName,
-              formatDurationCompact(candidate.neighborDuration),
+              formatDurationForDisplay(context, candidate.neighborDuration),
               candidate.threshold.inMinutes,
             ),
           ),
@@ -774,8 +776,9 @@ Future<void> _extendEntryToNow(
   VoidCallback onExtended,
 ) async {
   if (!entry.startAt.isBefore(state.now)) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.extendEntryError)),
+    showErrorSnackBar(
+      context,
+      message: AppLocalizations.of(context)!.extendEntryError,
     );
     return;
   }

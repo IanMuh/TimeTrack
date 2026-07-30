@@ -49,17 +49,17 @@ class TimelineHeader extends StatelessWidget {
           ? DateFormat('yyyy-MM-dd').format(selectedDay)
           : '${DateFormat('MM-dd').format(selectedDay)} - ${DateFormat('MM-dd').format(rangeEnd)}',
     );
-    final daySelector = DayRangeSelector(
-      selectedDay: selectedDay,
-      rangeEnd: rangeEnd,
-      onPreviousDay: onPreviousRange,
-      onNextDay: onNextRange,
-      onDateTap: onDateTap,
-    );
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < compactBreakpoint;
+        final daySelector = DayRangeSelector(
+          selectedDay: selectedDay,
+          rangeEnd: rangeEnd,
+          onPreviousDay: onPreviousRange,
+          onNextDay: onNextRange,
+          onDateTap: onDateTap,
+          dense: compact,
+        );
         final showRecordControls = mode == TimelineViewMode.entries;
         final modeSelector = _TimelineModeControl(
           selectedMode: mode,
@@ -125,6 +125,24 @@ class TimelineHeader extends StatelessWidget {
           zoom: zoom,
           onZoomChanged: onZoomChanged,
         );
+        final addEntryButton = FilledButton.icon(
+          style: FilledButton.styleFrom(
+            minimumSize: Size(44, compact ? 40 : 44),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 12 : 16,
+              vertical: compact ? 8 : 11,
+            ),
+          ),
+          onPressed: onAddEntry,
+          icon: const Icon(Icons.add),
+          label: Text(AppLocalizations.of(context)!.addEntry),
+        );
+        final primaryControls = _TimelinePrimaryControls(
+          compact: compact,
+          daySelector: daySelector,
+          modeSelector: modeSelector,
+          addEntryButton: addEntryButton,
+        );
         final displayOptions = _TimelineDisplayOptions(
           key: ValueKey(
             'timeline-display-options-${compact ? 'compact' : 'wide'}-$mode',
@@ -136,28 +154,16 @@ class TimelineHeader extends StatelessWidget {
           detailControl: displayMode == TimelineDisplayMode.segmentedDay
               ? segmentControl
               : zoomControl,
+          compact: compact,
         );
         if (compact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               header,
-              const SizedBox(height: 12),
-              daySelector,
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: modeSelector),
-                  const SizedBox(width: 10),
-                  FilledButton.icon(
-                    onPressed: onAddEntry,
-                    icon: const Icon(Icons.add),
-                    label: Text(AppLocalizations.of(context)!.addEntry),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+              primaryControls,
+              const SizedBox(height: 6),
               displayOptions,
             ],
           );
@@ -165,29 +171,63 @@ class TimelineHeader extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(child: header),
-                daySelector,
-              ],
-            ),
+            header,
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: modeSelector),
-                const SizedBox(width: 12),
-                FilledButton.icon(
-                  onPressed: onAddEntry,
-                  icon: const Icon(Icons.add),
-                  label: Text(AppLocalizations.of(context)!.addEntry),
-                ),
-              ],
-            ),
+            primaryControls,
             const SizedBox(height: 10),
             displayOptions,
           ],
         );
       },
+    );
+  }
+}
+
+class _TimelinePrimaryControls extends StatelessWidget {
+  const _TimelinePrimaryControls({
+    required this.compact,
+    required this.daySelector,
+    required this.modeSelector,
+    required this.addEntryButton,
+  });
+
+  final bool compact;
+  final Widget daySelector;
+  final Widget modeSelector;
+  final Widget addEntryButton;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(alignment: Alignment.centerLeft, child: daySelector),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: modeSelector),
+              const SizedBox(width: 10),
+              addEntryButton,
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        daySelector,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: modeSelector,
+        ),
+        addEntryButton,
+      ],
     );
   }
 }
@@ -199,6 +239,7 @@ class _TimelineDisplayOptions extends StatefulWidget {
     required this.spanSelector,
     required this.displaySelector,
     required this.detailControl,
+    required this.compact,
     super.key,
   });
 
@@ -207,6 +248,7 @@ class _TimelineDisplayOptions extends StatefulWidget {
   final Widget spanSelector;
   final Widget displaySelector;
   final Widget detailControl;
+  final bool compact;
 
   @override
   State<_TimelineDisplayOptions> createState() =>
@@ -221,10 +263,26 @@ class _TimelineDisplayOptionsState extends State<_TimelineDisplayOptions> {
     return QuietPanel(
       padding: EdgeInsets.zero,
       child: ExpansionTile(
+        key: PageStorageKey<String>(
+          'timeline-display-options-tile-'
+          '${widget.compact ? 'compact' : 'wide'}-'
+          '${widget.showRecordControls ? 'records' : 'actions'}',
+        ),
+        dense: widget.compact,
+        visualDensity:
+            widget.compact ? VisualDensity.compact : VisualDensity.standard,
+        tilePadding: EdgeInsets.symmetric(
+          horizontal: widget.compact ? 12 : 16,
+        ),
         leading: const Icon(Icons.tune),
         title: Text(AppLocalizations.of(context)!.displayOptions),
         onExpansionChanged: (value) => setState(() => _expanded = value),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        childrenPadding: EdgeInsets.fromLTRB(
+          widget.compact ? 12 : 16,
+          0,
+          widget.compact ? 12 : 16,
+          widget.compact ? 12 : 16,
+        ),
         children: _expanded
             ? [
                 widget.spanSelector,
@@ -259,9 +317,12 @@ class _TimelineModeControl extends StatelessWidget {
     if (compact) {
       return DropdownButtonFormField<TimelineViewMode>(
         initialValue: selectedMode,
+        isDense: true,
         decoration: InputDecoration(
           labelText: AppLocalizations.of(context)!.viewMode,
           prefixIcon: const Icon(Icons.layers_outlined),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
         items: [
           for (final mode in TimelineViewMode.values)
@@ -315,21 +376,22 @@ class _TimelineSegmentControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton.filledTonal(
-          tooltip: '减少分段',
+          tooltip: l10n.timelineDecreaseSegments,
           onPressed:
               segmentsPerDay <= 1 ? null : () => onChanged(segmentsPerDay - 1),
           icon: const Icon(Icons.remove),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('每天 $segmentsPerDay 段'),
+          child: Text(l10n.timelineSegmentsPerDay(segmentsPerDay)),
         ),
         IconButton.filledTonal(
-          tooltip: '增加分段',
+          tooltip: l10n.timelineIncreaseSegments,
           onPressed:
               segmentsPerDay >= 12 ? null : () => onChanged(segmentsPerDay + 1),
           icon: const Icon(Icons.add),

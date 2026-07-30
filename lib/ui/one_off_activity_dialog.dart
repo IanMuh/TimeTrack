@@ -7,46 +7,6 @@ import 'activity_color_picker.dart';
 import 'activity_colors.dart';
 import 'ui_components.dart';
 
-class OneOffActivityTile extends StatelessWidget {
-  const OneOffActivityTile({required this.onPressed, super.key});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.flash_on_outlined),
-      label: Text(AppLocalizations.of(context)!.oneOffActivity),
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class AddActivityTile extends StatelessWidget {
-  const AddActivityTile({required this.onPressed, super.key});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.add),
-      label: Text(AppLocalizations.of(context)!.newActivity),
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
-      ),
-    );
-  }
-}
-
 Future<Activity?> showOneOffActivityDialog(
   BuildContext context,
   AppState state,

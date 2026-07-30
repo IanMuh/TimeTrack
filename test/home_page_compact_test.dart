@@ -80,7 +80,10 @@ void main() {
     expect(find.byTooltip('排序依据'), findsOneWidget);
     expect(_activitySortDropdownFinder(), findsNothing);
 
-    await tester.tap(find.byTooltip('排序依据'));
+    final sortButton = find.byTooltip('排序依据');
+    await tester.ensureVisible(sortButton);
+    await tester.pumpAndSettle();
+    await tester.tap(sortButton);
     await tester.pumpAndSettle();
 
     expect(_activitySortDropdownFinder(), findsOneWidget);

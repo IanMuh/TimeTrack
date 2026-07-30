@@ -43,6 +43,7 @@
     }
   },
   "quickSwitch": "快捷切换",
+  "switchActivity": "切换",
   "quickSwitchHint": "轻点选择，再点一次确认切换。",
   "quickSwitchSelected": "已选择 {name}，再次点击后切换。",
   "@quickSwitchSelected": {
@@ -56,6 +57,8 @@
   "notStarted": "未开始",
   "recording": "记录中",
   "notStartedRecord": "未开始记录",
+  "sessions": "记录数",
+  "timerBarSwitchHint": "点按切换事项",
   "selectActivityToStart": "选择一个事项开始记录今天的时间。",
   "elapsedDuration": "已持续 {duration}",
   "@elapsedDuration": {
@@ -168,6 +171,16 @@
   "displayOptions": "显示选项",
   "singleLineZoom": "单行缩放",
   "segmentedDayDisplay": "分段显示",
+  "timelineDecreaseSegments": "减少分段",
+  "timelineIncreaseSegments": "增加分段",
+  "timelineSegmentsPerDay": "每天 {count} 段",
+  "@timelineSegmentsPerDay": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "futureDayBanner": "{date} 尚未到来。记录会在这一天实际发生后才出现在这里。",
   "@futureDayBanner": {
     "placeholders": {
@@ -289,6 +302,24 @@
   "dailyTotal": "每日累计",
   "dailyTotalHint": "用于观察本周或自选范围的记录节奏。",
   "recordHint": "有记录后会按日期列出总时长。",
+  "statsCountTimes": "次",
+  "sortAscending": "顺序",
+  "sortDescending": "倒序",
+  "entrySortLabel": "记录排序",
+  "actionSortLabel": "指令排序",
+  "sortStartTime": "开始时间",
+  "sortDuration": "时长",
+  "sortActivityName": "事项",
+  "sortColor": "颜色",
+  "sortOccurredAt": "发生时间",
+  "sortActionType": "指令类型",
+  "sortDevice": "设备",
+  "interopExportedPrefix": "已导出：",
+  "interopImportedPrefix": "已导入：",
+  "interopExportCanceled": "已取消导出。",
+  "interopImportCanceled": "已取消导入。",
+  "interopExportFailedPrefix": "导出失败：",
+  "interopImportFailedPrefix": "导入失败：",
   "settings": "设置",
   "settingsSubtitle": "提醒、同步和设备互通都保持本地优先。",
   "settingsSections": "返回设置分区",
@@ -300,6 +331,17 @@
   "@minutesFormat": {
     "placeholders": {
       "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursMinutesFormat": "{hours} 小时 {minutes} 分钟",
+  "@hoursMinutesFormat": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
         "type": "int"
       }
     }

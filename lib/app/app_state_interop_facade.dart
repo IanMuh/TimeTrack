@@ -10,7 +10,25 @@ mixin AppStateInteropFacade on ChangeNotifier {
     _interopState.message = value;
   }
 
-  Future<void> exportInteropFile() => _interopCoordinatorState.exportFile();
+  Future<void> exportInteropFile({
+    required String exportedPrefix,
+    required String canceledMessage,
+    required String failedPrefix,
+  }) =>
+      _interopCoordinatorState.exportFile(
+        exportedPrefix: exportedPrefix,
+        canceledMessage: canceledMessage,
+        failedPrefix: failedPrefix,
+      );
 
-  Future<void> importInteropFile() => _interopCoordinatorState.importFile();
+  Future<void> importInteropFile({
+    required String importedPrefix,
+    required String canceledMessage,
+    required String failedPrefix,
+  }) =>
+      _interopCoordinatorState.importFile(
+        importedPrefix: importedPrefix,
+        canceledMessage: canceledMessage,
+        failedPrefix: failedPrefix,
+      );
 }
