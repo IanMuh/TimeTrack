@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../app/app_state.dart';
 import '../data/app_update_service.dart';
+import '../data/sync_status_store.dart';
+import '../domain/profile_settings.dart';
 import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'interop_settings_card.dart';
@@ -18,6 +21,9 @@ export 'timeline_settings_card.dart';
 export 'version_update_settings_card.dart';
 
 part 'settings_section_list.dart';
+part 'settings_page_sections.dart';
+part 'mobile_settings_page.dart';
+part 'desktop_settings_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({required this.state, super.key});
@@ -37,165 +43,171 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    return AnimatedBuilder(
-      animation: state,
-      builder: (context, _) {
-        return AdaptivePage(
-          pageKey: const PageStorageKey('settings-page'),
-          maxWidth: 1040,
-          children: [
-            PageHeader(
-              title: AppLocalizations.of(context)!.settings,
-              subtitle: AppLocalizations.of(context)!.settingsSubtitle,
-            ),
-            const SectionGap(),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final expanded =
-                    MediaQuery.sizeOf(context).width >= expandedBreakpoint ||
-                        constraints.maxWidth >= expandedBreakpoint;
-                final sections = _settingsSections(context);
-                if (!expanded) {
-                  final selected = _selectedCompactSection ??
-                      (!_compactSectionListRequested &&
-                              _shouldOpenUpdateSection(state)
-                          ? _SettingsSection.updates
-                          : null);
-                  if (selected == null) {
-                    return _SettingsSectionList(
-                      sections: sections,
-                      selected: null,
-                      onSelected: (section) {
-                        setState(() {
-                          _selectedCompactSection = section;
-                          _compactSectionListRequested = false;
-                        });
-                      },
-                    );
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Tooltip(
-                          message:
-                              AppLocalizations.of(context)!.settingsSections,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _selectedCompactSection = null;
-                                _compactSectionListRequested = true;
-                              });
-                            },
-                            icon: const Icon(Icons.arrow_back, size: 18),
-                            label: Text(
-                              AppLocalizations.of(context)!.settingsSections,
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(44, 40),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= expandedBreakpoint;
+        return AnimatedBuilder(
+          animation: state,
+          builder: (context, _) {
+            return AdaptivePage(
+              pageKey: const PageStorageKey('settings-page'),
+              maxWidth: 1040,
+              children: desktop &&
+                      !_expandedSectionSelectedByUser &&
+                      !_shouldOpenUpdateSection(state)
+                  ? [
+                      DesktopSettingsOverview(
+                        state: state,
+                        onOpenSection: _openDesktopSection,
                       ),
-                      const SizedBox(height: 12),
-                      _sectionWidget(selected, state),
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 284,
-                      child: _SettingsSectionList(
-                        sections: sections,
-                        selected: _effectiveExpandedSection(state),
-                        onSelected: (section) {
-                          setState(() {
-                            _selectedExpandedSection = section;
-                            _expandedSectionSelectedByUser = true;
-                          });
+                    ]
+                  : [
+                      PageHeader(
+                        title: AppLocalizations.of(context)!.settings,
+                        subtitle:
+                            AppLocalizations.of(context)!.settingsSubtitle,
+                      ),
+                      const SectionGap(),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final mobile =
+                              constraints.maxWidth < compactBreakpoint;
+                          final expanded =
+                              constraints.maxWidth >= expandedBreakpoint;
+                          final sections = _settingsSections(
+                            context,
+                            includeDesktopGeneral: expanded,
+                          );
+                          if (mobile) {
+                            final selected = _selectedCompactSection ??
+                                (!_compactSectionListRequested &&
+                                        _shouldOpenUpdateSection(state)
+                                    ? _SettingsSection.updates
+                                    : null);
+                            if (selected == null) {
+                              return _MobileSettingsPage(
+                                state: state,
+                                onOpenSection: (section) {
+                                  setState(() {
+                                    _selectedCompactSection = section;
+                                    _compactSectionListRequested = false;
+                                  });
+                                },
+                              );
+                            }
+                            return _compactSectionDetail(
+                              context,
+                              selected,
+                              state,
+                            );
+                          }
+                          if (!expanded) {
+                            final selected = _selectedCompactSection ??
+                                (!_compactSectionListRequested &&
+                                        _shouldOpenUpdateSection(state)
+                                    ? _SettingsSection.updates
+                                    : null);
+                            if (selected == null) {
+                              return _SettingsSectionList(
+                                sections: sections,
+                                selected: null,
+                                onSelected: (section) {
+                                  setState(() {
+                                    _selectedCompactSection = section;
+                                    _compactSectionListRequested = false;
+                                  });
+                                },
+                              );
+                            }
+                            return _compactSectionDetail(
+                              context,
+                              selected,
+                              state,
+                            );
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 284,
+                                child: _SettingsSectionList(
+                                  sections: sections,
+                                  selected: _effectiveExpandedSection(state),
+                                  onSelected: (section) {
+                                    setState(() {
+                                      _selectedExpandedSection = section;
+                                      _expandedSectionSelectedByUser = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: _sectionWidget(
+                                  _effectiveExpandedSection(state),
+                                  state,
+                                ),
+                              ),
+                            ],
+                          );
                         },
                       ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: _sectionWidget(
-                          _effectiveExpandedSection(state), state),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
+                    ],
+            );
+          },
         );
       },
     );
   }
 
-  List<_SettingsSectionInfo> _settingsSections(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return [
-      _SettingsSectionInfo(
-        section: _SettingsSection.reminders,
-        label: l10n.reminderSettings,
-        hint: l10n.reminderSettingsHint,
-        icon: Icons.notifications_outlined,
-      ),
-      _SettingsSectionInfo(
-        section: _SettingsSection.timeline,
-        label: l10n.timelineSettings,
-        hint: l10n.timelineSettingsHint,
-        icon: Icons.timeline,
-      ),
-      _SettingsSectionInfo(
-        section: _SettingsSection.cloudSync,
-        label: l10n.cloudSync,
-        hint: l10n.cloudSyncHint,
-        icon: Icons.cloud_sync_outlined,
-      ),
-      _SettingsSectionInfo(
-        section: _SettingsSection.interop,
-        label: l10n.deviceInterop,
-        hint: l10n.deviceInteropHint,
-        icon: Icons.devices_other_outlined,
-      ),
-      _SettingsSectionInfo(
-        section: _SettingsSection.updates,
-        label: l10n.versionUpdate,
-        hint: l10n.versionUpdateHint,
-        icon: Icons.system_update_alt_outlined,
-      ),
-    ];
+  void _openDesktopSection(DesktopSettingsSection section) {
+    setState(() {
+      _selectedExpandedSection = switch (section) {
+        DesktopSettingsSection.general => _SettingsSection.general,
+        DesktopSettingsSection.data => _SettingsSection.data,
+        DesktopSettingsSection.sync => _SettingsSection.cloudSync,
+        DesktopSettingsSection.about => _SettingsSection.updates,
+      };
+      _expandedSectionSelectedByUser = true;
+    });
   }
 
-  _SettingsSection _effectiveExpandedSection(AppState state) {
-    if (!_expandedSectionSelectedByUser &&
-        _selectedExpandedSection == _SettingsSection.reminders &&
-        _shouldOpenUpdateSection(state)) {
-      return _SettingsSection.updates;
-    }
-    return _selectedExpandedSection;
-  }
-
-  bool _shouldOpenUpdateSection(AppState state) {
-    return state.updateStatus != AppUpdateStatus.idle ||
-        state.availableUpdate != null ||
-        state.updateErrorMessage != null;
-  }
-
-  Widget _sectionWidget(_SettingsSection section, AppState state) {
-    return switch (section) {
-      _SettingsSection.reminders => ReminderSettingsCard(state: state),
-      _SettingsSection.timeline => TimelineSettingsCard(state: state),
-      _SettingsSection.cloudSync => CloudSyncSettingsCard(state: state),
-      _SettingsSection.interop => InteropSettingsCard(state: state),
-      _SettingsSection.updates => VersionUpdateSettingsCard(state: state),
-    };
+  Widget _compactSectionDetail(
+    BuildContext context,
+    _SettingsSection selected,
+    AppState state,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Tooltip(
+            message: AppLocalizations.of(context)!.settingsSections,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _selectedCompactSection = null;
+                  _compactSectionListRequested = true;
+                });
+              },
+              icon: const Icon(Icons.arrow_back, size: 18),
+              label: Text(
+                AppLocalizations.of(context)!.settingsSections,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(44, 40),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _sectionWidget(selected, state),
+      ],
+    );
   }
 }

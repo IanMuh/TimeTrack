@@ -5,7 +5,7 @@ import 'package:timetrack/ui/theme_preset.dart';
 
 void main() {
   test('theme presets expose stable seed colors', () {
-    expect(ThemePreset.teal.seedColor, const Color(0xff0d9488));
+    expect(ThemePreset.teal.seedColor, const Color(0xff14b8a6));
     expect(ThemePreset.blue.seedColor, const Color(0xff2563eb));
     expect(ThemePreset.slate.label, 'Slate');
   });
@@ -14,7 +14,9 @@ void main() {
     final theme = TimeTrackTheme.light(preset: ThemePreset.blue);
 
     expect(theme.colorScheme.primary, ThemePreset.blue.seedColor);
-    expect(theme.scaffoldBackgroundColor, const Color(0xfff7faff));
+    expect(theme.colorScheme.secondary, const Color(0xff14b8a6));
+    expect(theme.scaffoldBackgroundColor, const Color(0xfff8fafc));
+    expect(theme.colorScheme.surfaceContainerHighest, const Color(0xfff1f5f9));
     expect(theme.textTheme.displayMedium?.fontSize, 28);
     expect(theme.textTheme.labelLarge?.fontSize, 12);
     expect(theme.navigationBarTheme.indicatorColor, isNot(Colors.transparent));
@@ -25,7 +27,8 @@ void main() {
 
     expect(theme.colorScheme.brightness, Brightness.dark);
     expect(theme.colorScheme.primary, ThemePreset.rose.seedColor);
-    expect(theme.scaffoldBackgroundColor, const Color(0xff0b1220));
+    expect(theme.colorScheme.secondary, const Color(0xff14b8a6));
+    expect(theme.scaffoldBackgroundColor, const Color(0xff0f172a));
     expect(theme.cardTheme.color, const Color(0xff111827));
   });
 

@@ -110,6 +110,18 @@ abstract class AppLocalizations {
   /// **'离线优先记录，按下一个事项就开始。'**
   String get appSubtitle;
 
+  /// No description provided for @navTimer.
+  ///
+  /// In zh, this message translates to:
+  /// **'计时'**
+  String get navTimer;
+
+  /// No description provided for @navToday.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天'**
+  String get navToday;
+
   /// No description provided for @navCurrent.
   ///
   /// In zh, this message translates to:
@@ -266,6 +278,12 @@ abstract class AppLocalizations {
   /// **'快捷切换'**
   String get quickSwitch;
 
+  /// No description provided for @quickActivity.
+  ///
+  /// In zh, this message translates to:
+  /// **'快捷事项'**
+  String get quickActivity;
+
   /// No description provided for @switchActivity.
   ///
   /// In zh, this message translates to:
@@ -289,6 +307,72 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'当前正在做'**
   String get currentDoing;
+
+  /// No description provided for @currentSession.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前会话'**
+  String get currentSession;
+
+  /// No description provided for @todayPhasePlaceholder.
+  ///
+  /// In zh, this message translates to:
+  /// **'Today 页面将在下一视觉阶段继续。'**
+  String get todayPhasePlaceholder;
+
+  /// No description provided for @todayTotalTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'总时长'**
+  String get todayTotalTime;
+
+  /// No description provided for @todayFocusTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'专注时长'**
+  String get todayFocusTime;
+
+  /// No description provided for @todayBreakTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'休息时长'**
+  String get todayBreakTime;
+
+  /// No description provided for @todayTopActivities.
+  ///
+  /// In zh, this message translates to:
+  /// **'高频事项'**
+  String get todayTopActivities;
+
+  /// No description provided for @todayTimeByActivity.
+  ///
+  /// In zh, this message translates to:
+  /// **'事项用时'**
+  String get todayTimeByActivity;
+
+  /// No description provided for @todayViewFullTimeline.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看完整时间线'**
+  String get todayViewFullTimeline;
+
+  /// No description provided for @todayVsYesterday.
+  ///
+  /// In zh, this message translates to:
+  /// **'较昨日 +{percent}%'**
+  String todayVsYesterday(int percent);
+
+  /// No description provided for @todaySessionsVsYesterday.
+  ///
+  /// In zh, this message translates to:
+  /// **'较昨日 +{count}'**
+  String todaySessionsVsYesterday(int count);
+
+  /// No description provided for @todayPercentOfTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'占总量 {percent}%'**
+  String todayPercentOfTotal(int percent);
 
   /// No description provided for @notStarted.
   ///
@@ -1195,6 +1279,192 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'返回设置分区'**
   String get settingsSections;
+
+  /// No description provided for @settingsDesktopGeneral.
+  ///
+  /// In zh, this message translates to:
+  /// **'通用'**
+  String get settingsDesktopGeneral;
+
+  /// No description provided for @settingsDesktopGeneralHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'桌面偏好概览。'**
+  String get settingsDesktopGeneralHint;
+
+  /// No description provided for @settingsDesktopData.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据'**
+  String get settingsDesktopData;
+
+  /// No description provided for @settingsDesktopDataHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份、导入与重置选项。'**
+  String get settingsDesktopDataHint;
+
+  /// No description provided for @settingsDesktopAppearance.
+  ///
+  /// In zh, this message translates to:
+  /// **'外观'**
+  String get settingsDesktopAppearance;
+
+  /// No description provided for @settingsDesktopLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'浅色'**
+  String get settingsDesktopLight;
+
+  /// No description provided for @settingsDesktopFirstDayOfWeek.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周起始日'**
+  String get settingsDesktopFirstDayOfWeek;
+
+  /// No description provided for @settingsDesktopMonday.
+  ///
+  /// In zh, this message translates to:
+  /// **'周一'**
+  String get settingsDesktopMonday;
+
+  /// No description provided for @settingsDesktopTimeFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间格式'**
+  String get settingsDesktopTimeFormat;
+
+  /// No description provided for @settingsDesktopTimeFormat12Hour.
+  ///
+  /// In zh, this message translates to:
+  /// **'12 小时制'**
+  String get settingsDesktopTimeFormat12Hour;
+
+  /// No description provided for @settingsDesktopDefaultSessionLength.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认会话时长'**
+  String get settingsDesktopDefaultSessionLength;
+
+  /// No description provided for @settingsDesktopBreakReminder.
+  ///
+  /// In zh, this message translates to:
+  /// **'休息提醒'**
+  String get settingsDesktopBreakReminder;
+
+  /// No description provided for @settingsDesktopOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启'**
+  String get settingsDesktopOn;
+
+  /// No description provided for @settingsDesktopOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get settingsDesktopOff;
+
+  /// No description provided for @settingsDesktopBackupExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份与导出'**
+  String get settingsDesktopBackupExport;
+
+  /// No description provided for @settingsDesktopBackupExportHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出本地 JSON 备份文件。'**
+  String get settingsDesktopBackupExportHint;
+
+  /// No description provided for @settingsDesktopImportData.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入数据'**
+  String get settingsDesktopImportData;
+
+  /// No description provided for @settingsDesktopImportDataHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入 TimeTrack JSON 备份。'**
+  String get settingsDesktopImportDataHint;
+
+  /// No description provided for @settingsDesktopClearAllData.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除全部数据'**
+  String get settingsDesktopClearAllData;
+
+  /// No description provided for @settingsDesktopClearAllDataHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加确认流程前暂不可用。'**
+  String get settingsDesktopClearAllDataHint;
+
+  /// No description provided for @settingsDesktopSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步'**
+  String get settingsDesktopSync;
+
+  /// No description provided for @settingsDesktopSyncMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步模式'**
+  String get settingsDesktopSyncMode;
+
+  /// No description provided for @settingsDesktopLastSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近同步'**
+  String get settingsDesktopLastSync;
+
+  /// No description provided for @settingsDesktopAbout.
+  ///
+  /// In zh, this message translates to:
+  /// **'关于'**
+  String get settingsDesktopAbout;
+
+  /// No description provided for @settingsDesktopProduct.
+  ///
+  /// In zh, this message translates to:
+  /// **'TimeTrack 桌面版'**
+  String get settingsDesktopProduct;
+
+  /// No description provided for @settingsDesktopMadeWith.
+  ///
+  /// In zh, this message translates to:
+  /// **'用'**
+  String get settingsDesktopMadeWith;
+
+  /// No description provided for @settingsDesktopMadeForFocusedPeople.
+  ///
+  /// In zh, this message translates to:
+  /// **'献给专注的人。'**
+  String get settingsDesktopMadeForFocusedPeople;
+
+  /// No description provided for @settingsDesktopManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动'**
+  String get settingsDesktopManual;
+
+  /// No description provided for @settingsDesktopNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'从未'**
+  String get settingsDesktopNever;
+
+  /// No description provided for @settingsDesktopOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开'**
+  String get settingsDesktopOpen;
+
+  /// No description provided for @settingsDesktopDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已禁用'**
+  String get settingsDesktopDisabled;
 
   /// No description provided for @activityCategorySettings.
   ///

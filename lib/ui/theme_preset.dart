@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 enum ThemePreset {
-  teal('Teal', Color(0xff0d9488)),
+  teal('Teal', Color(0xff14b8a6)),
   blue('Blue', Color(0xff2563eb)),
   purple('Purple', Color(0xff7c3aed)),
   orange('Orange', Color(0xffea580c)),

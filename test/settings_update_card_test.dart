@@ -14,7 +14,9 @@ import 'package:timetrack/data/local_database.dart';
 import 'package:timetrack/data/settings_repository.dart';
 import 'package:timetrack/data/sync_peer_store.dart';
 import 'package:timetrack/data/sync_service.dart';
+import 'package:timetrack/data/sync_status_store.dart';
 import 'package:timetrack/data/time_repository.dart';
+import 'package:timetrack/domain/profile_settings.dart';
 import 'package:timetrack/l10n/app_localizations.dart';
 import 'package:timetrack/ui/settings_page.dart';
 
@@ -44,26 +46,173 @@ void main() {
       await tester.tap(find.byTooltip('Back to settings sections'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Reminders'), findsOneWidget);
-      expect(
-        find.text('Use gentle prompts to confirm long-running activities.'),
-        findsOneWidget,
-      );
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('General'), findsOneWidget);
+      expect(find.text('Appearance'), findsOneWidget);
+      expect(find.text('First Day of Week'), findsOneWidget);
+      expect(find.text('Time Format'), findsOneWidget);
+      expect(find.text('Backup & Export'), findsOneWidget);
+      expect(find.text('Sync Mode'), findsOneWidget);
+      expect(find.text('About TimeTrack'), findsOneWidget);
       expect(find.text('Activity categories'), findsNothing);
-      expect(find.text('Cloud sync'), findsOneWidget);
-      expect(
-        find.text('App runs in local mode when Supabase is not configured.'),
-        findsOneWidget,
-      );
-      expect(find.text('Device sharing'), findsOneWidget);
-      expect(find.text('Version update'), findsOneWidget);
 
-      await tester.tap(find.text('Cloud sync'));
+      await tester.tap(find.text('Sync Mode'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Cloud sync'), findsOneWidget);
+      expect(find.text('Cloud sync'), findsAtLeastNWidgets(1));
       expect(find.text('Sync status'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('renders desktop reference overview on expanded width', (
+      tester,
+    ) async {
+      final state = _UpdateCardTestState(
+        check: ({required currentVersion, required platform}) async {
+          return const AppSuccess(null);
+        },
+      );
+      addTearDown(state.dispose);
+      state.currentAppVersion = '1.0.0';
+      state.syncStatus = SyncStatus(
+        lastSuccessfulSyncAt: DateTime(2024, 5, 15, 9, 30),
+        lastTarget: SyncTarget.cloud,
+      );
+
+      await _pumpSettingsPage(tester, state: state, width: 920);
+
+      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('General'), findsOneWidget);
+      expect(find.text('Appearance'), findsOneWidget);
+      expect(find.text('Data'), findsOneWidget);
+      expect(find.text('Backup & Export'), findsOneWidget);
+      expect(find.text('Sync'), findsOneWidget);
+      expect(find.text('Sync Mode'), findsOneWidget);
+      expect(find.text('About'), findsOneWidget);
+      expect(find.text('TimeTrack Desktop'), findsOneWidget);
+      expect(find.text('Made with'), findsOneWidget);
+      expect(find.text('for focused people.'), findsOneWidget);
+
+      await tester.tap(find.text('Sync Mode'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cloud sync'), findsAtLeastNWidgets(1));
+      expect(find.text('Sync status'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('desktop overview rows open matching detail sections', (
+      tester,
+    ) async {
+      await _expectDesktopOverviewRowOpens(
+        tester,
+        rowText: 'Appearance',
+        expectedDetails: ['General', 'Appearance', 'Break Reminder'],
+      );
+      await _expectDesktopOverviewRowOpens(
+        tester,
+        rowText: 'Backup & Export',
+        expectedDetails: ['Data', 'Backup & Export', 'Clear All Data'],
+      );
+      await _expectDesktopOverviewRowOpens(
+        tester,
+        rowText: 'Import Data',
+        expectedDetails: ['Data', 'Import Data', 'Clear All Data'],
+      );
+      await _expectDesktopOverviewRowOpens(
+        tester,
+        rowText: 'Clear All Data',
+        expectedDetails: ['Data', 'Clear All Data', 'Disabled'],
+      );
+      await _expectDesktopOverviewRowOpens(
+        tester,
+        rowText: 'Sync Mode',
+        expectedDetails: ['Cloud sync', 'Sync status'],
+      );
+      await _expectDesktopOverviewRowOpens(
+        tester,
+        rowText: 'TimeTrack Desktop',
+        expectedDetails: ['Version update', 'Current version'],
+      );
+    });
+
+    testWidgets('desktop overview switch toggles break reminders',
+        (tester) async {
+      final state = _UpdateCardTestState(
+        check: ({required currentVersion, required platform}) async {
+          return const AppSuccess(null);
+        },
+      );
+      addTearDown(state.dispose);
+
+      await _pumpSettingsPage(tester, state: state, width: 920);
+
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      await tester.tap(find.byType(Switch));
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pump();
+
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      expect(find.text('Off'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('desktop data detail exposes transfer actions and locked reset',
+        (
+      tester,
+    ) async {
+      final state = _UpdateCardTestState(
+        check: ({required currentVersion, required platform}) async {
+          return const AppSuccess(null);
+        },
+      );
+      addTearDown(state.dispose);
+
+      await _pumpSettingsPage(tester, state: state, width: 920);
+      await tester.tap(find.text('Backup & Export').first);
+      await tester.pumpAndSettle();
+
+      final openButtons = tester
+          .widgetList<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Open'),
+          )
+          .toList();
+      expect(openButtons, hasLength(2));
+      expect(openButtons.every((button) => button.enabled), isTrue);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Disabled'),
+            )
+            .enabled,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('desktop overview localizes labels in Chinese without overflow',
+        (tester) async {
+      final state = _UpdateCardTestState(
+        check: ({required currentVersion, required platform}) async {
+          return const AppSuccess(null);
+        },
+      );
+      addTearDown(state.dispose);
+
+      await _pumpSettingsPage(
+        tester,
+        state: state,
+        width: 920,
+        locale: const Locale('zh'),
+      );
+
+      expect(find.text('设置'), findsOneWidget);
+      expect(find.text('通用'), findsOneWidget);
+      expect(find.text('数据'), findsOneWidget);
+      expect(find.text('同步'), findsOneWidget);
+      expect(find.text('关于'), findsOneWidget);
+      expect(find.text('休息提醒'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -91,7 +240,7 @@ Future<void> _expectUpdateCardStates(
   final checkingFuture = checkingState.checkForUpdates();
   await tester.pump();
 
-  expect(find.text('Version update'), findsOneWidget);
+  expect(find.text('Version update'), _expandedTitleMatcher(width));
   expect(find.text('Checking for updates...'), findsOneWidget);
   expect(tester.widget<FilledButton>(find.byType(FilledButton).last).enabled,
       isFalse);
@@ -110,7 +259,7 @@ Future<void> _expectUpdateCardStates(
   await upToDateState.checkForUpdates();
   await _pumpSettingsPage(tester, state: upToDateState, width: width);
 
-  expect(find.text('Version update'), findsOneWidget);
+  expect(find.text('Version update'), _expandedTitleMatcher(width));
   expect(find.text("You're up to date"), findsOneWidget);
   expect(find.text('Current version'), findsOneWidget);
   expect(find.text('0.1.0-pre'), findsOneWidget);
@@ -147,21 +296,56 @@ Future<void> _expectUpdateCardStates(
   expect(tester.takeException(), isNull);
 }
 
+Matcher _expandedTitleMatcher(double width) {
+  return width >= 840 ? findsAtLeastNWidgets(1) : findsOneWidget;
+}
+
+Future<void> _expectDesktopOverviewRowOpens(
+  WidgetTester tester, {
+  required String rowText,
+  required List<String> expectedDetails,
+}) async {
+  final state = _UpdateCardTestState(
+    check: ({required currentVersion, required platform}) async {
+      return const AppSuccess(null);
+    },
+  );
+  addTearDown(state.dispose);
+  state.currentAppVersion = '1.0.0';
+
+  await _pumpSettingsPage(tester, state: state, width: 920);
+  await tester.tap(find.text(rowText).first);
+  await tester.pumpAndSettle();
+
+  for (final text in expectedDetails) {
+    expect(find.text(text), findsAtLeastNWidgets(1));
+  }
+  expect(tester.takeException(), isNull);
+}
+
 Future<void> _pumpSettingsPage(
   WidgetTester tester, {
   required AppState state,
   required double width,
+  Locale locale = const Locale('en'),
 }) async {
+  tester.view.physicalSize = Size(width, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
-      locale: const Locale('en'),
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SizedBox(
           width: width,
           height: 1200,
-          child: SettingsPage(state: state),
+          child: SettingsPage(
+            key: ValueKey(state),
+            state: state,
+          ),
         ),
       ),
     ),
@@ -275,6 +459,25 @@ class _UpdateCardTestState extends AppState {
   @override
   Future<void> openUpdateDownload() async {
     updateErrorMessage = null;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> updateReminderSettings({
+    int? reminderMinutes,
+    int? reminderIntervalMinutes,
+    ReminderMethod? reminderMethod,
+    int? reminderTimeOfDayMinutes,
+    int? mergeNeighborThresholdMinutes,
+  }) async {
+    settings = settings.copyWith(
+      reminderMinutes: reminderMinutes,
+      reminderIntervalMinutes: reminderIntervalMinutes,
+      reminderMethod: reminderMethod,
+      reminderTimeOfDayMinutes: reminderTimeOfDayMinutes,
+      mergeNeighborThresholdMinutes: mergeNeighborThresholdMinutes,
+      updatedAt: DateTime(2024, 5, 15, 9, 30),
+    );
     notifyListeners();
   }
 }

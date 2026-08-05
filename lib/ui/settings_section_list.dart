@@ -1,6 +1,8 @@
 part of 'settings_page.dart';
 
 enum _SettingsSection {
+  general,
+  data,
   reminders,
   timeline,
   cloudSync,

@@ -16,6 +16,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Offline-first tracking. Pick an activity to get started.';
 
   @override
+  String get navTimer => 'Timer';
+
+  @override
+  String get navToday => 'Today';
+
+  @override
   String get navCurrent => 'Now';
 
   @override
@@ -98,6 +104,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickSwitch => 'Quick Switch';
 
   @override
+  String get quickActivity => 'Quick Activity';
+
+  @override
   String get switchActivity => 'Switch';
 
   @override
@@ -110,6 +119,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get currentDoing => 'Currently doing';
+
+  @override
+  String get currentSession => 'Current Session';
+
+  @override
+  String get todayPhasePlaceholder =>
+      'Today will stay parked until the next visual phase.';
+
+  @override
+  String get todayTotalTime => 'Total Time';
+
+  @override
+  String get todayFocusTime => 'Focus Time';
+
+  @override
+  String get todayBreakTime => 'Break Time';
+
+  @override
+  String get todayTopActivities => 'Top Activities';
+
+  @override
+  String get todayTimeByActivity => 'Time by Activity';
+
+  @override
+  String get todayViewFullTimeline => 'View full timeline';
+
+  @override
+  String todayVsYesterday(int percent) {
+    return '+$percent% vs yesterday';
+  }
+
+  @override
+  String todaySessionsVsYesterday(int count) {
+    return '+$count vs yesterday';
+  }
+
+  @override
+  String todayPercentOfTotal(int percent) {
+    return '$percent% of total';
+  }
 
   @override
   String get notStarted => 'Not started';
@@ -608,6 +657,101 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSections => 'Back to settings sections';
+
+  @override
+  String get settingsDesktopGeneral => 'General';
+
+  @override
+  String get settingsDesktopGeneralHint => 'Desktop preferences overview.';
+
+  @override
+  String get settingsDesktopData => 'Data';
+
+  @override
+  String get settingsDesktopDataHint => 'Backup, import, and reset options.';
+
+  @override
+  String get settingsDesktopAppearance => 'Appearance';
+
+  @override
+  String get settingsDesktopLight => 'Light';
+
+  @override
+  String get settingsDesktopFirstDayOfWeek => 'First Day of Week';
+
+  @override
+  String get settingsDesktopMonday => 'Monday';
+
+  @override
+  String get settingsDesktopTimeFormat => 'Time Format';
+
+  @override
+  String get settingsDesktopTimeFormat12Hour => '12-hour';
+
+  @override
+  String get settingsDesktopDefaultSessionLength => 'Default Session Length';
+
+  @override
+  String get settingsDesktopBreakReminder => 'Break Reminder';
+
+  @override
+  String get settingsDesktopOn => 'On';
+
+  @override
+  String get settingsDesktopOff => 'Off';
+
+  @override
+  String get settingsDesktopBackupExport => 'Backup & Export';
+
+  @override
+  String get settingsDesktopBackupExportHint =>
+      'Export a local JSON backup file.';
+
+  @override
+  String get settingsDesktopImportData => 'Import Data';
+
+  @override
+  String get settingsDesktopImportDataHint => 'Import a TimeTrack JSON backup.';
+
+  @override
+  String get settingsDesktopClearAllData => 'Clear All Data';
+
+  @override
+  String get settingsDesktopClearAllDataHint =>
+      'Unavailable until a confirmation flow is added.';
+
+  @override
+  String get settingsDesktopSync => 'Sync';
+
+  @override
+  String get settingsDesktopSyncMode => 'Sync Mode';
+
+  @override
+  String get settingsDesktopLastSync => 'Last Sync';
+
+  @override
+  String get settingsDesktopAbout => 'About';
+
+  @override
+  String get settingsDesktopProduct => 'TimeTrack Desktop';
+
+  @override
+  String get settingsDesktopMadeWith => 'Made with';
+
+  @override
+  String get settingsDesktopMadeForFocusedPeople => 'for focused people.';
+
+  @override
+  String get settingsDesktopManual => 'Manual';
+
+  @override
+  String get settingsDesktopNever => 'Never';
+
+  @override
+  String get settingsDesktopOpen => 'Open';
+
+  @override
+  String get settingsDesktopDisabled => 'Disabled';
 
   @override
   String get activityCategorySettings => 'Activity categories';

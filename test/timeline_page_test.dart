@@ -347,7 +347,27 @@ Future<void> _tapEntryEditButton(
     of: find.text(title),
     matching: find.byType(TimelineEntryCard),
   );
+  if (entryCard.evaluate().isEmpty) {
+    final mobileTitle = find.text(title).first;
+    await tester.ensureVisible(mobileTitle);
+    await tester.pumpAndSettle();
+    await tester.tap(mobileTitle);
+    await tester.pumpAndSettle();
+    return;
+  }
   await _tapEntryEditButtonInCard(tester, entryCard);
+}
+
+Future<void> _tapTimelineEntryById(
+  WidgetTester tester, {
+  required String id,
+}) async {
+  final visualEntry = find.byKey(ValueKey('mobile-timeline-entry-$id'));
+  expect(visualEntry, findsOneWidget);
+  await tester.ensureVisible(visualEntry);
+  await tester.pumpAndSettle();
+  await tester.tap(visualEntry);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _tapEntryEditButtonInCard(
@@ -412,15 +432,17 @@ void main() {
     );
 
     expect(state.selectedDay.isSameDate(today), isTrue);
-    expect(find.text('范围总记录'), findsOneWidget);
-    expect(find.text('最长连续'), findsOneWidget);
-    expect(find.text('可缩放时间线'), findsOneWidget);
-    expect(find.byType(TimelineEntryCard), findsWidgets);
-    expect(find.text('记录列表'), findsOneWidget);
+    expect(find.text('时间线'), findsOneWidget);
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('本周'), findsOneWidget);
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byKey(const ValueKey('mobile-timeline-entry-today-entry')),
+        findsOneWidget);
+    expect(find.byType(TimelineEntryCard), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('timeline appears above the entry list at common widths', (
+  testWidgets('wide timeline uses the new reference-style flow', (
     tester,
   ) async {
     final fixture = _buildFixture();
@@ -434,73 +456,152 @@ void main() {
       ),
     ];
 
-    for (final width in [390.0, 920.0]) {
-      await _pumpTimeline(tester, state, width: width);
+    await _pumpTimeline(tester, state, width: 920);
 
-      expect(
-        tester.getTopLeft(find.text('范围总记录')).dy,
-        lessThan(tester.getTopLeft(find.text('可缩放时间线')).dy),
-      );
-      expect(
-        tester.getTopLeft(find.text('可缩放时间线')).dy,
-        lessThan(tester.getTopLeft(find.text('记录列表')).dy),
-      );
-      expect(tester.takeException(), isNull);
-    }
+    expect(find.text('时间线'), findsOneWidget);
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    expect(find.byKey(const ValueKey('mobile-timeline-entry-entry')),
+        findsOneWidget);
+    expect(find.text('范围总记录'), findsNothing);
+    expect(find.text('可缩放时间线'), findsNothing);
+    expect(find.text('记录列表'), findsNothing);
+    expect(find.byType(TimelineEntryCard), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('actions view hides timeline zoom controls', (tester) async {
+  testWidgets('mobile timeline renders the reference-style flow', (
+    tester,
+  ) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    state.dayEntries = [
+      _entry(
+        id: 'deep-work',
+        startAt: DateTime(2026, 1, 2, 9),
+        endAt: DateTime(2026, 1, 2, 10, 15),
+        note: 'Project Phoenix',
+      ),
+      _entry(
+        id: 'standup',
+        startAt: DateTime(2026, 1, 2, 10, 35),
+        endAt: DateTime(2026, 1, 2, 11),
+        note: 'Team Standup',
+      ),
+    ];
+
+    await _pumpTimeline(tester, state, width: 390);
+
+    expect(find.text('时间线'), findsOneWidget);
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('本周'), findsOneWidget);
+    expect(find.byType(TimelineEntryCard), findsNothing);
+    expect(find.byKey(const ValueKey('mobile-timeline-entry-deep-work')),
+        findsOneWidget);
+    expect(find.text('Project Phoenix'), findsOneWidget);
+    expect(find.text('Team Standup'), findsOneWidget);
+
+    await tester.tap(find.text('本周'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mobile timeline filter switches actions and week empty state', (
+    tester,
+  ) async {
     final fixture = _buildFixture();
     final state = fixture.state;
     addTearDown(state.dispose);
 
+    await _pumpTimeline(tester, state, width: 390);
+    await tester.tap(find.text('本周'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('这个范围还没有记录。'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('筛选'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(BottomSheet, '筛选'), findsOneWidget);
+
+    await tester.tap(find.text('指令').last);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(BottomSheet, '筛选'), findsNothing);
+    expect(find.text('这个范围还没有切换或编辑指令。'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mobile timeline more menu changes range and opens add dialog', (
+    tester,
+  ) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    final originalDay = state.selectedDay;
+
+    await _pumpTimeline(tester, state, width: 390);
+
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('前一天'));
+    await tester.pumpAndSettle();
+    expect(state.selectedDay, originalDay.subtract(const Duration(days: 1)));
+
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('后一天'));
+    await tester.pumpAndSettle();
+    expect(state.selectedDay, originalDay);
+
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('补记'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AlertDialog, '补记时间段'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wide timeline filter switches actions and hides old controls', (
+    tester,
+  ) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+    state.dayActionLogs = [
+      ActionLog(
+        id: 'action',
+        userId: null,
+        actionType: ActionType.switch_,
+        activityId: 'work',
+        entryId: null,
+        message: '切换事项',
+        occurredAt: DateTime(2026, 1, 2, 9),
+        deviceId: 'wide-device',
+        updatedAt: DateTime(2026, 1, 2, 9),
+        isDeleted: false,
+      ),
+    ];
+
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('指令'));
+    await tester.tap(find.byTooltip('筛选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('指令').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('显示选项'), findsOneWidget);
-    await tester.tap(find.text('显示选项'));
-    await tester.pumpAndSettle();
-
+    expect(find.byType(ActionLogCard), findsOneWidget);
+    expect(find.text('显示选项'), findsNothing);
     expect(find.byType(Slider), findsNothing);
     expect(find.text('单行缩放'), findsNothing);
     expect(find.text('可缩放时间线'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('single-line timeline restores horizontal zoom scrolling',
-      (tester) async {
-    final fixture = _buildFixture();
-    final state = fixture.state;
-    addTearDown(state.dispose);
-    state.dayEntries = [
-      _entry(
-        id: 'entry',
-        startAt: DateTime(2026, 1, 2, 9),
-        endAt: DateTime(2026, 1, 2, 10),
-      ),
-    ];
-
-    await _pumpTimeline(tester, state, width: 520);
-    await tester.tap(find.text('显示选项'));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(Slider), const Offset(180, 0));
-    await tester.pumpAndSettle();
-
-    expect(find.text('单行缩放'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Scrollable &&
-            axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
-      ),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('segmented timeline splits a day into custom segments',
-      (tester) async {
+  testWidgets('wide timeline keeps a readable visual column', (tester) async {
     final fixture = _buildFixture();
     final state = fixture.state;
     addTearDown(state.dispose);
@@ -513,27 +614,32 @@ void main() {
     ];
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.text('显示选项'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('分段显示'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('增加分段'));
-    await tester.pumpAndSettle();
+    final entryCard = find.byKey(const ValueKey('mobile-timeline-entry-entry'));
 
-    expect(find.text('每天 5 段'), findsOneWidget);
-    expect(find.textContaining('00:00 - 04:48'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Scrollable &&
-            axisDirectionToAxis(widget.axisDirection) == Axis.horizontal,
-      ),
-      findsNothing,
-    );
+    expect(entryCard, findsOneWidget);
+    expect(tester.getSize(entryCard).width, lessThanOrEqualTo(650));
+    expect(find.text('显示选项'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('timeline sorts entry and action lists from controls',
+  testWidgets('wide timeline week segment keeps generated gaps visible', (
+    tester,
+  ) async {
+    final fixture = _buildFixture();
+    final state = fixture.state;
+    addTearDown(state.dispose);
+
+    await _pumpTimeline(tester, state, width: 920);
+    await tester.tap(find.text('本周'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('未分配'), findsOneWidget);
+    expect(find.text('这个范围还没有记录。'), findsNothing);
+    expect(find.text('分段显示'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('timeline visual flow orders entries and actions by time',
       (tester) async {
     final fixture = _buildFixture();
     final state = fixture.state;
@@ -579,38 +685,20 @@ void main() {
       ];
 
     await _pumpTimeline(tester, state, width: 920);
-    final entrySort =
-        find.byType(DropdownButtonFormField<TimelineEntrySortMetric>);
-    await tester.ensureVisible(entrySort);
-    await tester.pumpAndSettle();
-    await tester.tap(entrySort);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('时长').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('倒序'));
-    await tester.pumpAndSettle();
 
     expect(
-      tester.getTopLeft(find.text('2 小时 0 分钟')).dy,
-      lessThan(tester.getTopLeft(find.text('20 分钟')).dy),
+      tester.getTopLeft(find.text('20分')).dy,
+      lessThan(tester.getTopLeft(find.text('2小时')).dy),
     );
 
-    await tester.ensureVisible(find.text('指令'));
+    await tester.tap(find.byTooltip('筛选'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('指令'));
-    await tester.pumpAndSettle();
-    final actionSort =
-        find.byType(DropdownButtonFormField<ActionLogSortMetric>);
-    await tester.ensureVisible(actionSort);
-    await tester.pumpAndSettle();
-    await tester.tap(actionSort);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('设备').last);
+    await tester.tap(find.text('指令').last);
     await tester.pumpAndSettle();
 
     expect(
-      tester.getTopLeft(find.textContaining('a-device')).dy,
-      lessThan(tester.getTopLeft(find.textContaining('z-device')).dy),
+      tester.getTopLeft(find.textContaining('切换事项')).dy,
+      lessThan(tester.getTopLeft(find.textContaining('停止事项')).dy),
     );
     expect(tester.takeException(), isNull);
   });
@@ -634,8 +722,8 @@ void main() {
 
     await _pumpTimeline(tester, state, width: 390);
 
-    expect(find.text('30 分钟'), findsOneWidget);
-    expect(find.text('00:00:00 - 00:30:00'), findsOneWidget);
+    expect(find.text('30分'), findsOneWidget);
+    expect(find.text('cross day'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -657,11 +745,7 @@ void main() {
       ..now = DateTime(2026, 1, 2, 10, 15);
 
     await _pumpTimeline(tester, state, width: 920);
-    final runningCard = find.ancestor(
-      of: find.text('工作'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, runningCard);
+    await _tapTimelineEntryById(tester, id: runningEntry.id);
 
     expect(find.text('保持进行中'), findsWidgets);
     expect(find.text('关闭后可把这条记录保存为已结束。'), findsOneWidget);
@@ -678,17 +762,10 @@ void main() {
       ..selectedDay = DateTime(2026, 1, 1)
       ..now = DateTime(2026, 1, 2, 12);
 
-    await _pumpTimeline(tester, state, width: 390);
+    await _pumpTimeline(tester, state, width: 920);
 
-    expect(
-      find.ancestor(
-        of: find.text('未分配'),
-        matching: find.byType(TimelineEntryCard),
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('24 小时 0 分钟'), findsWidgets);
-    expect(find.text('00:00:00 - 24:00:00'), findsOneWidget);
+    expect(find.text('未分配'), findsOneWidget);
+    expect(find.text('24小时'), findsOneWidget);
     expect(find.text('这一天还没有记录。'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -709,14 +786,8 @@ void main() {
           (entry) => entry.deviceId == 'unassigned-gap',
         );
 
-    await _pumpTimeline(tester, state, width: 390);
-    final gapCard = find.ancestor(
-      of: find.text('未分配'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    expect(gapCard, findsOneWidget);
-
-    await _tapEntryEditButtonInCard(tester, gapCard);
+    await _pumpTimeline(tester, state, width: 920);
+    await _tapTimelineEntryById(tester, id: gap.id);
     expect(
       tester
           .widget<TextField>(
@@ -814,12 +885,8 @@ void main() {
           (entry) => entry.deviceId == 'unassigned-gap',
         );
 
-    await _pumpTimeline(tester, state, width: 390);
-    final gapCard = find.ancestor(
-      of: find.text('未分配'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, gapCard);
+    await _pumpTimeline(tester, state, width: 920);
+    await _tapTimelineEntryById(tester, id: gap.id);
 
     expect(find.widgetWithText(AlertDialog, '编辑时间段'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '删除'), findsNothing);
@@ -854,12 +921,7 @@ void main() {
     );
 
     await _pumpTimeline(tester, state, width: 920);
-    final originalActivity = state.activityById(originalEntry.activityId)!;
-    final entryCard = find.ancestor(
-      of: find.text(originalActivity.name),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: originalEntry.id);
     await _chooseEntryActivity(tester, targetActivity.name);
     await _tapAndPumpUntilGone(
       tester,
@@ -937,11 +999,7 @@ void main() {
     });
 
     await _pumpTimeline(tester, state, width: 920);
-    final entryCard = find.ancestor(
-      of: find.text('09:00:00 - 10:00:00'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: originalEntry.id);
     await tester.ensureVisible(find.widgetWithText(OutlinedButton, '延续到现在'));
     await tester.pumpAndSettle();
     await _tapAndPumpUntilGone(
@@ -1046,11 +1104,7 @@ void main() {
     });
 
     await _pumpTimeline(tester, state, width: 920);
-    final entryCard = find.ancestor(
-      of: find.text(originalActivity.name),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: originalEntry.id);
 
     await _tapAndPumpUntil(
       tester,
@@ -1093,11 +1147,7 @@ void main() {
     );
 
     await _pumpTimeline(tester, state, width: 920);
-    final entryCard = find.ancestor(
-      of: find.text('09:00:00 - 10:00:00'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: entryToEdit.id);
     await _chooseEntryActivity(tester, targetActivity.name);
     await _tapAndPumpUntil(
       tester,
@@ -1144,11 +1194,7 @@ void main() {
     });
 
     await _pumpTimeline(tester, state, width: 920);
-    final entryCard = find.ancestor(
-      of: find.text('09:00:00 - 10:00:00'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: state.dayEntries.first.id);
     await _tapAndPumpUntilGone(
       tester,
       find.widgetWithText(OutlinedButton, '合并右侧'),
@@ -1183,11 +1229,7 @@ void main() {
     });
 
     await _pumpTimeline(tester, state, width: 920);
-    final entryCard = find.ancestor(
-      of: find.text('09:00:00 - 10:00:00'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: state.dayEntries.first.id);
     await _tapAndPumpUntil(
       tester,
       find.widgetWithText(OutlinedButton, '合并右侧'),
@@ -1224,11 +1266,7 @@ void main() {
     final secondTargetActivity = targetActivities[1];
 
     await _pumpTimeline(tester, state, width: 920);
-    final entryCard = find.ancestor(
-      of: find.text('09:00:00 - 10:00:00'),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: entryToEdit.id);
     await _chooseEntryActivity(tester, firstTargetActivity.name);
     await _tapAndPumpUntil(
       tester,
@@ -1275,11 +1313,7 @@ void main() {
 
     await _pumpTimeline(tester, state, width: 920);
     final originalActivity = state.activityById(originalEntry.activityId)!;
-    final entryCard = find.ancestor(
-      of: find.text(originalActivity.name),
-      matching: find.byType(TimelineEntryCard),
-    );
-    await _tapEntryEditButtonInCard(tester, entryCard);
+    await _tapTimelineEntryById(tester, id: originalEntry.id);
 
     await tester.runAsync(() async {
       await fixture.repository.replaceActivityIfRemoteNewer(
@@ -1460,14 +1494,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('date text shows calendar icon', (tester) async {
+  testWidgets('more menu shows date picker action', (tester) async {
     final fixture = _buildFixture();
     final state = fixture.state;
     addTearDown(state.dispose);
 
     await _pumpTimeline(tester, state, width: 920);
 
-    expect(find.byIcon(Icons.calendar_today), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择日期'), findsOneWidget);
+    expect(find.byIcon(Icons.calendar_today_outlined), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1487,7 +1525,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('sort controls use localized strings in English locale',
+  testWidgets('filter controls use localized strings in English locale',
       (tester) async {
     final fixture = _buildFixture();
     final state = fixture.state;
@@ -1528,19 +1566,23 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Records'), findsOneWidget);
-    expect(find.text('Sort entries'), findsOneWidget);
-    expect(find.text('Start time'), findsOneWidget);
-    expect(find.text('Ascending'), findsOneWidget);
-    expect(find.text('Descending'), findsOneWidget);
+    expect(find.text('Timeline'), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('This week'), findsOneWidget);
 
-    await tester.tap(find.text('Actions'));
+    await tester.tap(find.byTooltip('Filters'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sort actions'), findsOneWidget);
-    expect(find.text('Occurred at'), findsOneWidget);
-    expect(find.text('Ascending'), findsOneWidget);
-    expect(find.text('Descending'), findsOneWidget);
+    expect(find.widgetWithText(BottomSheet, 'Filters'), findsOneWidget);
+    expect(find.text('Records'), findsOneWidget);
+    expect(find.text('Actions'), findsOneWidget);
+    expect(find.text('Today'), findsWidgets);
+    expect(find.text('This week'), findsWidgets);
+
+    await tester.tap(find.text('Actions').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ActionLogCard), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

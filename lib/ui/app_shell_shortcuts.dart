@@ -19,6 +19,8 @@ final Map<ShortcutActivator, Intent> appShellShortcuts = {
       const SelectDestinationIntent(2),
   const SingleActivator(LogicalKeyboardKey.digit4, control: true):
       const SelectDestinationIntent(3),
+  const SingleActivator(LogicalKeyboardKey.digit5, control: true):
+      const SelectDestinationIntent(4),
   const SingleActivator(LogicalKeyboardKey.keyN, control: true):
       const TimelineAddEntryIntent(),
   const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true):

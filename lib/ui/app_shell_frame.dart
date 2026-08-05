@@ -73,7 +73,7 @@ class AppShellFrame extends StatelessWidget {
           ),
           TimelineAddEntryIntent: CallbackAction<TimelineAddEntryIntent>(
             onInvoke: (_) {
-              if (selectedIndex == 1 && !hasFocusedEditable(context)) {
+              if (selectedIndex == 2 && !hasFocusedEditable(context)) {
                 timelineController.openEntryEditor();
               }
               return null;
@@ -82,7 +82,7 @@ class AppShellFrame extends StatelessWidget {
           TimelinePreviousRangeIntent:
               CallbackAction<TimelinePreviousRangeIntent>(
             onInvoke: (_) {
-              if (selectedIndex == 1 && !hasFocusedEditable(context)) {
+              if (selectedIndex == 2 && !hasFocusedEditable(context)) {
                 timelineController.selectPreviousRange();
               }
               return null;
@@ -90,7 +90,7 @@ class AppShellFrame extends StatelessWidget {
           ),
           TimelineNextRangeIntent: CallbackAction<TimelineNextRangeIntent>(
             onInvoke: (_) {
-              if (selectedIndex == 1 && !hasFocusedEditable(context)) {
+              if (selectedIndex == 2 && !hasFocusedEditable(context)) {
                 timelineController.selectNextRange();
               }
               return null;

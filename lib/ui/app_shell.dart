@@ -7,11 +7,12 @@ import '../core/date_time_ext.dart';
 import '../l10n/app_localizations.dart';
 import 'app_shell_dialogs.dart';
 import 'app_shell_frame.dart';
-import 'home_page.dart';
 import 'settings_page.dart';
 import 'snackbar_helper.dart';
 import 'stats_page.dart';
+import 'timer_page.dart';
 import 'timeline_page.dart';
+import 'today_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({required this.state, super.key});
@@ -34,7 +35,11 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _pages = [
-      HomePage(state: widget.state),
+      TimerPage(state: widget.state),
+      TodayPage(
+        state: widget.state,
+        onOpenTimeline: () => _selectDestination(2),
+      ),
       TimelinePage(state: widget.state, controller: _timelineController),
       StatsPage(state: widget.state),
       SettingsPage(state: widget.state),
@@ -74,7 +79,7 @@ class _AppShellState extends State<AppShell> {
           message: AppLocalizations.of(context)!
               .updateAvailablePrompt(update.latestVersion.toString()),
           actionLabel: AppLocalizations.of(context)!.viewInSettings,
-          onAction: () => _selectDestination(3),
+          onAction: () => _selectDestination(4),
         );
       });
     }
@@ -112,7 +117,7 @@ class _AppShellState extends State<AppShell> {
 
   void _selectDestination(int value) {
     setState(() => _index = value);
-    if (value != 1) {
+    if (value != 2) {
       return;
     }
     final today = widget.state.now.startOfDay;

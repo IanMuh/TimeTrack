@@ -24,7 +24,7 @@ class RunningTimerBar extends StatelessWidget {
         final colorScheme = Theme.of(context).colorScheme;
         final dark = colorScheme.brightness == Brightness.dark;
         final background =
-            dark ? const Color(0xff0f766e) : colorScheme.secondary;
+            dark ? const Color(0xff087f7f) : const Color(0xff0f9f9f);
         final runningActivity = state.runningActivity;
         return ValueListenableBuilder<DateTime>(
           valueListenable: state.clockNotifier,
@@ -52,10 +52,8 @@ class RunningTimerBar extends StatelessWidget {
                             color: Colors.white.withValues(alpha: 0.18),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            runningActivity == null
-                                ? Icons.play_arrow_rounded
-                                : Icons.radio_button_checked,
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
                             color: Colors.white,
                             size: 20,
                           ),
@@ -64,7 +62,7 @@ class RunningTimerBar extends StatelessWidget {
                         Expanded(
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              final compact = constraints.maxWidth < 260;
+                              final compact = constraints.maxWidth < 150;
                               return Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,

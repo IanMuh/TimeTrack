@@ -170,13 +170,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('提醒'), findsOneWidget);
-    expect(find.text('时间线'), findsOneWidget);
+    expect(find.text('通用'), findsOneWidget);
+    expect(find.text('外观'), findsOneWidget);
+    expect(find.text('备份与导出'), findsOneWidget);
+    expect(find.text('导出数据'), findsOneWidget);
+    expect(find.text('同步模式'), findsOneWidget);
     expect(find.text('事项分类'), findsNothing);
-    expect(find.text('设备互通'), findsOneWidget);
     expect(find.textContaining('应用内提示'), findsNothing);
 
-    await tester.tap(find.text('设备互通'));
+    await tester.tap(find.text('导出数据'));
     await tester.pumpAndSettle();
 
     final pathFinder = find.byWidgetPredicate(
@@ -794,19 +796,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('设置'), findsOneWidget);
-    expect(find.text('提醒'), findsOneWidget);
-    expect(find.text('时间线'), findsOneWidget);
+    expect(find.text('通用'), findsOneWidget);
+    expect(find.text('外观'), findsOneWidget);
+    expect(find.text('每周起始日'), findsOneWidget);
+    expect(find.text('备份与导出'), findsOneWidget);
+    expect(find.text('导出数据'), findsOneWidget);
     expect(find.text('事项分类'), findsNothing);
-    expect(find.text('云同步'), findsOneWidget);
-    expect(find.text('设备互通'), findsOneWidget);
+    expect(find.text('同步模式'), findsOneWidget);
+    expect(find.text('关于 TimeTrack'), findsOneWidget);
 
-    await tester.tap(find.text('云同步'));
+    await tester.tap(find.text('同步模式'));
     await tester.pumpAndSettle();
     expect(find.text('同步状态'), findsOneWidget);
 
     await tester.tap(find.byTooltip('返回设置分区'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('设备互通'));
+    await tester.tap(find.text('导出数据'));
     await tester.pumpAndSettle();
     expect(find.text('配对并同步'), findsOneWidget);
     expect(tester.takeException(), isNull);

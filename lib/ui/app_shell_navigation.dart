@@ -18,9 +18,14 @@ List<AppShellDestination> buildAppShellDestinations(BuildContext context) {
   final l10n = AppLocalizations.of(context)!;
   return [
     AppShellDestination(
-      label: l10n.navCurrent,
+      label: l10n.navTimer,
       icon: Icons.timer_outlined,
       selectedIcon: Icons.timer,
+    ),
+    AppShellDestination(
+      label: l10n.navToday,
+      icon: Icons.today_outlined,
+      selectedIcon: Icons.today,
     ),
     AppShellDestination(
       label: l10n.navTimeline,

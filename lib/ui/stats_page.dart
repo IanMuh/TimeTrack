@@ -22,6 +22,39 @@ class StatsRange {
   final String label;
 }
 
+class _StatsViewData {
+  const _StatsViewData({
+    required this.current,
+    required this.previous,
+  });
+
+  final TimeRangeStats current;
+  final TimeRangeStats previous;
+}
+
+const _emptyStats = TimeRangeStats(
+  totalsByActivity: {},
+  totalsByDay: {},
+  totalDuration: Duration.zero,
+  longestBlock: Duration.zero,
+);
+
+class _StatsLoadingIndicator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Icon(
+          Icons.hourglass_empty,
+          size: 32,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+}
+
 class StatsPage extends StatefulWidget {
   const StatsPage({required this.state, super.key});
 
@@ -32,7 +65,7 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
-  StatsPreset _preset = StatsPreset.today;
+  StatsPreset _preset = StatsPreset.thisWeek;
   DateTime _customDay = DateTime.now();
   StatsDimension _dimension = StatsDimension.activity;
   final Set<String> _selectedCategoryIds = {};
@@ -41,6 +74,10 @@ class _StatsPageState extends State<StatsPage> {
   DateTime? _statsRangeEnd;
   int? _statsDataRevision;
   Future<TimeRangeStats>? _statsFuture;
+  DateTime? _mobileStatsRangeStart;
+  DateTime? _mobileStatsRangeEnd;
+  int? _mobileStatsDataRevision;
+  Future<_StatsViewData>? _mobileStatsFuture;
 
   @override
   void initState() {
@@ -72,82 +109,106 @@ class _StatsPageState extends State<StatsPage> {
       animation: state,
       builder: (context, _) {
         final range = _rangeFor(state.now);
-        return AdaptivePage(
-          pageKey: const PageStorageKey('stats-page'),
-          onRefresh: state.refresh,
-          children: [
-            StatsHeader(
-              range: range,
-              selectedPreset: _preset,
-              onPresetChanged: (preset) => setState(() => _preset = preset),
-              onPickCustomDay: () => _pickCustomDay(context),
-              onPreviousDay: () => _shiftCustomDay(-1),
-              onNextDay: () => _shiftCustomDay(1),
-            ),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return SectionGap(
-                  height: constraints.maxWidth < compactBreakpoint ? 10 : 16,
-                );
-              },
-            ),
-            FutureBuilder<TimeRangeStats>(
-              future: _statsForRange(range),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: Icon(
-                        Icons.hourglass_empty,
-                        size: 32,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  );
-                }
-                final stats = snapshot.data ??
-                    const TimeRangeStats(
-                      totalsByActivity: {},
-                      totalsByDay: {},
-                      totalDuration: Duration.zero,
-                      longestBlock: Duration.zero,
-                    );
-                final totalMinutes = stats.totalDuration.inMinutes <= 0
-                    ? 1
-                    : stats.totalDuration.inMinutes;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _StatsMetrics(
-                      totalDuration: stats.totalDuration,
-                      longestBlock: stats.longestBlock,
-                    ),
-                    const SectionGap(height: 12),
-                    _StatsCharts(
-                      state: state,
-                      range: range,
-                      stats: stats,
-                      dimension: _dimension,
-                      selectedCategoryIds: _selectedCategoryIds,
-                      onDimensionChanged: (value) {
-                        setState(() => _dimension = value);
-                      },
-                      onCategoryFilterToggled: _toggleCategoryFilter,
-                      totalMinutes: totalMinutes,
-                      showCompactFilters: _showCompactStatsFilters,
-                      onCompactFiltersToggled: () {
-                        setState(() {
-                          _showCompactStatsFilters = !_showCompactStatsFilters;
-                        });
-                      },
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < compactBreakpoint;
+            return AdaptivePage(
+              maxWidth: compact ? 430 : 1120,
+              pageKey: const PageStorageKey('stats-page'),
+              onRefresh: state.refresh,
+              children: [
+                if (compact)
+                  _MobileStatsHeader(
+                    selectedPreset: _preset,
+                    onPresetChanged: (preset) {
+                      setState(() => _preset = preset);
+                    },
+                    onPickCustomDay: () => _pickCustomDay(context),
+                  )
+                else
+                  StatsHeader(
+                    range: range,
+                    selectedPreset: _preset,
+                    onPresetChanged: (preset) {
+                      setState(() => _preset = preset);
+                    },
+                    onPickCustomDay: () => _pickCustomDay(context),
+                    onPreviousDay: () => _shiftCustomDay(-1),
+                    onNextDay: () => _shiftCustomDay(1),
+                  ),
+                SectionGap(height: compact ? 18 : 16),
+                if (compact)
+                  FutureBuilder<_StatsViewData>(
+                    future: _mobileStatsForRange(range),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return _StatsLoadingIndicator();
+                      }
+                      final data = snapshot.data ??
+                          const _StatsViewData(
+                            current: _emptyStats,
+                            previous: _emptyStats,
+                          );
+                      final stats = data.current;
+                      final totalMinutes = stats.totalDuration.inMinutes <= 0
+                          ? 1
+                          : stats.totalDuration.inMinutes;
+                      return _MobileStatsContent(
+                        range: range,
+                        selectedPreset: _preset,
+                        stats: stats,
+                        previousStats: data.previous,
+                        totalMinutes: totalMinutes,
+                      );
+                    },
+                  )
+                else
+                  FutureBuilder<TimeRangeStats>(
+                    future: _statsForRange(range),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return _StatsLoadingIndicator();
+                      }
+                      final stats = snapshot.data ?? _emptyStats;
+                      final totalMinutes = stats.totalDuration.inMinutes <= 0
+                          ? 1
+                          : stats.totalDuration.inMinutes;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _StatsMetrics(
+                            totalDuration: stats.totalDuration,
+                            longestBlock: stats.longestBlock,
+                          ),
+                          const SectionGap(height: 12),
+                          _StatsCharts(
+                            state: state,
+                            range: range,
+                            stats: stats,
+                            dimension: _dimension,
+                            selectedCategoryIds: _selectedCategoryIds,
+                            onDimensionChanged: (value) {
+                              setState(() => _dimension = value);
+                            },
+                            onCategoryFilterToggled: _toggleCategoryFilter,
+                            totalMinutes: totalMinutes,
+                            showCompactFilters: _showCompactStatsFilters,
+                            onCompactFiltersToggled: () {
+                              setState(() {
+                                _showCompactStatsFilters =
+                                    !_showCompactStatsFilters;
+                              });
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+              ],
+            );
+          },
         );
       },
     );
@@ -241,6 +302,32 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
+  Future<_StatsViewData> _mobileStatsForRange(StatsRange range) {
+    final cached = _mobileStatsFuture;
+    final revision = widget.state.dataRevision;
+    if (cached != null &&
+        _mobileStatsRangeStart == range.start &&
+        _mobileStatsRangeEnd == range.end &&
+        _mobileStatsDataRevision == revision) {
+      return cached;
+    }
+    _mobileStatsRangeStart = range.start;
+    _mobileStatsRangeEnd = range.end;
+    _mobileStatsDataRevision = revision;
+    return _mobileStatsFuture = _loadMobileStatsForRange(range);
+  }
+
+  Future<_StatsViewData> _loadMobileStatsForRange(StatsRange range) async {
+    final previousDuration = range.end.difference(range.start);
+    final previousEnd = range.start;
+    final previousStart = previousEnd.subtract(previousDuration);
+    final [current, previous] = await Future.wait([
+      widget.state.statsForRange(start: range.start, end: range.end),
+      widget.state.statsForRange(start: previousStart, end: previousEnd),
+    ]);
+    return _StatsViewData(current: current, previous: previous);
+  }
+
   void _invalidateStatsFuture() {
     if (_statsDataRevision == widget.state.dataRevision) {
       return;
@@ -253,6 +340,585 @@ class _StatsPageState extends State<StatsPage> {
     _statsRangeEnd = null;
     _statsDataRevision = null;
     _statsFuture = null;
+    _mobileStatsRangeStart = null;
+    _mobileStatsRangeEnd = null;
+    _mobileStatsDataRevision = null;
+    _mobileStatsFuture = null;
+  }
+}
+
+class _MobileStatsHeader extends StatelessWidget {
+  const _MobileStatsHeader({
+    required this.selectedPreset,
+    required this.onPresetChanged,
+    required this.onPickCustomDay,
+  });
+
+  final StatsPreset selectedPreset;
+  final ValueChanged<StatsPreset> onPresetChanged;
+  final VoidCallback onPickCustomDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _mobileStatsTitle(context),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
+        PopupMenuButton<StatsPreset>(
+          tooltip: _mobileText(
+            context,
+            english: 'Select range',
+            chinese: '选择范围',
+          ),
+          onSelected: (preset) {
+            if (preset == StatsPreset.customDay) {
+              onPickCustomDay();
+              return;
+            }
+            onPresetChanged(preset);
+          },
+          itemBuilder: (context) {
+            return [
+              for (final preset in StatsPreset.values)
+                PopupMenuItem(
+                  value: preset,
+                  child: Text(_mobilePresetLabel(context, preset)),
+                ),
+            ];
+          },
+          child: Material(
+            color: colorScheme.surface,
+            elevation: 1,
+            shadowColor: Colors.black.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              key: const ValueKey('mobile-stats-range-menu'),
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colorScheme.outlineVariant),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _mobilePresetLabel(context, selectedPreset),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.onSurface,
+                        ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileStatsContent extends StatelessWidget {
+  const _MobileStatsContent({
+    required this.range,
+    required this.selectedPreset,
+    required this.stats,
+    required this.previousStats,
+    required this.totalMinutes,
+  });
+
+  final StatsRange range;
+  final StatsPreset selectedPreset;
+  final TimeRangeStats stats;
+  final TimeRangeStats previousStats;
+  final int totalMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final rangeDays = _rangeDayCount(range);
+    final averageMinutes = rangeDays == 0
+        ? 0
+        : (stats.totalDuration.inMinutes / rangeDays).round();
+    final previousAverageMinutes = rangeDays == 0
+        ? 0
+        : (previousStats.totalDuration.inMinutes / rangeDays).round();
+    final rows = stats.groupRows(dimension: StatsDimension.activity);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _MobileStatsMetricCard(
+                key: const ValueKey('mobile-stats-total-time-card'),
+                label: _mobileText(
+                  context,
+                  english: 'Total Time',
+                  chinese: '总时长',
+                ),
+                value: _formatMobileDuration(
+                  context,
+                  stats.totalDuration,
+                  padMinutes: false,
+                ),
+                delta: _formatMobileDelta(
+                  context,
+                  currentMinutes: stats.totalDuration.inMinutes,
+                  previousMinutes: previousStats.totalDuration.inMinutes,
+                  preset: selectedPreset,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _MobileStatsMetricCard(
+                key: const ValueKey('mobile-stats-daily-avg-card'),
+                label: _mobileText(
+                  context,
+                  english: 'Daily Avg',
+                  chinese: '日均',
+                ),
+                value: _formatMobileDuration(
+                  context,
+                  Duration(minutes: averageMinutes),
+                  padMinutes: true,
+                ),
+                delta: _formatMobileDelta(
+                  context,
+                  currentMinutes: averageMinutes,
+                  previousMinutes: previousAverageMinutes,
+                  preset: selectedPreset,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        _MobileDayBarsChart(
+          range: range,
+          dayTotals: stats.totalsByDay,
+        ),
+        const SizedBox(height: 30),
+        _MobileActivityDonut(
+          rows: rows,
+          totalMinutes: totalMinutes,
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileStatsMetricCard extends StatelessWidget {
+  const _MobileStatsMetricCard({
+    required this.label,
+    required this.value,
+    required this.delta,
+    super.key,
+  });
+
+  final String label;
+  final String value;
+  final String delta;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface,
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 88,
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const Spacer(),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                maxLines: 1,
+                softWrap: false,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              delta,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: const Color(0xff16a34a),
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileDayBarsChart extends StatelessWidget {
+  const _MobileDayBarsChart({
+    required this.range,
+    required this.dayTotals,
+  });
+
+  final StatsRange range;
+  final Map<DateTime, Duration> dayTotals;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final days = _chartDaysForRange(range);
+    final maxMinutes = days.fold<int>(
+      60,
+      (max, day) {
+        final minutes = dayTotals[day.startOfDay]?.inMinutes ?? 0;
+        return minutes > max ? minutes : max;
+      },
+    );
+    final maxHours = (maxMinutes / 60).ceil();
+    final midHours = (maxHours / 2).ceil();
+    const chartHeight = 126.0;
+    final barColors = [
+      const Color(0xff14b8a6),
+      const Color(0xff3b82f6),
+      const Color(0xff06b6d4),
+      const Color(0xff0891b2),
+      const Color(0xff60a5fa),
+      const Color(0xff93c5fd),
+      const Color(0xff38bdf8),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _mobileText(
+            context,
+            english: 'Time by Day (h)',
+            chinese: '每日时间 (小时)',
+          ),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 162,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 24,
+                height: chartHeight,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _AxisLabel('$maxHours'),
+                    _AxisLabel('$midHours'),
+                    const _AxisLabel('0'),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: chartHeight,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                for (var i = 0; i < 3; i += 1)
+                                  Container(
+                                    height: 1,
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.72),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                for (var i = 0; i < days.length; i += 1)
+                                  _MobileDayBar(
+                                    key: ValueKey('mobile-stats-day-bar-$i'),
+                                    color: barColors[i % barColors.length],
+                                    height: _barHeight(
+                                      dayTotals[days[i].startOfDay] ??
+                                          Duration.zero,
+                                      maxMinutes,
+                                      chartHeight,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        for (final day in days)
+                          Expanded(
+                            child: Text(
+                              _weekdayLabel(context, day.weekday),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  double _barHeight(Duration duration, int maxMinutes, double chartHeight) {
+    if (duration <= Duration.zero) {
+      return 0;
+    }
+    final scaled = duration.inMinutes / maxMinutes * chartHeight;
+    return scaled.clamp(8.0, chartHeight);
+  }
+}
+
+class _AxisLabel extends StatelessWidget {
+  const _AxisLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+    );
+  }
+}
+
+class _MobileDayBar extends StatelessWidget {
+  const _MobileDayBar({
+    required this.color,
+    required this.height,
+    super.key,
+  });
+
+  final Color color;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: 16,
+        height: height,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(5),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileActivityDonut extends StatelessWidget {
+  const _MobileActivityDonut({
+    required this.rows,
+    required this.totalMinutes,
+  });
+
+  final List<StatsGroupRow> rows;
+  final int totalMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _mobileText(
+            context,
+            english: 'Time by Activity',
+            chinese: '事项时间',
+          ),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 14),
+        if (rows.isEmpty)
+          SizedBox(
+            height: 132,
+            child: _StatsEmptyCanvas(
+              icon: Icons.pie_chart_outline,
+              title: AppLocalizations.of(context)!.noData,
+              message: AppLocalizations.of(context)!.startRecordingHint,
+            ),
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox.square(
+                dimension: 124,
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 34,
+                    sections: [
+                      for (final row in rows)
+                        PieChartSectionData(
+                          value: row.totalDuration.inMinutes
+                              .clamp(1, 1 << 31)
+                              .toDouble(),
+                          title: '',
+                          radius: 25,
+                          color: Color(row.color),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  children: [
+                    for (final row in rows)
+                      _MobileActivityLegendRow(
+                        key: ValueKey('mobile-stats-activity-row-${row.id}'),
+                        color: Color(row.color),
+                        label: row.label,
+                        percent: _mobilePercent(row.totalDuration),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  int _mobilePercent(Duration duration) {
+    return (duration.inMinutes / totalMinutes * 100).round();
+  }
+}
+
+class _MobileActivityLegendRow extends StatelessWidget {
+  const _MobileActivityLegendRow({
+    required this.color,
+    required this.label,
+    required this.percent,
+    super.key,
+  });
+
+  final Color color;
+  final String label;
+  final int percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$percent%',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1093,6 +1759,114 @@ class _LegendRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _mobileStatsTitle(BuildContext context) {
+  return _mobileText(context, english: 'Statistics', chinese: '统计');
+}
+
+String _mobileText(
+  BuildContext context, {
+  required String english,
+  required String chinese,
+}) {
+  return Localizations.localeOf(context).languageCode == 'zh'
+      ? chinese
+      : english;
+}
+
+String _mobilePresetLabel(BuildContext context, StatsPreset preset) {
+  final l10n = AppLocalizations.of(context)!;
+  final english = Localizations.localeOf(context).languageCode != 'zh';
+  return switch (preset) {
+    StatsPreset.today => l10n.today,
+    StatsPreset.yesterday => l10n.yesterday,
+    StatsPreset.thisWeek => english ? 'This Week' : l10n.thisWeek,
+    StatsPreset.lastWeek => english ? 'Last Week' : l10n.lastWeek,
+    StatsPreset.customDay => english ? 'Custom Day' : l10n.customDay,
+  };
+}
+
+String _formatMobileDuration(
+  BuildContext context,
+  Duration duration, {
+  required bool padMinutes,
+}) {
+  final minutesTotal = duration.inMinutes;
+  final hours = minutesTotal ~/ 60;
+  final minutes = minutesTotal % 60;
+  final zh = Localizations.localeOf(context).languageCode == 'zh';
+  if (zh) {
+    if (hours == 0) {
+      return '$minutes分';
+    }
+    return '$hours小时${padMinutes ? minutes.toString().padLeft(2, '0') : minutes}分';
+  }
+  if (hours == 0) {
+    return '${minutes}m';
+  }
+  final minuteLabel = padMinutes ? minutes.toString().padLeft(2, '0') : minutes;
+  return '${hours}h ${minuteLabel}m';
+}
+
+String _formatMobileDelta(
+  BuildContext context, {
+  required int currentMinutes,
+  required int previousMinutes,
+  required StatsPreset preset,
+}) {
+  if (currentMinutes <= 0 && previousMinutes <= 0) {
+    return _mobileText(context, english: '+0%', chinese: '+0%');
+  }
+  if (previousMinutes <= 0) {
+    return _mobileText(
+      context,
+      english: '+100% ${_mobileComparisonLabel(context, preset)}',
+      chinese: '+100%${_mobileComparisonLabel(context, preset)}',
+    );
+  }
+  final delta =
+      ((currentMinutes - previousMinutes) / previousMinutes * 100).round();
+  final sign = delta >= 0 ? '+' : '';
+  final comparison = _mobileComparisonLabel(context, preset);
+  return _mobileText(
+    context,
+    english: '$sign$delta% $comparison',
+    chinese: '$sign$delta%$comparison',
+  );
+}
+
+String _mobileComparisonLabel(BuildContext context, StatsPreset preset) {
+  final zh = Localizations.localeOf(context).languageCode == 'zh';
+  return switch (preset) {
+    StatsPreset.today ||
+    StatsPreset.yesterday ||
+    StatsPreset.customDay =>
+      zh ? '较前日' : 'vs previous day',
+    StatsPreset.thisWeek => zh ? '较上周' : 'vs last week',
+    StatsPreset.lastWeek => zh ? '较前一周' : 'vs previous week',
+  };
+}
+
+int _rangeDayCount(StatsRange range) {
+  final days = range.end.startOfDay.difference(range.start.startOfDay).inDays;
+  return days <= 0 ? 1 : days;
+}
+
+List<DateTime> _chartDaysForRange(StatsRange range) {
+  final days = _rangeDayCount(range).clamp(1, 7);
+  return [
+    for (var i = 0; i < days; i += 1)
+      range.start.startOfDay.add(Duration(days: i)),
+  ];
+}
+
+String _weekdayLabel(BuildContext context, int weekday) {
+  final zh = Localizations.localeOf(context).languageCode == 'zh';
+  final labels = zh
+      ? const ['一', '二', '三', '四', '五', '六', '日']
+      : const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return labels[(weekday - 1).clamp(0, 6)];
 }
 
 String _formatDurationTerse(BuildContext context, Duration duration) {

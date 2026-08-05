@@ -15,6 +15,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appSubtitle => '离线优先记录，按下一个事项就开始。';
 
   @override
+  String get navTimer => '计时';
+
+  @override
+  String get navToday => '今天';
+
+  @override
   String get navCurrent => '当前';
 
   @override
@@ -97,6 +103,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get quickSwitch => '快捷切换';
 
   @override
+  String get quickActivity => '快捷事项';
+
+  @override
   String get switchActivity => '切换';
 
   @override
@@ -109,6 +118,45 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get currentDoing => '当前正在做';
+
+  @override
+  String get currentSession => '当前会话';
+
+  @override
+  String get todayPhasePlaceholder => 'Today 页面将在下一视觉阶段继续。';
+
+  @override
+  String get todayTotalTime => '总时长';
+
+  @override
+  String get todayFocusTime => '专注时长';
+
+  @override
+  String get todayBreakTime => '休息时长';
+
+  @override
+  String get todayTopActivities => '高频事项';
+
+  @override
+  String get todayTimeByActivity => '事项用时';
+
+  @override
+  String get todayViewFullTimeline => '查看完整时间线';
+
+  @override
+  String todayVsYesterday(int percent) {
+    return '较昨日 +$percent%';
+  }
+
+  @override
+  String todaySessionsVsYesterday(int count) {
+    return '较昨日 +$count';
+  }
+
+  @override
+  String todayPercentOfTotal(int percent) {
+    return '占总量 $percent%';
+  }
 
   @override
   String get notStarted => '未开始';
@@ -594,6 +642,99 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsSections => '返回设置分区';
+
+  @override
+  String get settingsDesktopGeneral => '通用';
+
+  @override
+  String get settingsDesktopGeneralHint => '桌面偏好概览。';
+
+  @override
+  String get settingsDesktopData => '数据';
+
+  @override
+  String get settingsDesktopDataHint => '备份、导入与重置选项。';
+
+  @override
+  String get settingsDesktopAppearance => '外观';
+
+  @override
+  String get settingsDesktopLight => '浅色';
+
+  @override
+  String get settingsDesktopFirstDayOfWeek => '每周起始日';
+
+  @override
+  String get settingsDesktopMonday => '周一';
+
+  @override
+  String get settingsDesktopTimeFormat => '时间格式';
+
+  @override
+  String get settingsDesktopTimeFormat12Hour => '12 小时制';
+
+  @override
+  String get settingsDesktopDefaultSessionLength => '默认会话时长';
+
+  @override
+  String get settingsDesktopBreakReminder => '休息提醒';
+
+  @override
+  String get settingsDesktopOn => '开启';
+
+  @override
+  String get settingsDesktopOff => '关闭';
+
+  @override
+  String get settingsDesktopBackupExport => '备份与导出';
+
+  @override
+  String get settingsDesktopBackupExportHint => '导出本地 JSON 备份文件。';
+
+  @override
+  String get settingsDesktopImportData => '导入数据';
+
+  @override
+  String get settingsDesktopImportDataHint => '导入 TimeTrack JSON 备份。';
+
+  @override
+  String get settingsDesktopClearAllData => '清除全部数据';
+
+  @override
+  String get settingsDesktopClearAllDataHint => '添加确认流程前暂不可用。';
+
+  @override
+  String get settingsDesktopSync => '同步';
+
+  @override
+  String get settingsDesktopSyncMode => '同步模式';
+
+  @override
+  String get settingsDesktopLastSync => '最近同步';
+
+  @override
+  String get settingsDesktopAbout => '关于';
+
+  @override
+  String get settingsDesktopProduct => 'TimeTrack 桌面版';
+
+  @override
+  String get settingsDesktopMadeWith => '用';
+
+  @override
+  String get settingsDesktopMadeForFocusedPeople => '献给专注的人。';
+
+  @override
+  String get settingsDesktopManual => '手动';
+
+  @override
+  String get settingsDesktopNever => '从未';
+
+  @override
+  String get settingsDesktopOpen => '打开';
+
+  @override
+  String get settingsDesktopDisabled => '已禁用';
 
   @override
   String get activityCategorySettings => '事项分类';

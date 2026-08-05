@@ -3,17 +3,17 @@ import 'package:flutter/material.dart';
 import 'theme_preset.dart';
 import 'theme_typography.dart';
 
-const _lightBackground = Color(0xfff7faff);
+const _lightBackground = Color(0xfff8fafc);
 const _lightSurface = Color(0xffffffff);
-const _lightSurfaceMuted = Color(0xffedf4fb);
-const _lightOutline = Color(0xffd6e0ec);
-const _lightOutlineVariant = Color(0xffe6edf5);
+const _lightSurfaceMuted = Color(0xfff1f5f9);
+const _lightOutline = Color(0xffcbd5e1);
+const _lightOutlineVariant = Color(0xffe2e8f0);
 const _lightText = Color(0xff0f172a);
 const _lightMutedText = Color(0xff64748b);
 const _lightShadow = Color(0x1a0f172a);
-const _lightSecondary = Color(0xff0f766e);
+const _lightSecondary = Color(0xff14b8a6);
 
-const _darkBackground = Color(0xff0b1220);
+const _darkBackground = Color(0xff0f172a);
 const _darkSurface = Color(0xff111827);
 const _darkSurfaceMuted = Color(0xff1f2937);
 const _darkOutline = Color(0xff334155);
@@ -21,7 +21,7 @@ const _darkOutlineVariant = Color(0xff475569);
 const _darkText = Color(0xfff8fafc);
 const _darkMutedText = Color(0xffcbd5e1);
 const _darkShadow = Color(0x40000000);
-const _darkSecondary = Color(0xff2dd4bf);
+const _darkSecondary = Color(0xff14b8a6);
 
 ThemeData buildTimeTrackTheme({
   required ThemePreset preset,

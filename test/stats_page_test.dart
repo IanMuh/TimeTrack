@@ -65,8 +65,9 @@ Future<void> _pumpStats(
   await tester.pump();
   // StatsPage loads range stats asynchronously; give the future a chance
   // to complete before assertions run.
-  await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
-  await tester.pump();
+  await tester
+      .runAsync(() => Future.delayed(const Duration(milliseconds: 500)));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _disposeStatsFixture(
@@ -95,7 +96,7 @@ void main() {
 
     expect(find.text('今天'), findsWidgets);
     expect(find.text('昨天'), findsOneWidget);
-    expect(find.text('本周'), findsOneWidget);
+    expect(find.text('本周'), findsWidgets);
     expect(find.text('上周'), findsOneWidget);
     expect(find.text('自选日'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -131,14 +132,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('default preset shows today labels', (tester) async {
+  testWidgets('default preset shows this week labels', (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
     addTearDown(() => _disposeStatsFixture(tester, fixture));
 
     await _pumpStats(tester, state, width: 920);
 
-    expect(find.text('今天分布'), findsOneWidget);
+    expect(find.text('本周分布'), findsOneWidget);
     expect(find.text('范围总记录'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -152,8 +153,8 @@ void main() {
     await _pumpStats(tester, state, width: 920);
     await tester.pumpAndSettle();
 
-    expect(_textTop(tester, '范围总记录'), lessThan(_textTop(tester, '今天分布')));
-    expect(_textTop(tester, '最长连续'), lessThan(_textTop(tester, '今天分布')));
+    expect(_textTop(tester, '范围总记录'), lessThan(_textTop(tester, '本周分布')));
+    expect(_textTop(tester, '最长连续'), lessThan(_textTop(tester, '本周分布')));
     expect(_textTop(tester, '范围总记录'), lessThan(_textTop(tester, '统计维度')));
     expect(_textTop(tester, '最长连续'), lessThan(_textTop(tester, '每日累计')));
     expect(tester.takeException(), isNull);
@@ -168,15 +169,15 @@ void main() {
     await _pumpStats(tester, state, width: 920);
     await tester.pumpAndSettle();
 
-    expect(_textTop(tester, '今天分布'), lessThan(_textTop(tester, '统计维度')));
+    expect(_textTop(tester, '本周分布'), lessThan(_textTop(tester, '统计维度')));
     expect(
-        _textTop(tester, '今天分布'), lessThanOrEqualTo(_textTop(tester, '每日累计')));
-    expect(_textLeft(tester, '今天分布'), lessThan(_textLeft(tester, '每日累计')));
+        _textTop(tester, '本周分布'), lessThanOrEqualTo(_textTop(tester, '每日累计')));
+    expect(_textLeft(tester, '本周分布'), lessThan(_textLeft(tester, '每日累计')));
     expect(find.text('筛选'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stats page keeps quiet metric and empty states on compact width',
+  testWidgets('mobile stats matches the reference information flow',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -185,27 +186,30 @@ void main() {
     await _pumpStats(tester, state, width: 320);
 
     expect(find.text('统计'), findsOneWidget);
-    expect(find.text('范围总记录'), findsOneWidget);
-    expect(
-      (tester.getTopLeft(find.text('今天')).dy -
-              tester.getTopLeft(find.text('01-02')).dy)
-          .abs(),
-      lessThan(40),
-    );
-    expect(
-      tester.getTopLeft(find.text('范围总记录')).dy,
-      lessThan(tester.getTopLeft(find.text('今天分布')).dy),
-    );
+    expect(find.text('本周'), findsOneWidget);
+    expect(find.text('总时长'), findsOneWidget);
+    expect(find.text('日均'), findsOneWidget);
+    expect(find.text('每日时间 (小时)'), findsOneWidget);
+    expect(find.text('事项时间'), findsOneWidget);
     expect(find.text('暂无数据'), findsWidgets);
-    expect(find.text('筛选'), findsOneWidget);
-    expect(_textTop(tester, '今天分布'), lessThan(_textTop(tester, '筛选')));
+    expect(
+      _textTop(tester, '总时长'),
+      lessThan(_textTop(tester, '每日时间 (小时)')),
+    );
+    expect(
+      _textTop(tester, '每日时间 (小时)'),
+      lessThan(_textTop(tester, '事项时间')),
+    );
+    expect(
+        find.byKey(const ValueKey('mobile-stats-day-bar-0')), findsOneWidget);
+    expect(find.byType(PieChart), findsNothing);
+    expect(find.text('筛选'), findsNothing);
     expect(find.text('统计维度'), findsNothing);
-    expect(find.text('每日累计'), findsOneWidget);
-    expect(_textTop(tester, '筛选'), lessThan(_textTop(tester, '每日累计')));
+    expect(find.text('每日累计'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact stats filters expand and toggle category chips',
+  testWidgets('mobile stats range menu switches the selected range',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -213,22 +217,23 @@ void main() {
 
     await _pumpStats(tester, state, width: 320);
 
-    await tester.ensureVisible(find.text('筛选'));
-    await tester.tap(find.text('筛选'));
+    await tester.tap(find.byKey(const ValueKey('mobile-stats-range-menu')));
     await tester.pumpAndSettle();
 
-    expect(find.text('统计维度'), findsWidgets);
-    expect(find.byType(FilterChip), findsOneWidget);
-    expect(
-        tester.widget<FilterChip>(find.byType(FilterChip)).selected, isFalse);
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('昨天'), findsOneWidget);
+    expect(find.text('上周'), findsOneWidget);
 
-    await tester.tap(find.byType(FilterChip));
+    await tester.tap(find.text('今天'));
+    await tester.pumpAndSettle();
+    await tester
+        .runAsync(() => Future.delayed(const Duration(milliseconds: 500)));
     await tester.pumpAndSettle();
 
-    expect(
-      tester.widget<FilterChip>(find.byType(FilterChip)).selected,
-      isTrue,
-    );
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('本周'), findsNothing);
+    expect(find.text('统计维度'), findsNothing);
+    expect(find.byType(FilterChip), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
