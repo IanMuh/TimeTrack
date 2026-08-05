@@ -156,7 +156,12 @@ void main() {
     seedTodayReferenceState(state);
 
     await pumpShell(tester, state, width: 1000);
-    await tester.tap(find.text('今天'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DesktopNavigationRail),
+        matching: find.text('今天'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('查看完整时间线'));

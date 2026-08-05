@@ -12,8 +12,10 @@ Future<void> _pumpTimerPage(
   ShellTestState state, {
   Locale locale = const Locale('en'),
   ThemeData? theme,
+  double width = 390,
+  double height = 844,
 }) async {
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -77,6 +79,55 @@ void main() {
     expect(find.text('Quick Activity'), findsOneWidget);
     expect(find.text('Meetings'), findsOneWidget);
     expect(find.text('Learning'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TimerPage uses the desktop workbench at expanded width',
+      (tester) async {
+    final state = ShellTestState()..startRunning();
+    addTearDown(state.dispose);
+    state.activities = [
+      Activity(
+        id: 'work',
+        userId: null,
+        name: 'Deep Work',
+        color: 0xff14b8a6,
+        isFavorite: true,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+      Activity(
+        id: 'meetings',
+        userId: null,
+        name: 'Meetings',
+        color: 0xff3b82f6,
+        isFavorite: true,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+      Activity(
+        id: 'learning',
+        userId: null,
+        name: 'Learning',
+        color: 0xff8b5cf6,
+        isFavorite: true,
+        updatedAt: state.now,
+        isDeleted: false,
+      ),
+    ];
+
+    await _pumpTimerPage(tester, state, width: 1200, height: 900);
+
+    expect(
+        find.byKey(const PageStorageKey<String>('timer-page')), findsOneWidget);
+    expect(find.text('Timer'), findsOneWidget);
+    expect(find.text('Current Session'), findsWidgets);
+    expect(find.text('Quick Activity'), findsOneWidget);
+    expect(find.text('View full timeline'), findsOneWidget);
+    expect(find.byKey(const ValueKey('desktop-timer-activity-meetings')),
+        findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Stop'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Switch'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

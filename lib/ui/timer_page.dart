@@ -5,6 +5,7 @@ import '../domain/activity.dart';
 import '../l10n/app_localizations.dart';
 import 'activity_editor_dialog.dart';
 import 'adaptive_layout.dart';
+import 'desktop_timer_page.dart';
 import 'one_off_activity_dialog.dart';
 import 'timer_quick_activity_grid.dart';
 import 'timer_session_card.dart';
@@ -36,56 +37,99 @@ class _TimerPageState extends State<TimerPage> {
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    return AnimatedBuilder(
-      animation: state,
-      builder: (context, _) {
-        final runningActivity = state.runningActivity;
-        final pendingActivity = _pendingActivityId == null
-            ? null
-            : state.activityById(_pendingActivityId!);
-        return AdaptivePage(
-          pageKey: const PageStorageKey('timer-page'),
-          maxWidth: 430,
-          onRefresh: state.refresh,
-          children: [
-            Text(
-              AppLocalizations.of(context)!.navTimer,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= expandedBreakpoint;
+        return AnimatedBuilder(
+          animation: state,
+          builder: (context, _) {
+            final runningActivity = state.runningActivity;
+            final pendingActivity = _pendingActivityId == null
+                ? null
+                : state.activityById(_pendingActivityId!);
+            if (desktop) {
+              return AdaptivePage(
+                pageKey: const PageStorageKey('timer-page'),
+                maxWidth: 1120,
+                onRefresh: state.refresh,
+                children: [
+                  DesktopTimerPage(
+                    state: state,
+                    runningActivity: runningActivity,
+                    pendingActivity: pendingActivity,
+                    activities: _switchableActivities(state),
+                    quickActivityKey: _quickActivityKey,
+                    onActivityTap: _confirmOrSwitch,
+                    onEditActivity: (activity) => showActivityEditorDialog(
+                      context,
+                      state,
+                      activity: activity,
+                    ),
+                    onOneOffActivity: () =>
+                        showOneOffActivityDialog(context, state),
+                    onAddActivity: () =>
+                        showActivityEditorDialog(context, state),
+                    onSwitch: _scrollToQuickActivity,
                   ),
-            ),
-            const SizedBox(height: 18),
-            TimerSessionCard(
-              runningActivity: runningActivity,
-              clockNotifier: state.clockNotifier,
-              runningDurationAt: (now) => state.runningDuration(at: now),
-              entries: state.dayEntries,
-              onStop: runningActivity == null ? null : state.stopCurrent,
-              onSwitch: _scrollToQuickActivity,
-            ),
-            const SizedBox(height: 22),
-            TimerQuickActivityGrid(
-              key: _quickActivityKey,
-              activities: _switchableActivities(state),
-              runningActivity: runningActivity,
-              pendingActivity: pendingActivity,
-              onActivityTap: _confirmOrSwitch,
-              onEditActivity: (activity) => showActivityEditorDialog(
-                context,
-                state,
-                activity: activity,
-              ),
-              onOneOffActivity: () => showOneOffActivityDialog(context, state),
-              onAddActivity: () => showActivityEditorDialog(context, state),
-            ),
-            if (state.errorMessage != null) ...[
-              const SizedBox(height: 18),
-              Text(
-                state.errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-          ],
+                  if (state.errorMessage != null) ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      state.errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            }
+            return AdaptivePage(
+              pageKey: const PageStorageKey('timer-page'),
+              maxWidth: 430,
+              onRefresh: state.refresh,
+              children: [
+                Text(
+                  AppLocalizations.of(context)!.navTimer,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 18),
+                TimerSessionCard(
+                  runningActivity: runningActivity,
+                  clockNotifier: state.clockNotifier,
+                  runningDurationAt: (now) => state.runningDuration(at: now),
+                  entries: state.dayEntries,
+                  onStop: runningActivity == null ? null : state.stopCurrent,
+                  onSwitch: _scrollToQuickActivity,
+                ),
+                const SizedBox(height: 22),
+                TimerQuickActivityGrid(
+                  key: _quickActivityKey,
+                  activities: _switchableActivities(state),
+                  runningActivity: runningActivity,
+                  pendingActivity: pendingActivity,
+                  onActivityTap: _confirmOrSwitch,
+                  onEditActivity: (activity) => showActivityEditorDialog(
+                    context,
+                    state,
+                    activity: activity,
+                  ),
+                  onOneOffActivity: () =>
+                      showOneOffActivityDialog(context, state),
+                  onAddActivity: () => showActivityEditorDialog(context, state),
+                ),
+                if (state.errorMessage != null) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    state.errorMessage!,
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ],
+              ],
+            );
+          },
         );
       },
     );
