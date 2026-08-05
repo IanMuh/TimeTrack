@@ -6,6 +6,7 @@ import 'package:timetrack/ui/app_shell_navigation_rail.dart';
 import 'package:timetrack/ui/running_timer_bar.dart';
 
 import 'app_shell_test_support.dart';
+import 'today_reference_state.dart';
 
 void main() {
   testWidgets('shell shows undo and redo controls on expanded layout',
@@ -64,7 +65,7 @@ void main() {
 
     await pumpShell(tester, state, width: 1000);
 
-    final page = find.byKey(const PageStorageKey<String>('home-page'));
+    final page = find.byKey(const PageStorageKey<String>('timer-page'));
     expect(page, findsOneWidget);
     expect(find.byType(RunningTimerBar), findsOneWidget);
 
@@ -88,7 +89,13 @@ void main() {
       tester.widget<NavigationBar>(find.byType(NavigationBar)).labelBehavior,
       NavigationDestinationLabelBehavior.alwaysShow,
     );
-    final page = find.byKey(const PageStorageKey<String>('home-page'));
+    expect(find.text('计时'), findsAtLeastNWidgets(1));
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('时间线'), findsOneWidget);
+    expect(find.text('统计'), findsOneWidget);
+    expect(find.text('设置'), findsOneWidget);
+
+    final page = find.byKey(const PageStorageKey<String>('timer-page'));
     final pageBottom = tester.getBottomLeft(page).dy;
     final footerTop = tester.getTopLeft(find.byType(NavigationBar)).dy;
 
@@ -131,7 +138,7 @@ void main() {
         tester
             .widget<DesktopNavigationRail>(find.byType(DesktopNavigationRail))
             .selectedIndex,
-        1);
+        2);
 
     await tester.tap(find.byType(RunningTimerBar));
     await tester.pumpAndSettle();
@@ -140,5 +147,27 @@ void main() {
             .widget<DesktopNavigationRail>(find.byType(DesktopNavigationRail))
             .selectedIndex,
         0);
+  });
+
+  testWidgets('desktop Today timeline action selects the Timeline destination',
+      (tester) async {
+    final state = ShellTestState();
+    addTearDown(state.dispose);
+    seedTodayReferenceState(state);
+
+    await pumpShell(tester, state, width: 1000);
+    await tester.tap(find.text('今天'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('查看完整时间线'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<DesktopNavigationRail>(find.byType(DesktopNavigationRail))
+          .selectedIndex,
+      2,
+    );
+    expect(tester.takeException(), isNull);
   });
 }

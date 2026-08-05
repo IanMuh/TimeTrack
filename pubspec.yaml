@@ -1,7 +1,7 @@
 name: timetrack
 description: A personal offline-first time tracking app for Windows and Android.
 publish_to: "none"
-version: 0.3.0-pre+6
+version: 0.3.1-pre+7
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

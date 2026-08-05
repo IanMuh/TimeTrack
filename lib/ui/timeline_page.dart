@@ -26,6 +26,7 @@ part 'timeline_canvas.dart';
 part 'timeline_entry_lists.dart';
 part 'timeline_entry_editor.dart';
 part 'timeline_header.dart';
+part 'timeline_mobile_page.dart';
 part 'timeline_surface_widgets.dart';
 
 enum TimelineViewMode { entries, actions }
@@ -149,15 +150,7 @@ class TimelinePage extends StatefulWidget {
 
 class _TimelinePageState extends State<TimelinePage> {
   TimelineViewMode _mode = TimelineViewMode.entries;
-  TimelineDensity _density = TimelineDensity.detailed;
-  TimelineDisplayMode _displayMode = TimelineDisplayMode.singleLine;
   TimelineSpan _span = TimelineSpan.day;
-  TimelineEntrySortMetric _entrySortMetric = TimelineEntrySortMetric.startTime;
-  ActionLogSortMetric _actionSortMetric = ActionLogSortMetric.occurredAt;
-  SortOrder _entrySortOrder = SortOrder.ascending;
-  SortOrder _actionSortOrder = SortOrder.ascending;
-  int _segmentsPerDay = 4;
-  double _zoom = 1;
   _TimelineRangeCacheKey? _rangeDataKey;
   Future<_TimelineRangeData>? _rangeDataFuture;
 
@@ -228,114 +221,38 @@ class _TimelinePageState extends State<TimelinePage> {
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    return AnimatedBuilder(
-      animation: state,
-      builder: (context, _) {
-        final rangeStart = state.selectedDay.startOfDay;
-        final isFutureDay =
-            state.selectedDay.startOfDay.isAfter(state.now.startOfDay);
-        final rangeEnd = rangeStart.add(Duration(days: _span.days));
-        return AdaptivePage(
-          pageKey: const PageStorageKey('timeline-page'),
-          onRefresh: state.refresh,
-          children: [
-            TimelineHeader(
-              selectedDay: state.selectedDay,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return AnimatedBuilder(
+          animation: state,
+          builder: (context, _) {
+            final rangeStart = state.selectedDay.startOfDay;
+            final isFutureDay =
+                state.selectedDay.startOfDay.isAfter(state.now.startOfDay);
+            final rangeEnd = rangeStart.add(Duration(days: _span.days));
+            return _MobileTimelinePage(
+              state: state,
               mode: _mode,
-              density: _density,
-              displayMode: _displayMode,
               span: _span,
-              segmentsPerDay: _segmentsPerDay,
-              zoom: _zoom,
+              rangeStart: rangeStart,
+              rangeEnd: rangeEnd,
+              isFutureDay: isFutureDay,
+              rangeDataFuture: _rangeDataFor(state, rangeStart, rangeEnd),
+              maxWidth: constraints.maxWidth < compactBreakpoint ? 430 : 720,
+              showGeneratedGaps: constraints.maxWidth >= compactBreakpoint,
+              onModeChanged: (value) => setState(() => _mode = value),
+              onSpanChanged: (value) {
+                setState(() => _span = value);
+                if (value == TimelineSpan.day) {
+                  unawaited(state.selectDay(state.now.startOfDay));
+                }
+              },
+              onDateTap: _pickDate,
               onPreviousRange: selectPreviousRange,
               onNextRange: selectNextRange,
-              onDateTap: _pickDate,
-              onModeChanged: (value) => setState(() => _mode = value),
-              onDensityChanged: (value) => setState(() => _density = value),
-              onDisplayModeChanged: (value) =>
-                  setState(() => _displayMode = value),
-              onSpanChanged: (value) => setState(() => _span = value),
-              onSegmentsPerDayChanged: (value) {
-                setState(() => _segmentsPerDay = value);
-              },
-              onZoomChanged: (value) => setState(() => _zoom = value),
               onAddEntry: openEntryEditor,
-            ),
-            const SectionGap(),
-            if (isFutureDay) FutureDayBanner(selectedDay: state.selectedDay),
-            FutureBuilder<_TimelineRangeData>(
-              future: _rangeDataFor(state, rangeStart, rangeEnd),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: Icon(
-                        Icons.hourglass_empty,
-                        size: 32,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  );
-                }
-                final data = snapshot.data ?? const _TimelineRangeData.empty();
-                final content = switch (_mode) {
-                  TimelineViewMode.entries => _EntriesTimelineView(
-                      state: state,
-                      entries: _sortedEntries(state, data.entries),
-                      rangeStart: rangeStart,
-                      span: _span,
-                      density: _density,
-                      displayMode: _displayMode,
-                      segmentsPerDay: _segmentsPerDay,
-                      zoom: _zoom,
-                      sortMetric: _entrySortMetric,
-                      sortOrder: _entrySortOrder,
-                      onSortMetricChanged: (value) {
-                        setState(() => _entrySortMetric = value);
-                      },
-                      onSortOrderChanged: (value) {
-                        setState(() => _entrySortOrder = value);
-                      },
-                      emptyText: _span == TimelineSpan.day
-                          ? AppLocalizations.of(context)!.emptyDayEntries
-                          : AppLocalizations.of(context)!.emptyRangeEntries,
-                    ),
-                  TimelineViewMode.actions => _ActionLogList(
-                      state: state,
-                      logs: _sortedActionLogs(state, data.logs),
-                      sortMetric: _actionSortMetric,
-                      sortOrder: _actionSortOrder,
-                      onSortMetricChanged: (value) {
-                        setState(() => _actionSortMetric = value);
-                      },
-                      onSortOrderChanged: (value) {
-                        setState(() => _actionSortOrder = value);
-                      },
-                      emptyText: _span == TimelineSpan.day
-                          ? AppLocalizations.of(context)!.emptyDayActions
-                          : AppLocalizations.of(context)!.emptyRangeActions,
-                    ),
-                };
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TimelineRangeSummaryCard(
-                      state: state,
-                      entries: data.entries,
-                      logs: data.logs,
-                      rangeStart: rangeStart,
-                      rangeEnd: rangeEnd,
-                      mode: _mode,
-                    ),
-                    const SectionGap(height: 12),
-                    content,
-                  ],
-                );
-              },
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -375,56 +292,6 @@ class _TimelinePageState extends State<TimelinePage> {
     final logs = await state.actionLogsForRange(start: start, end: end);
     logs.sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
     return _TimelineRangeData(entries: entries, logs: logs);
-  }
-
-  List<TimeEntry> _sortedEntries(AppState state, List<TimeEntry> entries) {
-    final sorted = [...entries];
-    sorted.sort((a, b) {
-      final compare = switch (_entrySortMetric) {
-        TimelineEntrySortMetric.startTime => a.startAt.compareTo(b.startAt),
-        TimelineEntrySortMetric.duration =>
-          _entryDuration(a, state.now).compareTo(_entryDuration(b, state.now)),
-        TimelineEntrySortMetric.activityName => state
-            .activityNameForEntry(a)
-            .compareTo(state.activityNameForEntry(b)),
-        TimelineEntrySortMetric.color => state
-            .activityColorForEntry(a)
-            .compareTo(state.activityColorForEntry(b)),
-      };
-      final directed =
-          _entrySortOrder == SortOrder.ascending ? compare : -compare;
-      if (directed != 0) return directed;
-      return a.startAt.compareTo(b.startAt);
-    });
-    return sorted;
-  }
-
-  List<ActionLog> _sortedActionLogs(AppState state, List<ActionLog> logs) {
-    final sorted = [...logs];
-    sorted.sort((a, b) {
-      final compare = switch (_actionSortMetric) {
-        ActionLogSortMetric.occurredAt => a.occurredAt.compareTo(b.occurredAt),
-        ActionLogSortMetric.actionType =>
-          a.actionType.storageValue.compareTo(b.actionType.storageValue),
-        ActionLogSortMetric.activityName =>
-          _logActivityName(state, a).compareTo(_logActivityName(state, b)),
-        ActionLogSortMetric.device => a.deviceId.compareTo(b.deviceId),
-      };
-      final directed =
-          _actionSortOrder == SortOrder.ascending ? compare : -compare;
-      if (directed != 0) return directed;
-      return a.occurredAt.compareTo(b.occurredAt);
-    });
-    return sorted;
-  }
-
-  Duration _entryDuration(TimeEntry entry, DateTime now) {
-    return (entry.endAt ?? now).difference(entry.startAt);
-  }
-
-  String _logActivityName(AppState state, ActionLog log) {
-    final activityId = log.activityId;
-    return activityId == null ? '' : state.activityById(activityId)?.name ?? '';
   }
 }
 

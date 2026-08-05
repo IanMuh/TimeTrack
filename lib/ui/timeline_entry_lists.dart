@@ -78,6 +78,7 @@ class _EntryList extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ActionLogList extends StatelessWidget {
   const _ActionLogList({
     required this.state,

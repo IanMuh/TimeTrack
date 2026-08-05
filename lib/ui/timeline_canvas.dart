@@ -827,6 +827,7 @@ class _TimelineBlock extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _EntriesTimelineView extends StatelessWidget {
   const _EntriesTimelineView({
     required this.state,

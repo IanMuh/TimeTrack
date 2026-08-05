@@ -49,7 +49,7 @@ void main() {
     await pumpShell(tester, state, width: 1000);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await pumpShortcutFrame(tester);
 
@@ -78,10 +78,10 @@ void main() {
     await pumpShell(tester, state, width: 1000);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await pumpShortcutFrame(tester);
-    expect(find.text('时间轴'), findsOneWidget);
+    expect(find.text('时间线'), findsWidgets);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
@@ -105,7 +105,7 @@ void main() {
     await pumpShortcutFrame(tester);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await pumpShortcutFrame(tester);
     expect(find.text('设置'), findsWidgets);
