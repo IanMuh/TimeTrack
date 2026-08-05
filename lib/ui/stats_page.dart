@@ -8,6 +8,8 @@ import '../l10n/app_localizations.dart';
 import 'adaptive_layout.dart';
 import 'ui_components.dart';
 
+part 'stats_desktop_page.dart';
+
 enum StatsPreset { today, yesterday, thisWeek, lastWeek, customDay }
 
 class StatsRange {
@@ -111,7 +113,9 @@ class _StatsPageState extends State<StatsPage> {
         final range = _rangeFor(state.now);
         return LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < compactBreakpoint;
+            final sizeClass = adaptiveSizeClassFor(constraints.maxWidth);
+            final compact = sizeClass == AdaptiveSizeClass.compact;
+            final expanded = sizeClass == AdaptiveSizeClass.expanded;
             return AdaptivePage(
               maxWidth: compact ? 430 : 1120,
               pageKey: const PageStorageKey('stats-page'),
@@ -125,7 +129,7 @@ class _StatsPageState extends State<StatsPage> {
                     },
                     onPickCustomDay: () => _pickCustomDay(context),
                   )
-                else
+                else if (!expanded)
                   StatsHeader(
                     range: range,
                     selectedPreset: _preset,
@@ -136,7 +140,7 @@ class _StatsPageState extends State<StatsPage> {
                     onPreviousDay: () => _shiftCustomDay(-1),
                     onNextDay: () => _shiftCustomDay(1),
                   ),
-                SectionGap(height: compact ? 18 : 16),
+                if (!expanded) SectionGap(height: compact ? 18 : 16),
                 if (compact)
                   FutureBuilder<_StatsViewData>(
                     future: _mobileStatsForRange(range),
@@ -160,6 +164,39 @@ class _StatsPageState extends State<StatsPage> {
                         stats: stats,
                         previousStats: data.previous,
                         totalMinutes: totalMinutes,
+                      );
+                    },
+                  )
+                else if (expanded)
+                  FutureBuilder<TimeRangeStats>(
+                    future: _statsForRange(range),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return _StatsLoadingIndicator();
+                      }
+                      final stats = snapshot.data ?? _emptyStats;
+                      final totalMinutes = stats.totalDuration.inMinutes <= 0
+                          ? 1
+                          : stats.totalDuration.inMinutes;
+                      return DesktopStatsPage(
+                        state: state,
+                        range: range,
+                        selectedPreset: _preset,
+                        stats: stats,
+                        dimension: _dimension,
+                        selectedCategoryIds: _selectedCategoryIds,
+                        totalMinutes: totalMinutes,
+                        onPresetChanged: (preset) {
+                          setState(() => _preset = preset);
+                        },
+                        onPickCustomDay: () => _pickCustomDay(context),
+                        onPreviousDay: () => _shiftCustomDay(-1),
+                        onNextDay: () => _shiftCustomDay(1),
+                        onDimensionChanged: (value) {
+                          setState(() => _dimension = value);
+                        },
+                        onCategoryFilterToggled: _toggleCategoryFilter,
                       );
                     },
                   )

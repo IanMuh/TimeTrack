@@ -267,6 +267,10 @@ Future<void> _pumpTimeline(
   required double width,
   bool defaultToTodayOnOpen = false,
 }) async {
+  tester.view.physicalSize = Size(width, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
       locale: const Locale('zh'),
@@ -435,14 +439,16 @@ void main() {
     expect(find.text('时间线'), findsOneWidget);
     expect(find.text('今天'), findsOneWidget);
     expect(find.text('本周'), findsOneWidget);
-    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.text('范围总记录'), findsOneWidget);
+    expect(find.text('可缩放时间线'), findsOneWidget);
+    expect(find.text('记录列表'), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-timeline-entry-today-entry')),
         findsOneWidget);
-    expect(find.byType(TimelineEntryCard), findsNothing);
+    expect(find.byType(TimelineEntryCard), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('wide timeline uses the new reference-style flow', (
+  testWidgets('wide timeline uses the desktop workbench flow', (
     tester,
   ) async {
     final fixture = _buildFixture();
@@ -459,14 +465,14 @@ void main() {
     await _pumpTimeline(tester, state, width: 920);
 
     expect(find.text('时间线'), findsOneWidget);
-    expect(find.byTooltip('筛选'), findsOneWidget);
-    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    expect(find.text('范围总记录'), findsOneWidget);
+    expect(find.text('可缩放时间线'), findsOneWidget);
+    expect(find.text('记录列表'), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-timeline-entry-entry')),
         findsOneWidget);
-    expect(find.text('范围总记录'), findsNothing);
-    expect(find.text('可缩放时间线'), findsNothing);
-    expect(find.text('记录列表'), findsNothing);
-    expect(find.byType(TimelineEntryCard), findsNothing);
+    expect(find.text('显示选项'), findsNothing);
+    expect(find.byType(Slider), findsNothing);
+    expect(find.byType(TimelineEntryCard), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -588,8 +594,6 @@ void main() {
     ];
 
     await _pumpTimeline(tester, state, width: 920);
-    await tester.tap(find.byTooltip('筛选'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('指令').last);
     await tester.pumpAndSettle();
 
@@ -597,7 +601,7 @@ void main() {
     expect(find.text('显示选项'), findsNothing);
     expect(find.byType(Slider), findsNothing);
     expect(find.text('单行缩放'), findsNothing);
-    expect(find.text('可缩放时间线'), findsNothing);
+    expect(find.text('可缩放时间线'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -633,7 +637,7 @@ void main() {
     await tester.tap(find.text('本周'));
     await tester.pumpAndSettle();
 
-    expect(find.text('未分配'), findsOneWidget);
+    expect(find.text('未分配'), findsWidgets);
     expect(find.text('这个范围还没有记录。'), findsNothing);
     expect(find.text('分段显示'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -687,12 +691,17 @@ void main() {
     await _pumpTimeline(tester, state, width: 920);
 
     expect(
-      tester.getTopLeft(find.text('20分')).dy,
-      lessThan(tester.getTopLeft(find.text('2小时')).dy),
+      tester
+          .getTopLeft(find.byKey(const ValueKey('mobile-timeline-entry-short')))
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+                find.byKey(const ValueKey('mobile-timeline-entry-long')))
+            .dy,
+      ),
     );
 
-    await tester.tap(find.byTooltip('筛选'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('指令').last);
     await tester.pumpAndSettle();
 
@@ -720,7 +729,7 @@ void main() {
     ];
     state.now = DateTime(2026, 1, 2, 12);
 
-    await _pumpTimeline(tester, state, width: 390);
+    await _pumpTimeline(tester, state, width: 720);
 
     expect(find.text('30分'), findsOneWidget);
     expect(find.text('cross day'), findsOneWidget);
@@ -744,7 +753,7 @@ void main() {
       ..runningEntry = runningEntry
       ..now = DateTime(2026, 1, 2, 10, 15);
 
-    await _pumpTimeline(tester, state, width: 920);
+    await _pumpTimeline(tester, state, width: 390);
     await _tapTimelineEntryById(tester, id: runningEntry.id);
 
     expect(find.text('保持进行中'), findsWidgets);
@@ -762,9 +771,9 @@ void main() {
       ..selectedDay = DateTime(2026, 1, 1)
       ..now = DateTime(2026, 1, 2, 12);
 
-    await _pumpTimeline(tester, state, width: 920);
+    await _pumpTimeline(tester, state, width: 720);
 
-    expect(find.text('未分配'), findsOneWidget);
+    expect(find.text('未分配'), findsWidgets);
     expect(find.text('24小时'), findsOneWidget);
     expect(find.text('这一天还没有记录。'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -786,7 +795,7 @@ void main() {
           (entry) => entry.deviceId == 'unassigned-gap',
         );
 
-    await _pumpTimeline(tester, state, width: 920);
+    await _pumpTimeline(tester, state, width: 720);
     await _tapTimelineEntryById(tester, id: gap.id);
     expect(
       tester
@@ -1499,7 +1508,7 @@ void main() {
     final state = fixture.state;
     addTearDown(state.dispose);
 
-    await _pumpTimeline(tester, state, width: 920);
+    await _pumpTimeline(tester, state, width: 390);
 
     await tester.tap(find.byIcon(Icons.more_horiz));
     await tester.pumpAndSettle();
@@ -1567,13 +1576,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('Timeline'), findsOneWidget);
-    expect(find.text('Today'), findsOneWidget);
-    expect(find.text('This week'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Filters'));
-    await tester.pumpAndSettle();
-
-    expect(find.widgetWithText(BottomSheet, 'Filters'), findsOneWidget);
     expect(find.text('Records'), findsOneWidget);
     expect(find.text('Actions'), findsOneWidget);
     expect(find.text('Today'), findsWidgets);

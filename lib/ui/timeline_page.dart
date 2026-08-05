@@ -26,6 +26,7 @@ part 'timeline_canvas.dart';
 part 'timeline_entry_lists.dart';
 part 'timeline_entry_editor.dart';
 part 'timeline_header.dart';
+part 'timeline_desktop_page.dart';
 part 'timeline_mobile_page.dart';
 part 'timeline_surface_widgets.dart';
 
@@ -223,6 +224,7 @@ class _TimelinePageState extends State<TimelinePage> {
     final state = widget.state;
     return LayoutBuilder(
       builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= expandedBreakpoint;
         return AnimatedBuilder(
           animation: state,
           builder: (context, _) {
@@ -230,6 +232,28 @@ class _TimelinePageState extends State<TimelinePage> {
             final isFutureDay =
                 state.selectedDay.startOfDay.isAfter(state.now.startOfDay);
             final rangeEnd = rangeStart.add(Duration(days: _span.days));
+            if (desktop) {
+              return _DesktopTimelinePage(
+                state: state,
+                mode: _mode,
+                span: _span,
+                rangeStart: rangeStart,
+                rangeEnd: rangeEnd,
+                isFutureDay: isFutureDay,
+                rangeDataFuture: _rangeDataFor(state, rangeStart, rangeEnd),
+                onModeChanged: (value) => setState(() => _mode = value),
+                onSpanChanged: (value) {
+                  setState(() => _span = value);
+                  if (value == TimelineSpan.day) {
+                    unawaited(state.selectDay(state.now.startOfDay));
+                  }
+                },
+                onDateTap: _pickDate,
+                onPreviousRange: selectPreviousRange,
+                onNextRange: selectNextRange,
+                onAddEntry: openEntryEditor,
+              );
+            }
             return _MobileTimelinePage(
               state: state,
               mode: _mode,
