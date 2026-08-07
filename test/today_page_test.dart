@@ -86,14 +86,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Time by Activity'), findsOneWidget);
+    expect(find.text('Time by Activity'), findsNothing);
     expect(find.text('View full timeline'), findsOneWidget);
     expect(find.text('Top Activities'), findsOneWidget);
     expect(find.text('Project Phoenix'), findsOneWidget);
     expect(find.text('Team Standup'), findsOneWidget);
     expect(find.text('UX Course'), findsOneWidget);
     expect(find.text('Lunch'), findsOneWidget);
-    expect(find.text('1h 05m'), findsOneWidget);
+    expect(find.text('1h 5m'), findsOneWidget);
     expect(find.text('Deep Work'), findsWidgets);
     expect(find.text('Personal'), findsWidgets);
     expect(tester.takeException(), isNull);
@@ -135,7 +135,7 @@ void main() {
     );
 
     expect(find.text('今天'), findsOneWidget);
-    expect(find.text('事项用时'), findsOneWidget);
+    expect(find.text('事项用时'), findsNothing);
     expect(find.text('查看完整时间线'), findsOneWidget);
     expect(find.text('高频事项'), findsOneWidget);
     expect(tester.takeException(), isNull);

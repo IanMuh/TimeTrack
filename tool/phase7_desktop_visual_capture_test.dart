@@ -43,7 +43,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Today'), findsAtLeastNWidgets(1));
-    expect(find.text('Time by Activity'), findsOneWidget);
+    expect(find.text('Time by Activity'), findsNothing);
     expect(find.text('View full timeline'), findsOneWidget);
     expect(find.text('Top Activities'), findsOneWidget);
     await expectLater(
@@ -83,7 +83,7 @@ void main() {
 
     expect(find.text('Settings'), findsAtLeastNWidgets(1));
     expect(find.text('General'), findsOneWidget);
-    expect(find.text('Data'), findsOneWidget);
+    expect(find.text('Backup & Export'), findsOneWidget);
     expect(find.text('Sync'), findsOneWidget);
     expect(find.text('About'), findsOneWidget);
     await expectLater(
@@ -117,7 +117,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('今天'), findsAtLeastNWidgets(1));
-    expect(find.text('事项用时'), findsOneWidget);
+    expect(find.text('事项用时'), findsNothing);
     expect(find.text('查看完整时间线'), findsOneWidget);
     expect(find.text('高频事项'), findsOneWidget);
     await expectLater(
@@ -159,7 +159,7 @@ void main() {
 
     expect(find.text('设置'), findsAtLeastNWidgets(1));
     expect(find.text('通用'), findsOneWidget);
-    expect(find.text('数据'), findsOneWidget);
+    expect(find.text('备份与导出'), findsOneWidget);
     expect(find.text('同步'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
     await expectLater(

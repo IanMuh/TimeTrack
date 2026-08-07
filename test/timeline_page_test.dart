@@ -440,15 +440,15 @@ void main() {
     expect(find.text('今天'), findsOneWidget);
     expect(find.text('本周'), findsOneWidget);
     expect(find.text('范围总记录'), findsOneWidget);
-    expect(find.text('可缩放时间线'), findsOneWidget);
-    expect(find.text('记录列表'), findsOneWidget);
+    expect(find.text('可缩放时间线'), findsNothing);
+    expect(find.text('记录列表'), findsNothing);
     expect(find.byKey(const ValueKey('mobile-timeline-entry-today-entry')),
         findsOneWidget);
-    expect(find.byType(TimelineEntryCard), findsWidgets);
+    expect(find.byType(TimelineEntryCard), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('wide timeline uses the desktop workbench flow', (
+  testWidgets('wide timeline uses the mobile visual flow', (
     tester,
   ) async {
     final fixture = _buildFixture();
@@ -466,13 +466,13 @@ void main() {
 
     expect(find.text('时间线'), findsOneWidget);
     expect(find.text('范围总记录'), findsOneWidget);
-    expect(find.text('可缩放时间线'), findsOneWidget);
-    expect(find.text('记录列表'), findsOneWidget);
+    expect(find.text('可缩放时间线'), findsNothing);
+    expect(find.text('记录列表'), findsNothing);
     expect(find.byKey(const ValueKey('mobile-timeline-entry-entry')),
         findsOneWidget);
     expect(find.text('显示选项'), findsNothing);
     expect(find.byType(Slider), findsNothing);
-    expect(find.byType(TimelineEntryCard), findsWidgets);
+    expect(find.byType(TimelineEntryCard), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -601,7 +601,7 @@ void main() {
     expect(find.text('显示选项'), findsNothing);
     expect(find.byType(Slider), findsNothing);
     expect(find.text('单行缩放'), findsNothing);
-    expect(find.text('可缩放时间线'), findsOneWidget);
+    expect(find.text('可缩放时间线'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
