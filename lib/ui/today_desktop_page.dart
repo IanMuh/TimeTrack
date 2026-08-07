@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -7,6 +5,7 @@ import '../app/app_state.dart';
 import '../domain/time_entry.dart';
 import '../l10n/app_localizations.dart';
 import 'current_status_card_helpers.dart';
+import 'today_activity_list.dart';
 import 'today_metric_card.dart';
 import 'today_summary.dart';
 
@@ -46,14 +45,14 @@ class DesktopTodayPage extends StatelessWidget {
         _DesktopMetricRow(metrics: metrics),
         const SizedBox(height: 12),
         SizedBox(
-          height: 214,
+          height: 260,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 flex: 4,
                 child: _DesktopSurface(
-                  child: _DesktopActivityBreakdown(
+                  child: TodayActivityList(
                     activities: summary.activities,
                   ),
                 ),
@@ -71,10 +70,6 @@ class DesktopTodayPage extends StatelessWidget {
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        _DesktopSurface(
-          child: _DesktopTopActivities(activities: summary.activities),
         ),
       ],
     );
@@ -251,144 +246,6 @@ class _DesktopSurface extends StatelessWidget {
   }
 }
 
-class _DesktopActivityBreakdown extends StatelessWidget {
-  const _DesktopActivityBreakdown({required this.activities});
-
-  final List<TodayActivityTotal> activities;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.todayTimeByActivity,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                flex: 5,
-                child: Center(
-                  child: CustomPaint(
-                    size: const Size.square(124),
-                    painter: _ActivityDonutPainter(
-                      activities: activities,
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 6,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final activity in activities)
-                      _ActivityLegendRow(activity: activity),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActivityLegendRow extends StatelessWidget {
-  const _ActivityLegendRow({required this.activity});
-
-  final TodayActivityTotal activity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Icon(Icons.circle, size: 8, color: Color(activity.color)),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Text(
-              activity.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-          Text(
-            '${activity.percent}%',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActivityDonutPainter extends CustomPainter {
-  const _ActivityDonutPainter({
-    required this.activities,
-    required this.backgroundColor,
-  });
-
-  final List<TodayActivityTotal> activities;
-  final Color backgroundColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.shortestSide / 2;
-    final totalSeconds = activities.fold<int>(
-      0,
-      (total, activity) => total + activity.duration.inSeconds,
-    );
-    if (totalSeconds == 0) {
-      final paint = Paint()
-        ..color = backgroundColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = radius * 0.28;
-      canvas.drawCircle(center, radius * 0.72, paint);
-      return;
-    }
-
-    final rect = Rect.fromCircle(center: center, radius: radius * 0.72);
-    final ringWidth = radius * 0.30;
-    var start = -math.pi / 2;
-    for (final activity in activities) {
-      final sweep = math.pi * 2 * activity.duration.inSeconds / totalSeconds;
-      final paint = Paint()
-        ..color = Color(activity.color)
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.butt
-        ..strokeWidth = ringWidth;
-      canvas.drawArc(rect, start, sweep, false, paint);
-      start += sweep;
-    }
-
-    final holePaint = Paint()..color = backgroundColor;
-    canvas.drawCircle(center, radius * 0.54, holePaint);
-  }
-
-  @override
-  bool shouldRepaint(_ActivityDonutPainter oldDelegate) {
-    return oldDelegate.activities != activities ||
-        oldDelegate.backgroundColor != backgroundColor;
-  }
-}
-
 class _DesktopTimelinePreview extends StatelessWidget {
   const _DesktopTimelinePreview({
     required this.entries,
@@ -549,105 +406,4 @@ class _DesktopTimelineRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DesktopTopActivities extends StatelessWidget {
-  const _DesktopTopActivities({required this.activities});
-
-  final List<TodayActivityTotal> activities;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Row(
-      children: [
-        SizedBox(
-          width: 104,
-          child: Text(
-            l10n.todayTopActivities,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ),
-        for (final activity in activities)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: _DesktopTopActivityChip(activity: activity),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _DesktopTopActivityChip extends StatelessWidget {
-  const _DesktopTopActivityChip({required this.activity});
-
-  final TodayActivityTotal activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 46,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Color(activity.color).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.circle, size: 8, color: Color(activity.color)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      activity.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Padding(
-                padding: const EdgeInsets.only(left: 14),
-                child: Text(
-                  _formatDesktopDuration(activity.duration),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _formatDesktopDuration(Duration duration) {
-  final totalMinutes = duration.inMinutes;
-  if (totalMinutes < 60) {
-    return '${totalMinutes}m';
-  }
-  final hours = totalMinutes ~/ 60;
-  final minutes = totalMinutes % 60;
-  return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
 }

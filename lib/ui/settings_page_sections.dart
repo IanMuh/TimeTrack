@@ -10,15 +10,24 @@ extension _SettingsPageSections on _SettingsPageState {
       if (includeDesktopGeneral)
         _SettingsSectionInfo(
           section: _SettingsSection.general,
-          label: l10n.settingsDesktopGeneral,
-          hint: l10n.settingsDesktopGeneralHint,
+          label: _mobileSettingsText(context, en: 'General', zh: '通用'),
+          hint: _mobileSettingsText(
+            context,
+            en: 'Appearance, time format, and quick reminder.',
+            zh: '外观、时间格式和快速提醒。',
+          ),
           icon: Icons.tune_outlined,
         ),
       if (includeDesktopGeneral)
         _SettingsSectionInfo(
           section: _SettingsSection.data,
-          label: l10n.settingsDesktopData,
-          hint: l10n.settingsDesktopDataHint,
+          label:
+              _mobileSettingsText(context, en: 'Backup & Export', zh: '备份与导出'),
+          hint: _mobileSettingsText(
+            context,
+            en: 'Backup, import, and clear data actions.',
+            zh: '备份、导入和清除数据操作。',
+          ),
           icon: Icons.storage_outlined,
         ),
       _SettingsSectionInfo(

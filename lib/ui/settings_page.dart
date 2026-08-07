@@ -56,6 +56,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       !_expandedSectionSelectedByUser &&
                       !_shouldOpenUpdateSection(state)
                   ? [
+                      PageHeader(
+                        title: AppLocalizations.of(context)!.settings,
+                        subtitle:
+                            AppLocalizations.of(context)!.settingsSubtitle,
+                      ),
+                      const SectionGap(),
                       DesktopSettingsOverview(
                         state: state,
                         onOpenSection: _openDesktopSection,
@@ -165,7 +171,10 @@ class _SettingsPageState extends State<SettingsPage> {
       _selectedExpandedSection = switch (section) {
         DesktopSettingsSection.general => _SettingsSection.general,
         DesktopSettingsSection.data => _SettingsSection.data,
+        DesktopSettingsSection.reminders => _SettingsSection.reminders,
+        DesktopSettingsSection.timeline => _SettingsSection.timeline,
         DesktopSettingsSection.sync => _SettingsSection.cloudSync,
+        DesktopSettingsSection.interop => _SettingsSection.interop,
         DesktopSettingsSection.about => _SettingsSection.updates,
       };
       _expandedSectionSelectedByUser = true;
@@ -183,7 +192,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Align(
           alignment: Alignment.centerLeft,
           child: Tooltip(
-            message: AppLocalizations.of(context)!.settingsSections,
+            message: AppLocalizations.of(context)!.settings,
             child: OutlinedButton.icon(
               onPressed: () {
                 setState(() {
@@ -193,7 +202,7 @@ class _SettingsPageState extends State<SettingsPage> {
               },
               icon: const Icon(Icons.arrow_back, size: 18),
               label: Text(
-                AppLocalizations.of(context)!.settingsSections,
+                AppLocalizations.of(context)!.settings,
               ),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(44, 40),
