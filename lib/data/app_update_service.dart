@@ -109,14 +109,16 @@ class AppUpdateService {
           currentVersion: currentVersion,
           platform: platform,
         );
-        if (info != null && info.latestVersion.compareTo(currentVersion) > 0) {
+        if (info != null &&
+            _compareVersionsForUpdate(info.latestVersion, currentVersion) > 0) {
           candidates.add(info);
         }
       }
       if (candidates.isEmpty) {
         return const AppSuccess(null);
       }
-      candidates.sort((left, right) => right.latestVersion.compareTo(
+      candidates.sort((left, right) => _compareVersionsForUpdate(
+            right.latestVersion,
             left.latestVersion,
           ));
       return AppSuccess(candidates.first);
@@ -175,14 +177,18 @@ class AppUpdateService {
       return null;
     }
 
+    final releaseNotes = _stringValue(json['body']) ?? '';
+    final releaseVersion =
+        _releaseNotesVersionForUpdate(releaseNotes, latestVersion) ??
+            latestVersion;
     final assets = json['assets'] is List<Object?>
         ? json['assets'] as List<Object?>
         : const <Object?>[];
     return AppUpdateInfo(
       currentVersion: currentVersion,
-      latestVersion: latestVersion,
+      latestVersion: releaseVersion,
       releaseName: _stringValue(json['name']) ?? tagName,
-      releaseNotes: _stringValue(json['body']) ?? '',
+      releaseNotes: releaseNotes,
       pageUrl: pageUrl,
       downloadUrl: _downloadUrlFor(platform, assets) ?? pageUrl,
       isPrerelease: isPrerelease,
@@ -237,6 +243,87 @@ class AppUpdateService {
     return name.contains('windows') ||
         name.contains('win') ||
         name.contains('x64');
+  }
+
+  static int _compareVersionsForUpdate(AppVersion left, AppVersion right) {
+    final semanticCompare = left.compareTo(right);
+    if (semanticCompare != 0) {
+      return semanticCompare;
+    }
+    return _compareBuildMetadataForUpdate(
+      left.buildMetadata,
+      right.buildMetadata,
+    );
+  }
+
+  static int _compareBuildMetadataForUpdate(String? left, String? right) {
+    if (left == null || left.isEmpty) {
+      return right == null || right.isEmpty ? 0 : -1;
+    }
+    if (right == null || right.isEmpty) {
+      return 1;
+    }
+
+    final leftParts = left.split('.');
+    final rightParts = right.split('.');
+    final length = leftParts.length < rightParts.length
+        ? leftParts.length
+        : rightParts.length;
+    for (var index = 0; index < length; index += 1) {
+      final result = _compareBuildMetadataPart(
+        leftParts[index],
+        rightParts[index],
+      );
+      if (result != 0) {
+        return result;
+      }
+    }
+    return leftParts.length.compareTo(rightParts.length);
+  }
+
+  static int _compareBuildMetadataPart(String left, String right) {
+    final leftNumber = int.tryParse(left);
+    final rightNumber = int.tryParse(right);
+    if (leftNumber != null && rightNumber != null) {
+      return leftNumber.compareTo(rightNumber);
+    }
+    return left.compareTo(right);
+  }
+
+  static AppVersion? _releaseNotesVersionForUpdate(
+    String releaseNotes,
+    AppVersion tagVersion,
+  ) {
+    AppVersion? bestVersion;
+    final versionPattern = RegExp(
+      r'v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\+[0-9A-Za-z.-]+',
+    );
+    for (final match in versionPattern.allMatches(releaseNotes)) {
+      final value = match.group(0);
+      if (value == null) {
+        continue;
+      }
+      final parsed = _tryParseVersion(value);
+      if (parsed == null || parsed.compareTo(tagVersion) != 0) {
+        continue;
+      }
+      if (_compareVersionsForUpdate(parsed, tagVersion) <= 0) {
+        continue;
+      }
+      if (bestVersion == null ||
+          _compareVersionsForUpdate(parsed, bestVersion) > 0) {
+        bestVersion = parsed;
+      }
+    }
+    return bestVersion;
+  }
+
+  static AppVersion? _tryParseVersion(String value) {
+    try {
+      return AppVersion.parse(value);
+    } on FormatException {
+      return null;
+    }
   }
 
   static Uri? _httpsUri(String value) {
