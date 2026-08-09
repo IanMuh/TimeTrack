@@ -130,6 +130,11 @@ void main() {
 
     expect(find.byIcon(Icons.hourglass_empty), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 500)),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
   });
 
   testWidgets('default preset shows this week labels', (tester) async {
@@ -139,12 +144,17 @@ void main() {
 
     await _pumpStats(tester, state, width: 920);
 
-    expect(find.text('本周分布'), findsOneWidget);
-    expect(find.text('范围总记录'), findsOneWidget);
+    expect(find.text('本周'), findsWidgets);
+    expect(find.text('总时长'), findsOneWidget);
+    expect(find.text('日均'), findsOneWidget);
+    expect(find.text('每日时间 (小时)'), findsOneWidget);
+    expect(find.text('事项时间'), findsOneWidget);
+    expect(find.text('本周分布'), findsNothing);
+    expect(find.text('范围总记录'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stats summary metrics render before chart and secondary content',
+  testWidgets('stats summary metrics render before mobile core charts',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -153,27 +163,30 @@ void main() {
     await _pumpStats(tester, state, width: 920);
     await tester.pumpAndSettle();
 
-    expect(_textTop(tester, '范围总记录'), lessThan(_textTop(tester, '本周分布')));
-    expect(_textTop(tester, '最长连续'), lessThan(_textTop(tester, '本周分布')));
-    expect(_textTop(tester, '范围总记录'), lessThan(_textTop(tester, '统计维度')));
-    expect(_textTop(tester, '最长连续'), lessThan(_textTop(tester, '每日累计')));
+    expect(_textTop(tester, '总时长'), lessThan(_textTop(tester, '每日时间 (小时)')));
+    expect(_textTop(tester, '日均'), lessThan(_textTop(tester, '每日时间 (小时)')));
+    expect(_textTop(tester, '总时长'), lessThan(_textTop(tester, '事项时间')));
+    expect(_textTop(tester, '日均'), lessThan(_textTop(tester, '事项时间')));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('expanded stats layout keeps chart before secondary content',
+  testWidgets('expanded stats layout places mobile charts side by side',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
     addTearDown(() => _disposeStatsFixture(tester, fixture));
 
-    await _pumpStats(tester, state, width: 920);
+    await _pumpStats(tester, state, width: 1200);
     await tester.pumpAndSettle();
 
-    expect(_textTop(tester, '本周分布'), lessThan(_textTop(tester, '统计维度')));
     expect(
-        _textTop(tester, '本周分布'), lessThanOrEqualTo(_textTop(tester, '每日累计')));
-    expect(_textLeft(tester, '本周分布'), lessThan(_textLeft(tester, '每日累计')));
+      _textTop(tester, '每日时间 (小时)'),
+      lessThanOrEqualTo(_textTop(tester, '事项时间')),
+    );
+    expect(_textLeft(tester, '每日时间 (小时)'), lessThan(_textLeft(tester, '事项时间')));
     expect(find.text('筛选'), findsNothing);
+    expect(find.text('统计维度'), findsNothing);
+    expect(find.text('每日累计'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -237,7 +250,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stats page exposes dimension filters without sort controls',
+  testWidgets('desktop stats hides extra filters and sort controls',
       (tester) async {
     final fixture = (await tester.runAsync(_buildFixture))!;
     final state = fixture.state;
@@ -245,16 +258,14 @@ void main() {
 
     await _pumpStats(tester, state, width: 920);
 
-    expect(find.text('统计维度'), findsOneWidget);
-    expect(find.text('事项'), findsWidgets);
-    expect(find.text('主分类'), findsOneWidget);
-    expect(find.text('单条时长'), findsOneWidget);
-    expect(find.text('分类+时长'), findsOneWidget);
+    expect(find.text('统计维度'), findsNothing);
+    expect(find.byType(FilterChip), findsNothing);
+    expect(find.text('每日累计'), findsNothing);
+    expect(find.text('事项时间'), findsOneWidget);
     expect(find.text('排序'), findsNothing);
     expect(find.text('排序依据'), findsNothing);
     expect(find.text('顺序'), findsNothing);
     expect(find.text('倒序'), findsNothing);
-    expect(find.text('工作'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

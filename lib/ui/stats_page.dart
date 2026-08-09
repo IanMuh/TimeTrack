@@ -168,14 +168,19 @@ class _StatsPageState extends State<StatsPage> {
                     },
                   )
                 else if (expanded)
-                  FutureBuilder<TimeRangeStats>(
-                    future: _statsForRange(range),
+                  FutureBuilder<_StatsViewData>(
+                    future: _mobileStatsForRange(range),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting &&
                           !snapshot.hasData) {
                         return _StatsLoadingIndicator();
                       }
-                      final stats = snapshot.data ?? _emptyStats;
+                      final data = snapshot.data ??
+                          const _StatsViewData(
+                            current: _emptyStats,
+                            previous: _emptyStats,
+                          );
+                      final stats = data.current;
                       final totalMinutes = stats.totalDuration.inMinutes <= 0
                           ? 1
                           : stats.totalDuration.inMinutes;
@@ -184,6 +189,7 @@ class _StatsPageState extends State<StatsPage> {
                         range: range,
                         selectedPreset: _preset,
                         stats: stats,
+                        previousStats: data.previous,
                         dimension: _dimension,
                         selectedCategoryIds: _selectedCategoryIds,
                         totalMinutes: totalMinutes,

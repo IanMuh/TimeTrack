@@ -74,6 +74,43 @@ class _DesktopTimelinePage extends StatelessWidget {
             );
             final logs = [...data.logs]
               ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+            final primaryPane = mode == TimelineViewMode.entries
+                ? _MobileTimelineEntryFlow(
+                    state: state,
+                    entries: entries,
+                    rangeStart: rangeStart,
+                    rangeEnd: rangeEnd,
+                    emptyText: span == TimelineSpan.day
+                        ? AppLocalizations.of(context)!.emptyDayEntries
+                        : AppLocalizations.of(context)!.emptyRangeEntries,
+                  )
+                : _MobileTimelineActionFlow(
+                    state: state,
+                    logs: logs,
+                    emptyText: span == TimelineSpan.day
+                        ? AppLocalizations.of(context)!.emptyDayActions
+                        : AppLocalizations.of(context)!.emptyRangeActions,
+                  );
+            final readablePrimaryPane = Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 650),
+                child: primaryPane,
+              ),
+            );
+            final secondaryPane = RangeTimelineCard(
+              state: state,
+              entries: entries,
+              rangeStart: rangeStart,
+              span: span,
+              density: TimelineDensity.compact,
+              displayMode: span == TimelineSpan.day
+                  ? TimelineDisplayMode.segmentedDay
+                  : TimelineDisplayMode.singleLine,
+              segmentsPerDay: 4,
+              zoom: 1,
+              showEmptyState: false,
+            );
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -86,45 +123,20 @@ class _DesktopTimelinePage extends StatelessWidget {
                   mode: mode,
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 7,
-                      child: RangeTimelineCard(
-                        state: state,
-                        entries: entries,
-                        rangeStart: rangeStart,
-                        span: span,
-                        density: TimelineDensity.compact,
-                        displayMode: span == TimelineSpan.day
-                            ? TimelineDisplayMode.segmentedDay
-                            : TimelineDisplayMode.singleLine,
-                        segmentsPerDay: 4,
-                        zoom: 1,
-                        showEmptyState: false,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 5,
-                      child: _DesktopTimelineListPanel(
-                        state: state,
-                        mode: mode,
-                        entries: entries,
-                        logs: logs,
-                        emptyText: mode == TimelineViewMode.entries
-                            ? (span == TimelineSpan.day
-                                ? AppLocalizations.of(context)!.emptyDayEntries
-                                : AppLocalizations.of(context)!
-                                    .emptyRangeEntries)
-                            : (span == TimelineSpan.day
-                                ? AppLocalizations.of(context)!.emptyDayActions
-                                : AppLocalizations.of(context)!
-                                    .emptyRangeActions),
-                      ),
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth < 940) {
+                      return readablePrimaryPane;
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 7, child: readablePrimaryPane),
+                        const SizedBox(width: 12),
+                        Expanded(flex: 5, child: secondaryPane),
+                      ],
+                    );
+                  },
                 ),
               ],
             );
@@ -238,118 +250,6 @@ class _DesktopTimelineHeader extends StatelessWidget {
             ),
           ],
         ),
-      ],
-    );
-  }
-}
-
-class _DesktopTimelineListPanel extends StatelessWidget {
-  const _DesktopTimelineListPanel({
-    required this.state,
-    required this.mode,
-    required this.entries,
-    required this.logs,
-    required this.emptyText,
-  });
-
-  final AppState state;
-  final TimelineViewMode mode;
-  final List<TimeEntry> entries;
-  final List<ActionLog> logs;
-  final String emptyText;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return TimelineSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionTitle(
-            title: mode == TimelineViewMode.entries
-                ? l10n.entryList
-                : l10n.actions,
-            subtitle: mode == TimelineViewMode.entries
-                ? l10n.entryListHint
-                : l10n.timelineDragHint,
-            icon: mode == TimelineViewMode.entries
-                ? Icons.view_list_outlined
-                : Icons.swap_horiz,
-          ),
-          const SizedBox(height: 12),
-          if (mode == TimelineViewMode.entries)
-            _DesktopEntryList(
-              state: state,
-              entries: entries,
-              emptyText: emptyText,
-            )
-          else
-            _DesktopActionList(
-              state: state,
-              logs: logs,
-              emptyText: emptyText,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DesktopEntryList extends StatelessWidget {
-  const _DesktopEntryList({
-    required this.state,
-    required this.entries,
-    required this.emptyText,
-  });
-
-  final AppState state;
-  final List<TimeEntry> entries;
-  final String emptyText;
-
-  @override
-  Widget build(BuildContext context) {
-    if (entries.isEmpty) {
-      return TimelineEmptyState(text: emptyText);
-    }
-    return Column(
-      children: [
-        for (final entry in entries)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: TimelineEntryCard(
-              key: ValueKey('mobile-timeline-entry-${entry.id}'),
-              state: state,
-              entry: entry,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _DesktopActionList extends StatelessWidget {
-  const _DesktopActionList({
-    required this.state,
-    required this.logs,
-    required this.emptyText,
-  });
-
-  final AppState state;
-  final List<ActionLog> logs;
-  final String emptyText;
-
-  @override
-  Widget build(BuildContext context) {
-    if (logs.isEmpty) {
-      return TimelineEmptyState(text: emptyText);
-    }
-    return Column(
-      children: [
-        for (final log in logs)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: ActionLogCard(state: state, log: log),
-          ),
       ],
     );
   }

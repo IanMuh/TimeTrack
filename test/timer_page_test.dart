@@ -82,7 +82,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('TimerPage uses the desktop workbench at expanded width',
+  testWidgets('TimerPage uses the mobile timer surface at expanded width',
       (tester) async {
     final state = ShellTestState()..startRunning();
     addTearDown(state.dispose);
@@ -123,9 +123,9 @@ void main() {
     expect(find.text('Timer'), findsOneWidget);
     expect(find.text('Current Session'), findsWidgets);
     expect(find.text('Quick Activity'), findsOneWidget);
-    expect(find.text('View full timeline'), findsOneWidget);
-    expect(find.byKey(const ValueKey('desktop-timer-activity-meetings')),
-        findsOneWidget);
+    expect(find.textContaining('Today'), findsWidgets);
+    expect(find.textContaining('Sessions'), findsWidgets);
+    expect(find.text('View full timeline'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Stop'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'Switch'), findsOneWidget);
     expect(tester.takeException(), isNull);

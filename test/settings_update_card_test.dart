@@ -43,7 +43,7 @@ void main() {
       expect(find.text('Version update'), findsOneWidget);
       expect(find.text('Update available'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Back to settings sections'));
+      await tester.tap(find.byTooltip('Settings'));
       await tester.pumpAndSettle();
 
       expect(find.text('General'), findsOneWidget);
@@ -83,14 +83,13 @@ void main() {
       expect(find.text('Settings'), findsOneWidget);
       expect(find.text('General'), findsOneWidget);
       expect(find.text('Appearance'), findsOneWidget);
-      expect(find.text('Data'), findsOneWidget);
       expect(find.text('Backup & Export'), findsOneWidget);
       expect(find.text('Sync'), findsOneWidget);
       expect(find.text('Sync Mode'), findsOneWidget);
       expect(find.text('About'), findsOneWidget);
-      expect(find.text('TimeTrack Desktop'), findsOneWidget);
-      expect(find.text('Made with'), findsOneWidget);
-      expect(find.text('for focused people.'), findsOneWidget);
+      expect(find.text('About TimeTrack'), findsOneWidget);
+      expect(find.text('TimeTrack Desktop'), findsNothing);
+      expect(find.text('Made with'), findsNothing);
 
       await tester.tap(find.text('Sync Mode'));
       await tester.pumpAndSettle();
@@ -106,22 +105,25 @@ void main() {
       await _expectDesktopOverviewRowOpens(
         tester,
         rowText: 'Appearance',
-        expectedDetails: ['General', 'Appearance', 'Break Reminder'],
+        expectedDetails: [
+          'Appearance',
+          'The current mobile theme follows the light reference.',
+        ],
       );
       await _expectDesktopOverviewRowOpens(
         tester,
-        rowText: 'Backup & Export',
-        expectedDetails: ['Data', 'Backup & Export', 'Clear All Data'],
+        rowText: 'First Day of Week',
+        expectedDetails: ['Timeline', 'Merge threshold'],
       );
       await _expectDesktopOverviewRowOpens(
         tester,
-        rowText: 'Import Data',
-        expectedDetails: ['Data', 'Import Data', 'Clear All Data'],
+        rowText: 'Quick Reminder',
+        expectedDetails: ['Reminders', 'Trigger time'],
       );
       await _expectDesktopOverviewRowOpens(
         tester,
-        rowText: 'Clear All Data',
-        expectedDetails: ['Data', 'Clear All Data', 'Disabled'],
+        rowText: 'Export Data',
+        expectedDetails: ['Device sharing', 'Import file / Export file'],
       );
       await _expectDesktopOverviewRowOpens(
         tester,
@@ -130,12 +132,12 @@ void main() {
       );
       await _expectDesktopOverviewRowOpens(
         tester,
-        rowText: 'TimeTrack Desktop',
+        rowText: 'About TimeTrack',
         expectedDetails: ['Version update', 'Current version'],
       );
     });
 
-    testWidgets('desktop overview switch toggles break reminders',
+    testWidgets('desktop overview quick reminder opens reminder settings',
         (tester) async {
       final state = _UpdateCardTestState(
         check: ({required currentVersion, required platform}) async {
@@ -146,20 +148,16 @@ void main() {
 
       await _pumpSettingsPage(tester, state: state, width: 920);
 
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
-      await tester.tap(find.byType(Switch));
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      });
-      await tester.pump();
+      await tester.tap(find.text('Quick Reminder'));
+      await tester.pumpAndSettle();
 
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
-      expect(find.text('Off'), findsOneWidget);
+      expect(find.text('Reminders'), findsAtLeastNWidgets(1));
+      expect(find.text('Method'), findsOneWidget);
+      expect(find.byType(SegmentedButton<ReminderMethod>), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('desktop data detail exposes transfer actions and locked reset',
-        (
+    testWidgets('desktop export row opens transfer actions', (
       tester,
     ) async {
       final state = _UpdateCardTestState(
@@ -170,24 +168,13 @@ void main() {
       addTearDown(state.dispose);
 
       await _pumpSettingsPage(tester, state: state, width: 920);
-      await tester.tap(find.text('Backup & Export').first);
+      await tester.tap(find.text('Export Data').first);
       await tester.pumpAndSettle();
 
-      final openButtons = tester
-          .widgetList<OutlinedButton>(
-            find.widgetWithText(OutlinedButton, 'Open'),
-          )
-          .toList();
-      expect(openButtons, hasLength(2));
-      expect(openButtons.every((button) => button.enabled), isTrue);
+      expect(find.text('Device sharing'), findsAtLeastNWidgets(1));
+      expect(find.widgetWithText(FilledButton, 'Import file'), findsOneWidget);
       expect(
-        tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Disabled'),
-            )
-            .enabled,
-        isFalse,
-      );
+          find.widgetWithText(OutlinedButton, 'Export file'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -209,10 +196,10 @@ void main() {
 
       expect(find.text('设置'), findsOneWidget);
       expect(find.text('通用'), findsOneWidget);
-      expect(find.text('数据'), findsOneWidget);
+      expect(find.text('备份与导出'), findsOneWidget);
       expect(find.text('同步'), findsOneWidget);
       expect(find.text('关于'), findsOneWidget);
-      expect(find.text('休息提醒'), findsOneWidget);
+      expect(find.text('快速提醒'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -319,6 +306,10 @@ Future<void> _expectDesktopOverviewRowOpens(
 
   for (final text in expectedDetails) {
     expect(find.text(text), findsAtLeastNWidgets(1));
+  }
+  if (find.byType(AlertDialog).evaluate().isNotEmpty) {
+    await tester.tap(find.byType(TextButton).last);
+    await tester.pumpAndSettle();
   }
   expect(tester.takeException(), isNull);
 }

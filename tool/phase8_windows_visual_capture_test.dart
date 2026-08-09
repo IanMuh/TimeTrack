@@ -43,7 +43,9 @@ void main() {
     expect(find.text('Timer'), findsAtLeastNWidgets(1));
     expect(find.text('Current Session'), findsWidgets);
     expect(find.text('Quick Activity'), findsOneWidget);
-    expect(find.text('View full timeline'), findsOneWidget);
+    expect(find.textContaining('Today'), findsWidgets);
+    expect(find.textContaining('Sessions'), findsWidgets);
+    expect(find.text('View full timeline'), findsNothing);
     await expectLater(
       find.byKey(_timerCaptureKey),
       matchesGoldenFile('goldens/phase8-timer-desktop.png'),
@@ -76,8 +78,17 @@ void main() {
 
     expect(find.text('Timeline'), findsAtLeastNWidgets(1));
     expect(find.text('Range total'), findsOneWidget);
-    expect(find.text('Zoomable timeline'), findsOneWidget);
-    expect(find.text('Entry list'), findsOneWidget);
+    expect(find.text('Entry list'), findsNothing);
+    final primaryEntry = find.byKey(
+      const ValueKey('mobile-timeline-entry-timeline-deep-work-a'),
+    );
+    final secondaryTimeline = find.text('Zoomable timeline');
+    expect(primaryEntry, findsOneWidget);
+    expect(secondaryTimeline, findsOneWidget);
+    expect(
+      tester.getTopLeft(primaryEntry).dx,
+      lessThan(tester.getTopLeft(secondaryTimeline).dx),
+    );
     await expectLater(
       find.byKey(_timelineCaptureKey),
       matchesGoldenFile('goldens/phase8-timeline-desktop.png'),
@@ -124,10 +135,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Stats'), findsAtLeastNWidgets(1));
-    expect(find.text('Range total'), findsOneWidget);
-    expect(find.text('This week distribution'), findsOneWidget);
-    expect(find.text('Stats dimension'), findsOneWidget);
-    expect(find.text('Daily total'), findsOneWidget);
+    expect(find.text('Total Time'), findsOneWidget);
+    expect(find.text('Daily Avg'), findsOneWidget);
+    expect(find.text('Time by Day (h)'), findsOneWidget);
+    expect(find.text('Time by Activity'), findsOneWidget);
+    expect(find.text('Stats dimension'), findsNothing);
+    expect(find.text('Daily total'), findsNothing);
     await expectLater(
       find.byKey(_statsCaptureKey),
       matchesGoldenFile('goldens/phase8-stats-desktop.png'),
