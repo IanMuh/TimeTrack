@@ -809,7 +809,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('同步状态'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('返回设置分区'));
+    await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('导出数据'));
     await tester.pumpAndSettle();
