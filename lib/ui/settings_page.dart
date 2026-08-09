@@ -192,7 +192,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Align(
           alignment: Alignment.centerLeft,
           child: Tooltip(
-            message: AppLocalizations.of(context)!.settings,
+            message: AppLocalizations.of(context)!.settingsSections,
             child: OutlinedButton.icon(
               onPressed: () {
                 setState(() {

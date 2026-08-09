@@ -43,7 +43,7 @@ void main() {
       expect(find.text('Version update'), findsOneWidget);
       expect(find.text('Update available'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Settings'));
+      await tester.tap(find.byTooltip('Back to settings sections'));
       await tester.pumpAndSettle();
 
       expect(find.text('General'), findsOneWidget);
