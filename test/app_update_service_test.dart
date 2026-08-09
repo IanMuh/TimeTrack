@@ -51,6 +51,93 @@ void main() {
       expect(info.pageUrl, Uri.parse('https://example.com/v0.2.0-pre'));
     });
 
+    test('detects newer build metadata for the same prerelease version',
+        () async {
+      final service = AppUpdateService(
+        client: _FakeClient((request) async {
+          return http.Response(
+            jsonEncode([
+              _release(
+                tagName: 'v0.3.1-pre+7',
+                prerelease: true,
+                assets: [
+                  _asset(
+                    name: 'timetrack-android-0.3.1-pre.apk',
+                    url: 'https://example.com/app.apk',
+                  ),
+                ],
+              ),
+            ]),
+            200,
+          );
+        }),
+        releasesUri: Uri.parse('https://example.com/releases'),
+      );
+
+      final result = await service.checkForUpdate(
+        currentVersion: AppVersion.parse('0.3.1-pre+1'),
+        platform: TargetPlatform.android,
+      );
+
+      final info = result.fold(
+        onSuccess: (value) => value,
+        onFailure: (message) => fail(message),
+      );
+      expect(
+        info,
+        isNotNull,
+        reason: 'A higher Flutter build number should be offered as an update.',
+      );
+      expect(info!.latestVersion, AppVersion.parse('0.3.1-pre+7'));
+    });
+
+    test('detects newer build metadata from release notes when tag omits it',
+        () async {
+      final service = AppUpdateService(
+        client: _FakeClient((request) async {
+          return http.Response(
+            jsonEncode([
+              _release(
+                tagName: 'v0.3.0-pre',
+                prerelease: true,
+                body: [
+                  '## 验证',
+                  '- Windows exe 版本资源：`0.3.0-pre+6`',
+                  '- Android APK：`versionName=0.3.0-pre`，`versionCode=6`',
+                ].join('\n'),
+                assets: [
+                  _asset(
+                    name: 'TimeTrack-0.3.0-pre-windows-x64.zip',
+                    url: 'https://example.com/windows.zip',
+                  ),
+                ],
+              ),
+            ]),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+        releasesUri: Uri.parse('https://example.com/releases'),
+      );
+
+      final result = await service.checkForUpdate(
+        currentVersion: AppVersion.parse('0.3.0-pre+5'),
+        platform: TargetPlatform.windows,
+      );
+
+      final info = result.fold(
+        onSuccess: (value) => value,
+        onFailure: (message) => fail(message),
+      );
+      expect(
+        info,
+        isNotNull,
+        reason: 'A release note build number should update same-tag builds.',
+      );
+      expect(info!.latestVersion, AppVersion.parse('0.3.0-pre+6'));
+      expect(info.downloadUrl, Uri.parse('https://example.com/windows.zip'));
+    });
+
     test('selects Windows assets by extension priority', () async {
       final service = AppUpdateService(
         client: _FakeClient((request) async {
@@ -335,12 +422,13 @@ Map<String, Object?> _release({
   bool draft = false,
   bool prerelease = false,
   String? htmlUrl,
+  String? body,
   List<Map<String, Object?>> assets = const [],
 }) {
   return {
     'tag_name': tagName,
     'name': 'TimeTrack $tagName',
-    'body': 'Release notes for $tagName',
+    'body': body ?? 'Release notes for $tagName',
     'html_url': htmlUrl ?? 'https://example.com/$tagName',
     'draft': draft,
     'prerelease': prerelease,
