@@ -75,7 +75,7 @@ class FileInteropService {
       return null;
     }
 
-    final bundle = _codec.decode(await file.readAsString());
+    final bundle = _codec.decode(utf8.decode(await file.readAsBytes()));
     await _bundleStore.mergeBundle(bundle);
     return file.path;
   }

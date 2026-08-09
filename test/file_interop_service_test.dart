@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:timetrack/data/file_interop_service.dart';
 import 'package:timetrack/data/sync_bundle.dart';
 import 'package:timetrack/data/sync_bundle_store.dart';
+import 'package:timetrack/domain/activity.dart';
 import 'package:timetrack/domain/profile_settings.dart';
 import 'test_fixtures.dart';
 
@@ -212,6 +215,52 @@ void main() {
 
     expect(path, importPath);
     expect(bundleStore.mergedBundle?.sourceDeviceId, 'import-source');
+  });
+
+  test('file import decodes Android picker bytes as UTF-8 before merging',
+      () async {
+    const activityName = '学习中文';
+    final bundle = SyncBundle(
+      schemaVersion: SyncBundle.currentSchemaVersion,
+      exportedAt: DateTime(2026, 1, 1),
+      sourceDeviceId: 'android-picker',
+      activities: [
+        Activity(
+          id: 'activity-1',
+          userId: null,
+          name: activityName,
+          color: 0xFF2F80ED,
+          isFavorite: true,
+          updatedAt: DateTime(2026, 1, 1),
+          isDeleted: false,
+        ),
+      ],
+      timeEntries: const [],
+      actionLogs: const [],
+      profileSettings: ProfileSettings.defaults(),
+    );
+    final bytes = Uint8List.fromList(
+      utf8.encode(const SyncBundleCodec().encode(bundle)),
+    );
+    final bundleStore = _FakeSyncBundleStore(_emptyBundle('unused'));
+
+    final service = FileInteropService(
+      bundleStore: bundleStore,
+      openFilePicker: ({
+        List<XTypeGroup> acceptedTypeGroups = const <XTypeGroup>[],
+      }) async {
+        return XFile.fromData(
+          bytes,
+          name: 'android.timetrack.json',
+          path: 'android.timetrack.json',
+        );
+      },
+    );
+
+    final path = await service.importFromFile();
+
+    expect(path, 'android.timetrack.json');
+    expect(bundleStore.mergedBundle?.activities.single.name, activityName);
   });
 
   test('file import rejects invalid bundle data before merging', () async {
